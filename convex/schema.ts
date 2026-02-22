@@ -27,6 +27,9 @@ export default defineSchema({
     actualMxValue: v.optional(v.string()),
     actualSpfValue: v.optional(v.string()),
     actualDmarcValue: v.optional(v.string()),
+    // Custom MAIL FROM domain verification (mail.yourdomain.com)
+    mailFromMxVerified: v.optional(v.boolean()),
+    mailFromSpfVerified: v.optional(v.boolean()),
   })
     .index("by_user_id", ["userId"])
     .index("by_domain", ["domain"]),

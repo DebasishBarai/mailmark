@@ -143,6 +143,24 @@ export default function DomainDetailPage() {
       purpose: "DMARC",
       verified: domain.dmarcVerified,
     },
+    // Custom MAIL FROM domain records — fixes MAIL FROM alignment in AWS SES
+    {
+      type: "MX",
+      name: `mail.${domain.domain}`,
+      priority: "10",
+      value: `feedback-smtp.${region}.amazonaws.com`,
+      recommendedValue: `feedback-smtp.${region}.amazonaws.com`,
+      purpose: "MAIL FROM",
+      verified: domain.mailFromMxVerified ?? false,
+    },
+    {
+      type: "TXT",
+      name: `mail.${domain.domain}`,
+      value: `v=spf1 include:amazonses.com ~all`,
+      recommendedValue: `v=spf1 include:amazonses.com ~all`,
+      purpose: "MAIL FROM SPF",
+      verified: domain.mailFromSpfVerified ?? false,
+    },
   ];
 
   return (
