@@ -107,7 +107,7 @@ export default function DomainDetailPage() {
     // DKIM CNAME records (3 from SES)
     ...dkimTokens.map((token, i) => ({
       type: "CNAME",
-      name: `${token}._domainkey.${domain.domain}`,
+      name: `${token}._domainkey`,
       value: `${token}.dkim.amazonses.com`,
       recommendedValue: `${token}.dkim.amazonses.com`,
       purpose: `DKIM ${i + 1}`,
@@ -116,16 +116,19 @@ export default function DomainDetailPage() {
     // MX record for receiving email
     {
       type: "MX",
-      name: domain.domain,
-      value: domain.actualMxValue ?? `10 inbound-smtp.${region}.amazonaws.com`,
-      recommendedValue: `10 inbound-smtp.${region}.amazonaws.com`,
+      name: "@",
+      priority: "10",
+      value: domain.actualMxValue
+        ? domain.actualMxValue.replace(/^\d+\s+/, "")
+        : `inbound-smtp.${region}.amazonaws.com`,
+      recommendedValue: `inbound-smtp.${region}.amazonaws.com`,
       purpose: "Receiving",
       verified: domain.mxVerified,
     },
     // SPF TXT record
     {
       type: "TXT",
-      name: domain.domain,
+      name: "@",
       value: domain.actualSpfValue ?? `v=spf1 include:amazonses.com ~all`,
       recommendedValue: `v=spf1 include:amazonses.com ~all`,
       purpose: "SPF",
@@ -228,6 +231,7 @@ export default function DomainDetailPage() {
                   <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Purpose</th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Type</th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Name</th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Priority</th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Value</th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
                 </tr>
@@ -262,6 +266,9 @@ export default function DomainDetailPage() {
                           )}
                         </button>
                       </div>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-3 font-mono text-xs text-gray-700">
+                      {"priority" in record ? record.priority : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-6 py-3">
                       <div className="flex flex-col gap-1">
