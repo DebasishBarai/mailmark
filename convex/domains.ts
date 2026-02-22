@@ -89,6 +89,8 @@ export const updateVerification = internalMutation({
     actualMxValue: v.optional(v.string()),
     actualSpfValue: v.optional(v.string()),
     actualDmarcValue: v.optional(v.string()),
+    mailFromMxVerified: v.optional(v.boolean()),
+    mailFromSpfVerified: v.optional(v.boolean()),
   },
   handler: async (ctx, { domainId, ...status }) => {
     await ctx.db.patch(domainId, status);

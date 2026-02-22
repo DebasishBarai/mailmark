@@ -8,6 +8,7 @@ import {
   CreateEmailIdentityCommand,
   GetEmailIdentityCommand,
   DeleteEmailIdentityCommand,
+  PutEmailIdentityMailFromAttributesCommand,
 } from "@aws-sdk/client-sesv2";
 import {
   SESClient,
@@ -91,6 +92,15 @@ export const add = action({
 
     const dkimTokens = result.DkimAttributes?.Tokens ?? [];
 
+    // Configure custom MAIL FROM domain for SPF/DMARC alignment
+    await sesv2.send(
+      new PutEmailIdentityMailFromAttributesCommand({
+        EmailIdentity: domain,
+        MailFromDomain: `mail.${domain}`,
+        BehaviorOnMxFailure: "USE_DEFAULT_VALUE",
+      })
+    );
+
     const domainId = await ctx.runMutation(internal.domains.insertDomain, {
       userId: user._id,
       domain,
@@ -149,6 +159,21 @@ export const verifyDns = action({
       : false;
     const actualSpfValue = spfRecord ? spfRecord.join("") : undefined;
 
+    // Check custom MAIL FROM domain records (mail.{domain})
+    const mailFromDomain = `mail.${domain.domain}`;
+    const expectedMailFromMx = `feedback-smtp.${region}.amazonaws.com`;
+    const mailFromMxRecords = await resolveMx(mailFromDomain);
+    const mailFromMxVerified = mailFromMxRecords.some(
+      (mx) => mx.exchange.toLowerCase().replace(/\.$/, "") === expectedMailFromMx
+    );
+    const mailFromTxtRecords = await resolveTxt(mailFromDomain);
+    const mailFromSpfRecord = mailFromTxtRecords.find((parts) =>
+      parts.join("").includes("v=spf1")
+    );
+    const mailFromSpfVerified = mailFromSpfRecord
+      ? mailFromSpfRecord.join("").includes("amazonses.com")
+      : false;
+
     // Check DMARC TXT record
     const dmarcRecords = await resolveTxt(`_dmarc.${domain.domain}`);
     const dmarcRecord = dmarcRecords.find((parts) => {
@@ -160,6 +185,20 @@ export const verifyDns = action({
 
     // Check SES status for overall DKIM verification
     const sesv2 = getSESv2Client();
+
+    // Ensure custom MAIL FROM is configured in SES (for domains added before this feature)
+    try {
+      await sesv2.send(
+        new PutEmailIdentityMailFromAttributesCommand({
+          EmailIdentity: domain.domain,
+          MailFromDomain: mailFromDomain,
+          BehaviorOnMxFailure: "USE_DEFAULT_VALUE",
+        })
+      );
+    } catch {
+      // Non-fatal: domain may not exist in SES yet
+    }
+
     const result = await sesv2.send(
       new GetEmailIdentityCommand({
         EmailIdentity: domain.domain,
@@ -181,6 +220,8 @@ export const verifyDns = action({
       actualMxValue,
       actualSpfValue,
       actualDmarcValue,
+      mailFromMxVerified,
+      mailFromSpfVerified,
     };
 
     await ctx.runMutation(internal.domains.updateVerification, status);
