@@ -117,8 +117,11 @@ export default function DomainDetailPage() {
     {
       type: "MX",
       name: "@",
-      value: domain.actualMxValue ?? `10 inbound-smtp.${region}.amazonaws.com`,
-      recommendedValue: `10 inbound-smtp.${region}.amazonaws.com`,
+      priority: "10",
+      value: domain.actualMxValue
+        ? domain.actualMxValue.replace(/^\d+\s+/, "")
+        : `inbound-smtp.${region}.amazonaws.com`,
+      recommendedValue: `inbound-smtp.${region}.amazonaws.com`,
       purpose: "Receiving",
       verified: domain.mxVerified,
     },
@@ -228,6 +231,7 @@ export default function DomainDetailPage() {
                   <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Purpose</th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Type</th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Name</th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Priority</th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Value</th>
                   <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
                 </tr>
@@ -262,6 +266,9 @@ export default function DomainDetailPage() {
                           )}
                         </button>
                       </div>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-3 font-mono text-xs text-gray-700">
+                      {"priority" in record ? record.priority : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-6 py-3">
                       <div className="flex flex-col gap-1">
