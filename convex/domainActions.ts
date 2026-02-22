@@ -1,5 +1,11 @@
 "use node";
 
+import { DOMParser } from "@xmldom/xmldom";
+if (typeof globalThis.DOMParser === "undefined") {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).DOMParser = DOMParser;
+}
+
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
