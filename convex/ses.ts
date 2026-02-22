@@ -1,5 +1,13 @@
 "use node";
 
+import { DOMParser } from "@xmldom/xmldom";
+// Convex's bundler loads the browser build of the AWS SDK XML parser,
+// which expects DOMParser to be a global. Polyfill it for Node.js.
+if (typeof globalThis.DOMParser === "undefined") {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).DOMParser = DOMParser;
+}
+
 import { v } from "convex/values";
 import { action, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
