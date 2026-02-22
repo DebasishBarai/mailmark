@@ -39,10 +39,14 @@ function getSESClient() {
   });
 }
 
-// DNS resolution helpers
+// DNS resolution helpers — use Google's public DNS to avoid stale
+// caches on Convex's internal system resolver
+const dnsResolver = new dns.promises.Resolver();
+dnsResolver.setServers(["8.8.8.8", "1.1.1.1"]);
+
 async function resolveCname(hostname: string): Promise<string[]> {
   try {
-    return await dns.promises.resolveCname(hostname);
+    return await dnsResolver.resolveCname(hostname);
   } catch {
     return [];
   }
@@ -50,7 +54,7 @@ async function resolveCname(hostname: string): Promise<string[]> {
 
 async function resolveMx(hostname: string): Promise<dns.MxRecord[]> {
   try {
-    return await dns.promises.resolveMx(hostname);
+    return await dnsResolver.resolveMx(hostname);
   } catch {
     return [];
   }
@@ -58,7 +62,7 @@ async function resolveMx(hostname: string): Promise<dns.MxRecord[]> {
 
 async function resolveTxt(hostname: string): Promise<string[][]> {
   try {
-    return await dns.promises.resolveTxt(hostname);
+    return await dnsResolver.resolveTxt(hostname);
   } catch {
     return [];
   }

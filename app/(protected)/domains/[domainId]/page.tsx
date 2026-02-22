@@ -137,7 +137,7 @@ export default function DomainDetailPage() {
     // DMARC TXT record
     {
       type: "TXT",
-      name: `_dmarc.${domain.domain}`,
+      name: `_dmarc`,
       value: domain.actualDmarcValue ?? `v=DMARC1; p=quarantine; rua=mailto:dmarc@${domain.domain}`,
       recommendedValue: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${domain.domain}`,
       purpose: "DMARC",
@@ -146,7 +146,7 @@ export default function DomainDetailPage() {
     // Custom MAIL FROM domain records — fixes MAIL FROM alignment in AWS SES
     {
       type: "MX",
-      name: `mail.${domain.domain}`,
+      name: `mail`,
       priority: "10",
       value: `feedback-smtp.${region}.amazonaws.com`,
       recommendedValue: `feedback-smtp.${region}.amazonaws.com`,
@@ -155,7 +155,7 @@ export default function DomainDetailPage() {
     },
     {
       type: "TXT",
-      name: `mail.${domain.domain}`,
+      name: `mail`,
       value: `v=spf1 include:amazonses.com ~all`,
       recommendedValue: `v=spf1 include:amazonses.com ~all`,
       purpose: "MAIL FROM SPF",
