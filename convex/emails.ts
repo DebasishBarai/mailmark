@@ -1,5 +1,21 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
+
+export const getMailboxWithDomain = internalQuery({
+  args: { mailboxId: v.id("mailboxes") },
+  handler: async (ctx, { mailboxId }) => {
+    const mailbox = await ctx.db.get(mailboxId);
+    if (!mailbox) return null;
+
+    const domain = await ctx.db.get(mailbox.domainId);
+    if (!domain) return null;
+
+    return {
+      ...mailbox,
+      domain: domain.domain,
+    };
+  },
+});
 
 export const listByFolder = query({
   args: {
