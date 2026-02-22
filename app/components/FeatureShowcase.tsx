@@ -1,0 +1,238 @@
+const showcaseItems = [
+  {
+    title: "Add Your Domain in Minutes",
+    description:
+      "Connect any domain you already own. DevMail walks you through the DNS setup step by step — MX records, SPF, DKIM, and DMARC. Your emails land in inboxes, not spam folders.",
+    bullets: [
+      "Guided DNS configuration wizard",
+      "Auto-verify MX, SPF, DKIM & DMARC",
+      "Full deliverability from day one",
+    ],
+    visual: (
+      <div className="space-y-3">
+        <div className="rounded-lg bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold text-gray-700">Add your domain</p>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="flex-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800">
+              yourcompany.com
+            </div>
+            <div className="rounded-md bg-violet-600 px-4 py-2 text-xs font-semibold text-white">
+              Verify
+            </div>
+          </div>
+        </div>
+        <div className="rounded-lg bg-white p-4 shadow-sm">
+          <p className="mb-2 text-xs font-semibold text-gray-700">DNS Records</p>
+          <div className="space-y-1.5">
+            {[
+              { type: "MX", status: true },
+              { type: "SPF", status: true },
+              { type: "DKIM", status: true },
+              { type: "DMARC", status: false },
+            ].map((r) => (
+              <div key={r.type} className="flex items-center justify-between text-xs">
+                <span className="font-mono text-gray-600">{r.type}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${r.status ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                  {r.status ? "Verified" : "Pending"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    ),
+    gradient: "from-green-100 via-emerald-50 to-teal-100",
+  },
+  {
+    title: "Create Unlimited Mailboxes",
+    description:
+      "Spin up mailboxes for every role, team, or project. support@, sales@, hello@, ceo@ — each with its own inbox and settings. Switch between them instantly.",
+    bullets: [
+      "One-click mailbox creation",
+      "Per-mailbox signatures & settings",
+      "Switch between mailboxes instantly",
+    ],
+    visual: (
+      <div className="space-y-2">
+        <div className="rounded-lg bg-white p-4 shadow-sm">
+          <p className="mb-3 text-xs font-semibold text-gray-700">Your Mailboxes — yourcompany.com</p>
+          {[
+            { email: "sales@yourcompany.com", count: 24, active: true },
+            { email: "support@yourcompany.com", count: 8, active: false },
+            { email: "info@yourcompany.com", count: 3, active: false },
+            { email: "ceo@yourcompany.com", count: 1, active: false },
+          ].map((mb) => (
+            <div key={mb.email} className={`mb-1.5 flex items-center justify-between rounded-md px-3 py-2 text-xs ${mb.active ? "bg-violet-50 ring-1 ring-violet-200" : "bg-gray-50"}`}>
+              <div className="flex items-center gap-2">
+                <div className={`h-2 w-2 rounded-full ${mb.active ? "bg-violet-500" : "bg-gray-300"}`} />
+                <span className={mb.active ? "font-semibold text-violet-700" : "text-gray-600"}>{mb.email}</span>
+              </div>
+              <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] text-gray-600">{mb.count}</span>
+            </div>
+          ))}
+          <div className="mt-2 flex items-center gap-1 text-[10px] text-violet-600">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            Add mailbox
+          </div>
+        </div>
+      </div>
+    ),
+    gradient: "from-violet-100 via-purple-50 to-fuchsia-100",
+  },
+  {
+    title: "A Familiar Email Experience",
+    description:
+      "Each mailbox comes with a full email UI you already know — Inbox, Sent, Outbox, Drafts, and Trash. Compose rich emails, manage conversations, and search across everything.",
+    bullets: [
+      "Gmail-like inbox interface",
+      "Rich text composer with attachments",
+      "Full-text search across all mail",
+    ],
+    visual: (
+      <div className="rounded-lg bg-white shadow-sm">
+        <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2">
+          <div className="flex gap-1">
+            <div className="h-2 w-2 rounded-full bg-red-400" />
+            <div className="h-2 w-2 rounded-full bg-yellow-400" />
+            <div className="h-2 w-2 rounded-full bg-green-400" />
+          </div>
+          <span className="text-[10px] text-gray-400">support@yourcompany.com</span>
+        </div>
+        <div className="flex">
+          <div className="w-20 border-r border-gray-100 p-2">
+            {["Inbox", "Sent", "Outbox", "Drafts", "Trash"].map((f, i) => (
+              <div key={f} className={`rounded px-2 py-1 text-[9px] ${i === 0 ? "bg-violet-50 font-semibold text-violet-700" : "text-gray-500"}`}>{f}</div>
+            ))}
+          </div>
+          <div className="flex-1 p-2 space-y-1">
+            {[
+              { from: "Client A", subj: "Need help with setup", bold: true },
+              { from: "Client B", subj: "Re: Billing question", bold: true },
+              { from: "Client C", subj: "Thanks for the quick fix!", bold: false },
+            ].map((e) => (
+              <div key={e.subj} className={`rounded border px-2 py-1.5 ${e.bold ? "border-violet-100 bg-violet-50/30" : "border-gray-100"}`}>
+                <p className={`text-[10px] ${e.bold ? "font-semibold text-gray-800" : "text-gray-600"}`}>{e.from}</p>
+                <p className="truncate text-[9px] text-gray-500">{e.subj}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    ),
+    gradient: "from-blue-100 via-sky-50 to-cyan-100",
+  },
+  {
+    title: "Run Campaigns from Any Mailbox",
+    description:
+      "Pick a mailbox, upload or connect your contact list, personalize with merge tags, and launch. Set up automated follow-up sequences and track everything in real time.",
+    bullets: [
+      "Mail merge with CSV or Google Sheets",
+      "Multi-stage automated follow-ups",
+      "Real-time open, click & reply tracking",
+    ],
+    visual: (
+      <div className="space-y-2">
+        <div className="rounded-lg bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-gray-700">Campaign: Product Launch</p>
+            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">Sending</span>
+          </div>
+          <p className="mt-1 text-[10px] text-gray-500">From: sales@yourcompany.com</p>
+          <div className="mt-3 grid grid-cols-4 gap-2">
+            {[
+              { label: "Sent", value: "1,247" },
+              { label: "Opened", value: "623" },
+              { label: "Clicked", value: "184" },
+              { label: "Replied", value: "47" },
+            ].map((s) => (
+              <div key={s.label} className="rounded-md bg-gray-50 p-2 text-center">
+                <p className="text-sm font-bold text-gray-800">{s.value}</p>
+                <p className="text-[9px] text-gray-500">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-lg bg-white p-4 shadow-sm">
+          <p className="mb-2 text-xs font-semibold text-gray-700">Follow-up Sequence</p>
+          <div className="flex items-center gap-2">
+            {["Stage 1", "Stage 2", "Stage 3"].map((s, i) => (
+              <div key={s} className="flex items-center gap-2">
+                <div className={`rounded-full px-2 py-1 text-[10px] font-medium ${i < 2 ? "bg-violet-100 text-violet-700" : "bg-gray-100 text-gray-500"}`}>{s}</div>
+                {i < 2 && <svg className="h-3 w-3 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    ),
+    gradient: "from-amber-100 via-orange-50 to-yellow-100",
+  },
+];
+
+export default function FeatureShowcase() {
+  return (
+    <section id="how-it-works" className="bg-gray-50 px-6 py-24">
+      <div className="mx-auto max-w-7xl">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
+            How DevMail works
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600">
+            From domain setup to email campaigns — four simple steps.
+          </p>
+        </div>
+
+        <div className="mt-20 flex flex-col gap-24">
+          {showcaseItems.map((item, index) => (
+            <div
+              key={item.title}
+              className={`flex flex-col items-center gap-12 md:flex-row ${
+                index % 2 === 1 ? "md:flex-row-reverse" : ""
+              }`}
+            >
+              {/* Visual */}
+              <div className="w-full md:w-1/2">
+                <div className={`rounded-2xl bg-gradient-to-br ${item.gradient} p-8 shadow-lg`}>
+                  {item.visual}
+                </div>
+              </div>
+
+              {/* Text */}
+              <div className="w-full md:w-1/2">
+                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">
+                  {index + 1}
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  {item.title}
+                </h3>
+                <p className="mt-4 text-base leading-relaxed text-gray-600">
+                  {item.description}
+                </p>
+                <ul className="mt-6 space-y-3">
+                  {item.bullets.map((bullet) => (
+                    <li key={bullet} className="flex items-center gap-3">
+                      <svg
+                        className="h-5 w-5 shrink-0 text-violet-600"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M4.5 12.75l6 6 9-13.5"
+                        />
+                      </svg>
+                      <span className="text-sm text-gray-700">{bullet}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}

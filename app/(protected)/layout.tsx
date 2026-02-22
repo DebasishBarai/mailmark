@@ -1,0 +1,162 @@
+"use client";
+
+import { ReactNode, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { UserButton } from "@clerk/nextjs";
+import { Authenticated, Unauthenticated, AuthLoading, useAction, useConvexAuth } from "convex/react";
+import { api } from "../../convex/_generated/api";
+
+const sidebarLinks = [
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Domains",
+    href: "/domains",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+      </svg>
+    ),
+  },
+  {
+    label: "Campaigns",
+    href: "/campaigns",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+      </svg>
+    ),
+  },
+];
+
+function LoadingSpinner() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600" />
+        <p className="text-sm text-gray-500">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+function SignInRedirect() {
+  if (typeof window !== "undefined") {
+    window.location.href = "/";
+  }
+  return null;
+}
+
+function SyncUser() {
+  const { isAuthenticated } = useConvexAuth();
+  const addUser = useAction(api.users.addUser);
+  const hasSynced = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || hasSynced.current) return;
+    hasSynced.current = true;
+    addUser();
+  }, [isAuthenticated, addUser]);
+
+  return null;
+}
+
+function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      {/* Sidebar */}
+      <aside
+        className={`fixed left-0 top-0 z-40 flex h-full flex-col border-r border-gray-200 bg-white transition-all ${sidebarCollapsed ? "w-16" : "w-60"
+          }`}
+      >
+        {/* Logo */}
+        <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4">
+          {!sidebarCollapsed && (
+            <Link href="/dashboard" className="text-xl font-bold text-violet-600">
+              DevMail
+            </Link>
+          )}
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            aria-label="Toggle sidebar"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Nav links */}
+        <nav className="flex-1 space-y-1 p-3">
+          {sidebarLinks.map((link) => {
+            const isActive =
+              pathname === link.href || pathname.startsWith(link.href + "/");
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive
+                    ? "bg-violet-50 text-violet-700"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                title={sidebarCollapsed ? link.label : undefined}
+              >
+                <span className={isActive ? "text-violet-600" : "text-gray-400"}>
+                  {link.icon}
+                </span>
+                {!sidebarCollapsed && <span>{link.label}</span>}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* User section */}
+        <div className="border-t border-gray-100 p-3">
+          <div className={`flex items-center gap-3 ${sidebarCollapsed ? "justify-center" : ""}`}>
+            <UserButton />
+            {!sidebarCollapsed && (
+              <span className="text-xs text-gray-500">Account</span>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main
+        className={`flex-1 transition-all ${sidebarCollapsed ? "ml-16" : "ml-60"
+          }`}
+      >
+        {children}
+      </main>
+    </div>
+  );
+}
+
+export default function ProtectedLayout({ children }: { children: ReactNode }) {
+  return (
+    <>
+      <AuthLoading>
+        <LoadingSpinner />
+      </AuthLoading>
+      <Unauthenticated>
+        <SignInRedirect />
+      </Unauthenticated>
+      <Authenticated>
+        <SyncUser />
+        <AppShell>{children}</AppShell>
+      </Authenticated>
+    </>
+  );
+}
