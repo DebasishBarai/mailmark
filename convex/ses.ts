@@ -9,26 +9,10 @@ if (typeof globalThis.DOMParser === "undefined") {
 }
 
 import { v } from "convex/values";
-import { action, internalQuery } from "./_generated/server";
+import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-
-export const getMailboxWithDomain = internalQuery({
-  args: { mailboxId: v.id("mailboxes") },
-  handler: async (ctx, { mailboxId }) => {
-    const mailbox = await ctx.db.get(mailboxId);
-    if (!mailbox) return null;
-
-    const domain = await ctx.db.get(mailbox.domainId);
-    if (!domain) return null;
-
-    return {
-      ...mailbox,
-      domain: domain.domain,
-    };
-  },
-});
 
 function getSESClient() {
   return new SESv2Client({
@@ -62,7 +46,7 @@ export const sendEmail = action({
     if (!identity) throw new Error("Not authenticated");
 
     // Get mailbox and domain info
-    const mailbox = await ctx.runQuery(internal.ses.getMailboxWithDomain, {
+    const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, {
       mailboxId,
     });
 
