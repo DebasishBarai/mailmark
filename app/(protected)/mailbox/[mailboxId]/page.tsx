@@ -50,6 +50,7 @@ export default function MailboxPage() {
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const isLoading = mailbox === undefined || emails === undefined;
 
@@ -81,6 +82,7 @@ export default function MailboxPage() {
   const handleSend = async () => {
     if (!composeTo.trim() || !composeSubject.trim()) return;
     setIsSending(true);
+    setSendError(null);
     try {
       const recipients = composeTo.split(",").map((e) => e.trim()).filter(Boolean);
       await sendEmail({
@@ -93,6 +95,8 @@ export default function MailboxPage() {
       setComposeTo("");
       setComposeSubject("");
       setComposeBody("");
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Failed to send email. Please try again.");
     } finally {
       setIsSending(false);
     }
@@ -159,7 +163,7 @@ export default function MailboxPage() {
         {/* Folder sidebar */}
         <div className="w-48 shrink-0 border-r border-gray-200 bg-white p-3">
           <button
-            onClick={() => setShowCompose(true)}
+            onClick={() => { setShowCompose(true); setSendError(null); }}
             className="mb-4 w-full rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
           >
             Compose
@@ -308,7 +312,7 @@ export default function MailboxPage() {
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-3">
             <h3 className="text-sm font-semibold text-gray-900">New Message</h3>
             <button
-              onClick={() => setShowCompose(false)}
+              onClick={() => { setShowCompose(false); setSendError(null); }}
               className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -350,6 +354,11 @@ export default function MailboxPage() {
                 placeholder="Write your message..."
               />
             </div>
+            {sendError && (
+              <div className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+                {sendError}
+              </div>
+            )}
             <div className="mt-4 flex items-center justify-between">
               <button
                 onClick={handleSend}
