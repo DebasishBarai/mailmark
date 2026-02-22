@@ -174,6 +174,18 @@ export const verifyDns = action({
       ? mailFromSpfRecord.join("").includes("amazonses.com")
       : false;
 
+    // Check DMARC TXT record
+    const dmarcRecords = await resolveTxt(`_dmarc.${domain.domain}`);
+    const dmarcRecord = dmarcRecords.find((parts) => {
+      const joined = parts.join("");
+      return joined.includes("v=DMARC1");
+    });
+    const dmarcVerified = !!dmarcRecord;
+    const actualDmarcValue = dmarcRecord ? dmarcRecord.join("") : undefined;
+
+    // Check SES status for overall DKIM verification
+    const sesv2 = getSESv2Client();
+
     // Ensure custom MAIL FROM is configured in SES (for domains added before this feature)
     try {
       await sesv2.send(
@@ -187,17 +199,6 @@ export const verifyDns = action({
       // Non-fatal: domain may not exist in SES yet
     }
 
-    // Check DMARC TXT record
-    const dmarcRecords = await resolveTxt(`_dmarc.${domain.domain}`);
-    const dmarcRecord = dmarcRecords.find((parts) => {
-      const joined = parts.join("");
-      return joined.includes("v=DMARC1");
-    });
-    const dmarcVerified = !!dmarcRecord;
-    const actualDmarcValue = dmarcRecord ? dmarcRecord.join("") : undefined;
-
-    // Check SES status for overall DKIM verification
-    const sesv2 = getSESv2Client();
     const result = await sesv2.send(
       new GetEmailIdentityCommand({
         EmailIdentity: domain.domain,
