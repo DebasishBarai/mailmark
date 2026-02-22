@@ -107,7 +107,7 @@ export default function DomainDetailPage() {
     // DKIM CNAME records (3 from SES)
     ...dkimTokens.map((token, i) => ({
       type: "CNAME",
-      name: `${token}._domainkey.${domain.domain}`,
+      name: `${token}._domainkey`,
       value: `${token}.dkim.amazonses.com`,
       recommendedValue: `${token}.dkim.amazonses.com`,
       purpose: `DKIM ${i + 1}`,
@@ -116,7 +116,7 @@ export default function DomainDetailPage() {
     // MX record for receiving email
     {
       type: "MX",
-      name: domain.domain,
+      name: "@",
       value: domain.actualMxValue ?? `10 inbound-smtp.${region}.amazonaws.com`,
       recommendedValue: `10 inbound-smtp.${region}.amazonaws.com`,
       purpose: "Receiving",
@@ -125,7 +125,7 @@ export default function DomainDetailPage() {
     // SPF TXT record
     {
       type: "TXT",
-      name: domain.domain,
+      name: "@",
       value: domain.actualSpfValue ?? `v=spf1 include:amazonses.com ~all`,
       recommendedValue: `v=spf1 include:amazonses.com ~all`,
       purpose: "SPF",
