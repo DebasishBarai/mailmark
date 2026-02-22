@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { Doc, Id } from "../../../../convex/_generated/dataModel";
 
 export default function DomainDetailPage() {
   const { domainId } = useParams<{ domainId: string }>();
@@ -98,7 +98,7 @@ export default function DomainDetailPage() {
   }
 
   // Build DNS records list from SES data
-  const dkimTokens = domain.sesDkimTokens ?? [];
+  const dkimTokens: string[] = domain.sesDkimTokens ?? [];
   const region = "ap-south-1"; // Match your AWS_REGION
 
   const dkimRecordStatus = domain.dkimRecordStatus ?? [];
@@ -363,7 +363,7 @@ export default function DomainDetailPage() {
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
-            {mailboxes.map((mb) => (
+            {mailboxes.map((mb: Doc<"mailboxes">) => (
               <Link
                 key={mb._id}
                 href={`/mailbox/${mb._id}`}

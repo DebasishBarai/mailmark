@@ -65,7 +65,7 @@ async function resolveTxt(hostname: string): Promise<string[][]> {
 
 export const add = action({
   args: { domain: v.string() },
-  handler: async (ctx, { domain }) => {
+  handler: async (ctx, { domain }): Promise<{ domainId: string; dkimTokens: string[] }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
@@ -103,7 +103,7 @@ export const add = action({
 
 export const verifyDns = action({
   args: { domainId: v.id("domains") },
-  handler: async (ctx, { domainId }) => {
+  handler: async (ctx, { domainId }): Promise<{ verified: boolean; dkimVerified: boolean; mxVerified: boolean; spfVerified: boolean; dmarcVerified: boolean; dkimRecordStatus: boolean[] }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
@@ -210,7 +210,7 @@ export const verifyDns = action({
 
 export const remove = action({
   args: { domainId: v.id("domains") },
-  handler: async (ctx, { domainId }) => {
+  handler: async (ctx, { domainId }): Promise<void> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 

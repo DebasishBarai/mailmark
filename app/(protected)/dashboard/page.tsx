@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { Doc } from "../../../convex/_generated/dataModel";
 
 export default function DashboardPage() {
   const domains = useQuery(api.domains.listForCurrentUser);
@@ -117,7 +118,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
-            {domains.map((domain) => (
+            {domains.map((domain: Doc<"domains">) => (
               <Link
                 key={domain._id}
                 href={`/domains/${domain._id}`}

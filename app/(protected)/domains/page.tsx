@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { Doc } from "../../../convex/_generated/dataModel";
 
 function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
   return (
@@ -106,7 +107,7 @@ export default function DomainsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {domains.map((d) => (
+          {domains.map((d: Doc<"domains">) => (
             <Link
               key={d._id}
               href={`/domains/${d._id}`}

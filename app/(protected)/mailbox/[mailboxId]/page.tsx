@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { Doc, Id } from "../../../../convex/_generated/dataModel";
 
 const folderConfig = [
   { key: "inbox", label: "Inbox" },
@@ -53,13 +53,13 @@ export default function MailboxPage() {
 
   const isLoading = mailbox === undefined || emails === undefined;
 
-  const selectedEmail = emails?.find((e) => e._id === selectedEmailId);
+  const selectedEmail = emails?.find((e: Doc<"emails">) => e._id === selectedEmailId);
 
   const handleSelectEmail = async (emailId: Id<"emails">) => {
     setSelectedEmailId(emailId);
     setEmailBody(null);
 
-    const email = emails?.find((e) => e._id === emailId);
+    const email = emails?.find((e: Doc<"emails">) => e._id === emailId);
     if (email && !email.read) {
       await markAsRead({ emailId });
     }
@@ -198,7 +198,7 @@ export default function MailboxPage() {
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
-              {emails.map((email) => (
+              {emails.map((email: Doc<"emails">) => (
                 <button
                   key={email._id}
                   onClick={() => handleSelectEmail(email._id)}
