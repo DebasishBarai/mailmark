@@ -1,3 +1,5 @@
+"use node";
+
 import { v } from "convex/values";
 import { action, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
