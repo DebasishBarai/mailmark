@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { action, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 
 export const getMailboxWithDomain = internalQuery({
@@ -23,7 +23,7 @@ export const getMailboxWithDomain = internalQuery({
 });
 
 function getSESClient() {
-  return new SESClient({
+  return new SESv2Client({
     region: process.env.AWS_REGION!,
     credentials: {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
@@ -70,15 +70,17 @@ export const sendEmail = action({
 
     await ses.send(
       new SendEmailCommand({
-        Source: fromAddress,
+        FromEmailAddress: fromAddress,
         Destination: {
           ToAddresses: to,
         },
-        Message: {
-          Subject: { Data: subject },
-          Body: {
-            Html: { Data: body },
-            Text: { Data: body.replace(/<[^>]*>/g, "") },
+        Content: {
+          Simple: {
+            Subject: { Data: subject },
+            Body: {
+              Html: { Data: body },
+              Text: { Data: body.replace(/<[^>]*>/g, "") },
+            },
           },
         },
       })
