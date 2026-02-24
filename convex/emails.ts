@@ -197,6 +197,13 @@ export const insertFromWebhook = internalMutation({
   },
 });
 
+export const updateS3Key = internalMutation({
+  args: { emailId: v.id("emails"), s3Key: v.string() },
+  handler: async (ctx, { emailId, s3Key }) => {
+    await ctx.db.patch(emailId, { s3Key });
+  },
+});
+
 // Called after sending an email via SES
 export const insertSent = internalMutation({
   args: {

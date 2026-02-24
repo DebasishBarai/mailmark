@@ -39,7 +39,7 @@ http.route({
     }
 
     // Insert email metadata
-    await ctx.runMutation(internal.emails.insertFromWebhook, {
+    const emailId = await ctx.runMutation(internal.emails.insertFromWebhook, {
       mailboxId: mailbox._id,
       messageId,
       from,
@@ -49,6 +49,13 @@ http.route({
       date,
       hasAttachments,
       s3Key,
+    });
+
+    // Move S3 object from domain/incoming/ to domain/mailbox/incoming/
+    await ctx.runAction(internal.ses.moveIncomingEmail, {
+      emailId,
+      oldS3Key: s3Key,
+      recipientAddress: recipientAddress.toLowerCase(),
     });
 
     return new Response(JSON.stringify({ success: true }), {

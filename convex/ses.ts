@@ -9,10 +9,10 @@ if (typeof globalThis.DOMParser === "undefined") {
 }
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 function getSESClient() {
   return new SESv2Client({
@@ -143,5 +143,49 @@ export const fetchEmailBody = action({
       return rawEmail.slice(altBodyStart + 2);
     }
     return rawEmail.slice(bodyStart + 4);
+  },
+});
+
+// Move incoming email from domain/incoming/ to domain/mailbox/incoming/
+export const moveIncomingEmail = internalAction({
+  args: {
+    emailId: v.id("emails"),
+    oldS3Key: v.string(),
+    recipientAddress: v.string(),
+  },
+  handler: async (ctx, { emailId, oldS3Key, recipientAddress }) => {
+    const [localPart, domain] = recipientAddress.toLowerCase().split("@");
+    if (!localPart || !domain) return;
+
+    const filename = oldS3Key.split("/").pop() || oldS3Key;
+    const newS3Key = `${domain}/${localPart}/incoming/${filename}`;
+
+    if (oldS3Key === newS3Key) return;
+
+    const bucket = process.env.AWS_S3_BUCKET!;
+    const s3 = getS3Client();
+
+    try {
+      await s3.send(
+        new CopyObjectCommand({
+          Bucket: bucket,
+          CopySource: `${bucket}/${oldS3Key}`,
+          Key: newS3Key,
+        })
+      );
+      await s3.send(
+        new DeleteObjectCommand({
+          Bucket: bucket,
+          Key: oldS3Key,
+        })
+      );
+      // Update the email record with the new S3 key
+      await ctx.runMutation(internal.emails.updateS3Key, {
+        emailId,
+        s3Key: newS3Key,
+      });
+    } catch (error) {
+      console.error("Failed to move S3 object:", error);
+    }
   },
 });
