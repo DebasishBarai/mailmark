@@ -64,7 +64,7 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
 
       const emailData = {
         key: s3Key,
-        from: mail.source,
+        from: mail.commonHeaders?.from?.[0] || mail.source,
         to: recipients,
         subject: mail.commonHeaders?.subject || "(no subject)",
         date: mail.commonHeaders?.date || mail.timestamp,
