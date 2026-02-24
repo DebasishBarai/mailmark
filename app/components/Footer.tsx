@@ -9,22 +9,22 @@ const footerLinks = {
     { label: "FAQ", href: "#faq" },
   ],
   Resources: [
-    { label: "Blog", href: "#" },
-    { label: "Documentation", href: "#" },
-    { label: "DNS Setup Guide", href: "#" },
-    { label: "Email Deliverability", href: "#" },
+    { label: "Blog", href: "/blog" },
+    { label: "Documentation", href: "/docs" },
+    { label: "DNS Setup Guide", href: "/guides/dns-setup" },
+    { label: "Email Deliverability", href: "/guides/email-deliverability" },
   ],
   Company: [
-    { label: "About", href: "#" },
-    { label: "Contact", href: "#" },
-    { label: "Careers", href: "#" },
-    { label: "Affiliate Program", href: "#" },
+    { label: "About", href: "/about" },
+    { label: "Contact", href: "/contact" },
+    { label: "Careers", href: "/careers" },
+    { label: "Affiliate Program", href: "/affiliate" },
   ],
   Legal: [
-    { label: "Privacy Policy", href: "#" },
-    { label: "Terms of Service", href: "#" },
-    { label: "Security", href: "#" },
-    { label: "System Status", href: "#" },
+    { label: "Privacy Policy", href: "/privacy" },
+    { label: "Terms of Service", href: "/terms" },
+    { label: "Security", href: "/security" },
+    { label: "System Status", href: "/status" },
   ],
 };
 
@@ -53,12 +53,12 @@ export default function Footer() {
               <ul className="mt-4 space-y-3">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <a
+                    <Link
                       href={link.href}
                       className="text-sm text-gray-500 transition-colors hover:text-violet-600"
                     >
                       {link.label}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>

@@ -1,0 +1,221 @@
+import type { Metadata } from "next";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
+
+export const metadata: Metadata = {
+  title: "Documentation - DevMail",
+  description:
+    "Everything you need to set up and use DevMail — from adding your first domain to running advanced email campaigns.",
+};
+
+const sections = [
+  {
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+      </svg>
+    ),
+    title: "Getting Started",
+    color: "violet",
+    articles: [
+      "Quick-start guide",
+      "Creating your account",
+      "Adding your first domain",
+      "Sending your first email",
+    ],
+  },
+  {
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+      </svg>
+    ),
+    title: "Domain Setup",
+    color: "blue",
+    articles: [
+      "Verifying your domain",
+      "Configuring MX records",
+      "Setting up SPF & DKIM",
+      "DMARC configuration",
+    ],
+  },
+  {
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+      </svg>
+    ),
+    title: "Mailboxes",
+    color: "emerald",
+    articles: [
+      "Creating mailboxes",
+      "Managing aliases",
+      "Team mailbox permissions",
+      "Connecting an email client (IMAP)",
+    ],
+  },
+  {
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25V18a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 18V8.25m-18 0V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v2.25m-18 0h18M5.25 6h.008v.008H5.25V6zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM8.25 6h.008v.008H8.25V6zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM11.25 6h.008v.008h-.008V6zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+      </svg>
+    ),
+    title: "Email Campaigns",
+    color: "amber",
+    articles: [
+      "Creating a campaign",
+      "Mail merge & personalization",
+      "Scheduling & auto follow-ups",
+      "Campaign analytics",
+    ],
+  },
+  {
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+      </svg>
+    ),
+    title: "API Reference",
+    color: "pink",
+    articles: [
+      "Authentication & API keys",
+      "Send emails via API",
+      "Manage domains & mailboxes",
+    ],
+  },
+  {
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+      </svg>
+    ),
+    title: "Troubleshooting",
+    color: "gray",
+    articles: [
+      "Emails not sending",
+      "Domain verification issues",
+      "Bounces & rejections",
+    ],
+  },
+];
+
+const colorMap: Record<string, string> = {
+  violet: "bg-violet-100 text-violet-600",
+  blue: "bg-blue-100 text-blue-600",
+  emerald: "bg-emerald-100 text-emerald-600",
+  amber: "bg-amber-100 text-amber-600",
+  pink: "bg-pink-100 text-pink-600",
+  gray: "bg-gray-100 text-gray-600",
+};
+
+const borderMap: Record<string, string> = {
+  violet: "hover:border-violet-200",
+  blue: "hover:border-blue-200",
+  emerald: "hover:border-emerald-200",
+  amber: "hover:border-amber-200",
+  pink: "hover:border-pink-200",
+  gray: "hover:border-gray-300",
+};
+
+export default function DocsPage() {
+  return (
+    <main>
+      <Header />
+
+      {/* Hero */}
+      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-20">
+        <div className="mx-auto max-w-3xl text-center">
+          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700">
+            Documentation
+          </span>
+          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
+            How can we help?
+          </h1>
+          <p className="mt-4 text-lg text-gray-600">
+            Everything you need to set up domains, create mailboxes, and run
+            email campaigns with DevMail.
+          </p>
+          {/* Static search bar */}
+          <div className="relative mx-auto mt-8 max-w-xl">
+            <svg
+              className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search docs…"
+              className="w-full rounded-full border border-gray-200 bg-white py-3 pl-12 pr-6 text-sm shadow-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Doc sections grid */}
+      <section className="bg-white px-6 py-16">
+        <div className="mx-auto max-w-7xl">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            {sections.map((section) => (
+              <div
+                key={section.title}
+                className={`rounded-2xl border border-gray-100 p-6 transition-all hover:shadow-md ${borderMap[section.color]}`}
+              >
+                <div className={`inline-flex rounded-xl p-2.5 ${colorMap[section.color]}`}>
+                  {section.icon}
+                </div>
+                <h2 className="mt-4 text-lg font-semibold text-gray-900">
+                  {section.title}
+                </h2>
+                <ul className="mt-3 space-y-2">
+                  {section.articles.map((article) => (
+                    <li key={article}>
+                      <a
+                        href="#"
+                        className="flex items-center text-sm text-gray-600 transition-colors hover:text-violet-600"
+                      >
+                        <svg className="mr-2 h-3.5 w-3.5 shrink-0 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
+                        {article}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+                <a
+                  href="#"
+                  className="mt-5 inline-flex items-center text-sm font-medium text-violet-600 hover:text-violet-700"
+                >
+                  View all articles →
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Help CTA */}
+      <section className="bg-gray-50 px-6 py-16">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="text-2xl font-bold text-gray-900">
+            Can&apos;t find what you&apos;re looking for?
+          </h2>
+          <p className="mt-3 text-gray-600">
+            Our support team typically responds within 2 hours on business days.
+          </p>
+          <a
+            href="/contact"
+            className="mt-6 inline-block rounded-full bg-violet-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700"
+          >
+            Contact support
+          </a>
+        </div>
+      </section>
+
+      <Footer />
+    </main>
+  );
+}
