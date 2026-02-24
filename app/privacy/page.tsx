@@ -1,0 +1,173 @@
+import type { Metadata } from "next";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy - DevMail",
+  description: "DevMail Privacy Policy — how we collect, use, and protect your data.",
+};
+
+const sections = [
+  {
+    title: "1. Information we collect",
+    content: `We collect information you provide directly when you create an account, add a domain, create mailboxes, send emails, or contact us for support.
+
+**Account data:** name, email address, password (hashed), billing information, and company name.
+
+**Usage data:** log data including IP addresses, browser type, pages visited, features used, timestamps, and crash reports.
+
+**Email data:** metadata and content of emails sent through or received by DevMail (subject lines, sender/recipient addresses, timestamps). We process email content only to deliver the service and do not use it for advertising.
+
+**Domain and DNS data:** domain names you add, DNS records we generate, and verification status.
+
+**Payment data:** billing address and card details. Card numbers are processed directly by our payment processor (Stripe) and never stored on our servers.`,
+  },
+  {
+    title: "2. How we use your information",
+    content: `We use collected information to:
+
+- Provide, operate, and improve the DevMail platform.
+- Process transactions and send transactional emails (receipts, invoices, alerts).
+- Respond to your support requests.
+- Monitor for abuse, fraud, and violations of our Terms of Service.
+- Send product updates, security alerts, and service announcements (you may opt out of non-essential communications).
+- Comply with legal obligations.
+
+We do not sell your personal data to third parties. We do not use your email content for advertising purposes.`,
+  },
+  {
+    title: "3. Data sharing",
+    content: `We share data only in the following circumstances:
+
+**Service providers:** We share data with vendors who help us operate the service (e.g., AWS for cloud infrastructure, Stripe for payments, Clerk for authentication). These vendors are contractually obligated to protect your data.
+
+**Legal compliance:** We may disclose data when required by law, court order, or governmental authority, or to protect the rights, property, and safety of DevMail, our users, and the public.
+
+**Business transfers:** If DevMail is acquired or merges with another company, your data may be transferred as part of that transaction. We will notify you before your data is subject to a different Privacy Policy.
+
+We do not share your email content with advertisers or analytics companies.`,
+  },
+  {
+    title: "4. Cookies and tracking",
+    content: `We use cookies and similar technologies to:
+
+- Keep you logged in (essential session cookies).
+- Remember your preferences.
+- Understand how users navigate the product (analytics).
+
+You can control cookie settings through your browser. Disabling cookies may affect some product features. We do not use third-party advertising cookies.`,
+  },
+  {
+    title: "5. Data retention",
+    content: `We retain your data for as long as your account is active or as needed to provide services. If you delete your account:
+
+- Account data is deleted within 30 days.
+- Email data is deleted within 60 days (some may persist in backups for up to 90 days).
+- Billing records are retained for 7 years as required by financial regulations.
+
+You can request earlier deletion of specific data by contacting privacy@devmail.app.`,
+  },
+  {
+    title: "6. Security",
+    content: `We protect your data with:
+
+- TLS/HTTPS encryption for all data in transit.
+- AES-256 encryption for data at rest.
+- Access controls limiting staff access to user data on a need-to-know basis.
+- Regular security audits and penetration testing.
+- Automatic backups with point-in-time recovery.
+
+No method of transmission or storage is 100% secure. If you discover a security vulnerability, please report it to security@devmail.app.`,
+  },
+  {
+    title: "7. Your rights",
+    content: `Depending on your location, you may have the following rights:
+
+- **Access:** Request a copy of personal data we hold about you.
+- **Correction:** Request correction of inaccurate data.
+- **Deletion:** Request deletion of your account and associated data.
+- **Portability:** Request an export of your data in a machine-readable format.
+- **Objection:** Object to certain processing activities.
+- **Withdrawal of consent:** Where processing is based on consent, you may withdraw it at any time.
+
+To exercise any of these rights, email privacy@devmail.app. We will respond within 30 days.
+
+**EEA/UK residents:** DevMail processes data under GDPR. Our legal bases include contract performance, legitimate interests, and consent.
+
+**California residents:** Under CCPA, you have additional rights including the right to know what data is sold or shared (we do not sell personal data).`,
+  },
+  {
+    title: "8. Children's privacy",
+    content: `DevMail is not directed at children under 16. We do not knowingly collect personal data from anyone under 16. If you believe a child has provided us with personal information, contact us at privacy@devmail.app and we will delete it promptly.`,
+  },
+  {
+    title: "9. Changes to this policy",
+    content: `We may update this Privacy Policy periodically. We will notify you of material changes by email and by posting a notice on our website at least 30 days before the change takes effect. Continued use of the service after changes take effect constitutes acceptance of the revised policy.`,
+  },
+  {
+    title: "10. Contact us",
+    content: `For privacy-related questions or to exercise your rights, contact:
+
+**DevMail Privacy Team**
+privacy@devmail.app
+
+We aim to respond to all privacy inquiries within 30 days.`,
+  },
+];
+
+export default function PrivacyPage() {
+  return (
+    <main>
+      <Header />
+
+      {/* Hero */}
+      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-20">
+        <div className="mx-auto max-w-3xl">
+          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700">
+            Legal
+          </span>
+          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
+            Privacy Policy
+          </h1>
+          <p className="mt-4 text-gray-500">
+            Last updated: <strong>January 15, 2026</strong>
+          </p>
+          <p className="mt-4 text-gray-600">
+            DevMail (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) is committed to protecting your privacy.
+            This policy explains what information we collect, how we use it, and
+            the choices you have.
+          </p>
+        </div>
+      </section>
+
+      <section className="bg-white px-6 py-12">
+        <div className="mx-auto max-w-3xl">
+          <div className="space-y-10">
+            {sections.map((section) => (
+              <div key={section.title} className="border-b border-gray-100 pb-10 last:border-0">
+                <h2 className="text-xl font-bold text-gray-900">{section.title}</h2>
+                <div className="mt-4 space-y-3">
+                  {section.content.split("\n\n").map((para, i) => (
+                    <p key={i} className="text-sm leading-relaxed text-gray-600">
+                      {para.split("**").map((part, j) =>
+                        j % 2 === 1 ? (
+                          <strong key={j} className="font-semibold text-gray-800">
+                            {part}
+                          </strong>
+                        ) : (
+                          part
+                        )
+                      )}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <Footer />
+    </main>
+  );
+}
