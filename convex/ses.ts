@@ -162,6 +162,7 @@ export const moveIncomingEmail = internalAction({
 
     if (oldS3Key === newS3Key) return;
 
+    console.log("Moving S3 object:", oldS3Key, "→", newS3Key);
     const bucket = process.env.AWS_S3_BUCKET!;
     const s3 = getS3Client();
 
@@ -169,7 +170,7 @@ export const moveIncomingEmail = internalAction({
       await s3.send(
         new CopyObjectCommand({
           Bucket: bucket,
-          CopySource: `${bucket}/${oldS3Key}`,
+          CopySource: encodeURI(`${bucket}/${oldS3Key}`),
           Key: newS3Key,
         })
       );
