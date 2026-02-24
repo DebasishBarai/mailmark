@@ -12,6 +12,7 @@
     "@aws-sdk/client-s3": "^3.995.0",
     "@aws-sdk/client-ses": "^3.995.0",
     "@aws-sdk/client-sesv2": "^3.995.0",
+    "@aws-sdk/client-sns": "^3.996.0",
     "@clerk/nextjs": "^6.38.1",
     "@xmldom/xmldom": "^0.8.11",
     "convex": "^1.32.0",

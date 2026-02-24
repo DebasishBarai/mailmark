@@ -20,9 +20,15 @@ import {
   SESClient,
   CreateReceiptRuleSetCommand,
   CreateReceiptRuleCommand,
+  DeleteReceiptRuleCommand,
   SetActiveReceiptRuleSetCommand,
   DescribeActiveReceiptRuleSetCommand,
 } from "@aws-sdk/client-ses";
+import {
+  SNSClient,
+  CreateTopicCommand,
+  SubscribeCommand,
+} from "@aws-sdk/client-sns";
 import dns from "node:dns";
 
 function getSESv2Client() {
@@ -37,6 +43,16 @@ function getSESv2Client() {
 
 function getSESClient() {
   return new SESClient({
+    region: process.env.AWS_REGION!,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+  });
+}
+
+function getSNSClient() {
+  return new SNSClient({
     region: process.env.AWS_REGION!,
     credentials: {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
@@ -236,10 +252,10 @@ export const verifyDns = action({
 
     await ctx.runMutation(internal.domains.updateVerification, status);
 
-    // If verified and receipt rule not yet created, create it
-    if (sesVerified && !domain.sesReceiptRuleCreated) {
+    // Create or recreate receipt rule with SNS notification
+    if (sesVerified) {
       try {
-        await createReceiptRuleForDomain(domain.domain);
+        await ensureReceiptRuleWithSns(domain.domain);
         await ctx.runMutation(internal.domains.markReceiptRuleCreated, {
           domainId,
         });
@@ -292,12 +308,38 @@ export const remove = action({
   },
 });
 
-// Creates an SES receipt rule to save incoming emails to S3
-async function createReceiptRuleForDomain(domain: string) {
+// Creates an SNS topic for the domain and subscribes the webhook endpoint
+async function ensureSnsTopicForDomain(domain: string): Promise<string> {
+  const sns = getSNSClient();
+  const topicName = `devmail-${domain.replace(/\./g, "-")}`;
+
+  // CreateTopic is idempotent — returns existing ARN if topic already exists
+  const topicResult = await sns.send(
+    new CreateTopicCommand({ Name: topicName })
+  );
+  const topicArn = topicResult.TopicArn!;
+
+  // Subscribe the webhook endpoint (idempotent for same topic+protocol+endpoint)
+  const webhookUrl = `https://${process.env.VERCEL_URL}/api/ses-webhook`;
+  await sns.send(
+    new SubscribeCommand({
+      TopicArn: topicArn,
+      Protocol: "https",
+      Endpoint: webhookUrl,
+    })
+  );
+
+  return topicArn;
+}
+
+// Ensures an SES receipt rule exists with both S3 and SNS actions.
+// Deletes and recreates the rule to update existing rules that lack SNS.
+async function ensureReceiptRuleWithSns(domain: string) {
   const ses = getSESClient();
   const ruleSetName = "devmail-receipt-rules";
   const bucket = process.env.AWS_S3_BUCKET!;
 
+  // Ensure rule set exists and is active
   try {
     const activeRuleSet = await ses.send(
       new DescribeActiveReceiptRuleSetCommand({})
@@ -327,31 +369,45 @@ async function createReceiptRuleForDomain(domain: string) {
   const activeRuleSetName = activeSet.Metadata?.Name ?? ruleSetName;
   const ruleName = `devmail-${domain.replace(/\./g, "-")}`;
 
+  // Create SNS topic and subscribe webhook
+  const topicArn = await ensureSnsTopicForDomain(domain);
+
+  // Delete existing rule so we can recreate it with SNS action
   try {
     await ses.send(
-      new CreateReceiptRuleCommand({
+      new DeleteReceiptRuleCommand({
         RuleSetName: activeRuleSetName,
-        Rule: {
-          Name: ruleName,
-          Enabled: true,
-          Recipients: [domain],
-          Actions: [
-            {
-              S3Action: {
-                BucketName: bucket,
-                ObjectKeyPrefix: `${domain}/incoming/`,
-              },
-            },
-          ],
-          ScanEnabled: true,
-        },
+        RuleName: ruleName,
       })
     );
-  } catch (error: unknown) {
-    const err = error as { name?: string };
-    if (err.name === "AlreadyExistsException") {
-      return;
-    }
-    throw error;
+  } catch {
+    // Rule may not exist yet — that's fine
   }
+
+  // Create rule with both S3 and SNS actions
+  await ses.send(
+    new CreateReceiptRuleCommand({
+      RuleSetName: activeRuleSetName,
+      Rule: {
+        Name: ruleName,
+        Enabled: true,
+        Recipients: [domain],
+        Actions: [
+          {
+            S3Action: {
+              BucketName: bucket,
+              ObjectKeyPrefix: `${domain}/incoming/`,
+            },
+          },
+          {
+            SNSAction: {
+              TopicArn: topicArn,
+              Encoding: "UTF-8",
+            },
+          },
+        ],
+        ScanEnabled: true,
+      },
+    })
+  );
 }
