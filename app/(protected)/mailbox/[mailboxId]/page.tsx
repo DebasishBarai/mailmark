@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
@@ -9,8 +10,9 @@ import { Doc, Id } from "../../../../convex/_generated/dataModel";
 const folderConfig = [
   { key: "inbox", label: "Inbox" },
   { key: "sent", label: "Sent" },
+  { key: "outbox", label: "Outbox" },
   { key: "drafts", label: "Drafts" },
-  { key: "trash", label: "Trash" },
+  { key: "campaigns", label: "Campaigns" },
 ];
 
 function timeAgo(timestamp: number) {
@@ -30,11 +32,20 @@ export default function MailboxPage() {
   const mbId = mailboxId as Id<"mailboxes">;
 
   const mailbox = useQuery(api.mailboxes.getById, { mailboxId: mbId });
+  const domainMailboxes = useQuery(
+    api.mailboxes.listByDomain,
+    mailbox?.domainId ? { domainId: mailbox.domainId } : "skip"
+  );
   const [activeFolder, setActiveFolder] = useState("inbox");
   const emails = useQuery(api.emails.listByFolder, {
     mailboxId: mbId,
     folder: activeFolder,
   });
+  const inboxEmails = useQuery(api.emails.listByFolder, {
+    mailboxId: mbId,
+    folder: "inbox",
+  });
+  const unreadCount = inboxEmails?.filter((e: Doc<"emails">) => !e.read).length ?? 0;
   const markAsRead = useMutation(api.emails.markAsRead);
   const toggleStar = useMutation(api.emails.toggleStar);
   const moveToFolder = useMutation(api.emails.moveToFolder);
@@ -117,7 +128,7 @@ export default function MailboxPage() {
           <div className="h-6 w-48 animate-pulse rounded bg-gray-200" />
         </div>
         <div className="flex flex-1">
-          <div className="w-48 border-r border-gray-200 bg-white p-3">
+          <div className="w-48 border-r border-gray-100 bg-gray-50 p-3">
             <div className="mb-4 h-10 animate-pulse rounded-lg bg-gray-200" />
             <div className="space-y-2">
               {[1, 2, 3, 4].map((i) => (
@@ -161,10 +172,10 @@ export default function MailboxPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Folder sidebar */}
-        <div className="w-48 shrink-0 border-r border-gray-200 bg-white p-3">
+        <div className="flex w-48 shrink-0 flex-col border-r border-gray-100 bg-gray-50 p-3">
           <button
             onClick={() => { setShowCompose(true); setSendError(null); }}
-            className="mb-4 w-full rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
+            className="mb-3 w-full rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
           >
             Compose
           </button>
@@ -177,16 +188,41 @@ export default function MailboxPage() {
                   setSelectedEmailId(null);
                   setEmailBody(null);
                 }}
-                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
-                  activeFolder === folder.key
-                    ? "bg-violet-50 font-semibold text-violet-700"
-                    : "text-gray-600 hover:bg-gray-50"
-                }`}
+                className={`flex w-full items-center justify-between rounded-md px-3 py-1.5 text-xs transition-colors ${activeFolder === folder.key
+                  ? "bg-violet-50 font-semibold text-violet-700"
+                  : "text-gray-600 hover:bg-gray-100"
+                  }`}
               >
                 <span>{folder.label}</span>
+                {folder.key === "inbox" && unreadCount > 0 && (
+                  <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[10px] text-white">
+                    {unreadCount}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
+          {domainMailboxes && domainMailboxes.length > 1 && (
+            <div className="mt-auto border-t border-gray-200 pt-3">
+              <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Mailboxes
+              </p>
+              <div className="space-y-1">
+                {domainMailboxes.map((mb: Doc<"mailboxes">) => (
+                  <Link
+                    key={mb._id}
+                    href={`/mailbox/${mb._id}`}
+                    className={`block truncate rounded-md px-2 py-1 text-[10px] transition-colors ${mb._id === mbId
+                      ? "bg-violet-50 font-medium text-violet-700"
+                      : "text-gray-500 hover:bg-gray-100"
+                      }`}
+                  >
+                    {mb.fullAddress}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Email list */}
@@ -206,13 +242,12 @@ export default function MailboxPage() {
                 <button
                   key={email._id}
                   onClick={() => handleSelectEmail(email._id)}
-                  className={`w-full px-4 py-3 text-left transition-colors ${
-                    selectedEmailId === email._id
-                      ? "bg-violet-50"
-                      : !email.read
-                        ? "bg-blue-50/30 hover:bg-gray-50"
-                        : "hover:bg-gray-50"
-                  }`}
+                  className={`w-full px-4 py-3 text-left transition-colors ${selectedEmailId === email._id
+                    ? "bg-violet-50"
+                    : !email.read
+                      ? "bg-blue-50/30 hover:bg-gray-50"
+                      : "hover:bg-gray-50"
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className={`text-sm ${!email.read ? "font-semibold text-gray-900" : "text-gray-700"}`}>
