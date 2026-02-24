@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const footerLinks = {
   Product: [
@@ -34,8 +35,9 @@ export default function Footer() {
         <div className="grid gap-12 md:grid-cols-5">
           {/* Brand */}
           <div className="md:col-span-1">
-            <Link href="/" className="text-2xl font-bold text-violet-600">
-              DevMail
+            <Link href="/" className="flex items-center gap-2">
+              <Image src="/logo.svg" alt="DevMail logo" width={32} height={32} />
+              <span className="text-2xl font-bold text-violet-600">DevMail</span>
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-gray-500">
               Your domain. Your mailboxes. Your campaigns. All in one platform.
