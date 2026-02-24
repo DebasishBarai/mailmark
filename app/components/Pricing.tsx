@@ -7,6 +7,7 @@ const plans = [
     period: "forever",
     description: "Perfect for individuals getting started with custom domain email.",
     features: [
+      "1,000 emails / month",
       "1 custom domain",
       "3 mailboxes",
       "Full email UI",
@@ -22,6 +23,7 @@ const plans = [
     period: "per month",
     description: "For growing teams that need more power and campaign tools.",
     features: [
+      "25,000 emails / month",
       "5 custom domains",
       "Unlimited mailboxes",
       "Email campaigns",
@@ -38,6 +40,7 @@ const plans = [
     period: "per month",
     description: "Unlimited scale with white-glove onboarding for your whole team.",
     features: [
+      "100,000 emails / month",
       "Unlimited domains",
       "Unlimited mailboxes",
       "Advanced campaigns",
