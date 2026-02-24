@@ -14,6 +14,13 @@ export const metadata: Metadata = {
   title: "DevMail - Email Hosting & Campaigns for Your Domain",
   description:
     "Add your domain, create unlimited mailboxes, and run powerful email campaigns. A complete email platform with inbox, sent, outbox, and built-in campaign tools.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/logo.svg", type: "image/svg+xml" },
+    ],
+    apple: { url: "/icon-192.png", sizes: "192x192" },
+  },
 };
 
 export default function RootLayout({

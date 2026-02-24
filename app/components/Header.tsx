@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 
@@ -18,8 +19,15 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <Link href="/" className="text-2xl font-bold text-violet-600">
-          DevMail
+        <Link href="/" className="flex items-center gap-2.5">
+          <Image
+            src="/logo.svg"
+            alt="DevMail logo"
+            width={36}
+            height={36}
+            priority
+          />
+          <span className="text-2xl font-bold text-violet-600">DevMail</span>
         </Link>
 
         {/* Desktop nav */}
