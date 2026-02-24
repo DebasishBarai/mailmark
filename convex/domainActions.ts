@@ -320,7 +320,8 @@ async function ensureSnsTopicForDomain(domain: string): Promise<string> {
   const topicArn = topicResult.TopicArn!;
 
   // Subscribe the webhook endpoint (idempotent for same topic+protocol+endpoint)
-  const webhookUrl = `https://${process.env.VERCEL_URL}/api/ses-webhook`;
+  const webhookUrl = `${process.env.APP_URL}/api/ses-webhook`;
+  console.log("SNS subscription endpoint:", webhookUrl);
   await sns.send(
     new SubscribeCommand({
       TopicArn: topicArn,
