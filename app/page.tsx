@@ -4,6 +4,8 @@ import Features from "./components/Features";
 import FeatureShowcase from "./components/FeatureShowcase";
 import FeatureGrid from "./components/FeatureGrid";
 import Testimonials from "./components/Testimonials";
+import Pricing from "./components/Pricing";
+import FAQ from "./components/FAQ";
 import CTABanner from "./components/CTABanner";
 import Footer from "./components/Footer";
 
@@ -16,6 +18,8 @@ export default function Home() {
       <FeatureShowcase />
       <FeatureGrid />
       <Testimonials />
+      <Pricing />
+      <FAQ />
       <CTABanner />
       <Footer />
     </div>
