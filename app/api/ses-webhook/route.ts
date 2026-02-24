@@ -53,17 +53,22 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
       const mail = message.mail;
       const receipt = message.receipt;
 
-      // Extract S3 key from the receipt action
-      const s3Action = receipt?.action;
-      const s3Key = s3Action?.objectKey || "";
+      // The SNS action triggers this notification, so receipt.action refers to
+      // the SNS action (not S3). Construct the S3 key from the known prefix
+      // pattern and messageId. Also check receipt.action.objectKey as fallback.
+      const recipients = mail.destination || [];
+      const domain = recipients[0]?.split("@")[1] || "";
+      const sesMessageId = mail.messageId || "";
+      const s3Key = receipt?.action?.objectKey
+        || (domain && sesMessageId ? `${domain}/incoming/${sesMessageId}` : "");
 
       const emailData = {
         key: s3Key,
         from: mail.source,
-        to: mail.destination || [],
+        to: recipients,
         subject: mail.commonHeaders?.subject || "(no subject)",
         date: mail.commonHeaders?.date || mail.timestamp,
-        messageId: mail.messageId || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        messageId: sesMessageId || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         hasAttachments: (mail.commonHeaders?.["content-type"] || "").includes("multipart") || false,
       };
 
