@@ -13,6 +13,7 @@ import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { simpleParser } from "mailparser";
 
 function getSESClient() {
   return new SESv2Client({
@@ -135,14 +136,18 @@ export const fetchEmailBody = action({
     const rawEmail = await response.Body?.transformToString("utf-8");
     if (!rawEmail) throw new Error("Email not found in S3");
 
-    // Parse body from raw email (split on double CRLF)
-    const bodyStart = rawEmail.indexOf("\r\n\r\n");
-    if (bodyStart === -1) {
-      const altBodyStart = rawEmail.indexOf("\n\n");
-      if (altBodyStart === -1) return rawEmail;
-      return rawEmail.slice(altBodyStart + 2);
+    // Parse MIME email to extract HTML or text body
+    const parsed = await simpleParser(rawEmail);
+    if (parsed.html) {
+      return parsed.html as string;
     }
-    return rawEmail.slice(bodyStart + 4);
+    if (parsed.textAsHtml) {
+      return parsed.textAsHtml;
+    }
+    if (parsed.text) {
+      return parsed.text;
+    }
+    return rawEmail;
   },
 });
 

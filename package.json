@@ -17,12 +17,14 @@
     "@xmldom/xmldom": "^0.8.11",
     "convex": "^1.32.0",
     "geist": "^1.7.0",
+    "mailparser": "^3.9.3",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/mailparser": "^3.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
