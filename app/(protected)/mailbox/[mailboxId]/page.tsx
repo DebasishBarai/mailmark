@@ -118,6 +118,62 @@ export default function MailboxPage() {
   const [composeAttachments, setComposeAttachments] = useState<AttachmentEntry[]>([]);
   const attachmentIdRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvImportRef = useRef<HTMLInputElement>(null);
+  const importMenuRef = useRef<HTMLDivElement>(null);
+  const [showImportMenu, setShowImportMenu] = useState(false);
+  const [showGSheetsInput, setShowGSheetsInput] = useState(false);
+  const [gSheetsUrl, setGSheetsUrl] = useState("");
+  const [importError, setImportError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const parseEmailsFromCSV = (text: string): string[] => {
+    const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+    return [...new Set(text.match(emailRegex) ?? [])];
+  };
+
+  const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const emails = parseEmailsFromCSV(text);
+      if (emails.length === 0) {
+        setImportError("No email addresses found in the CSV.");
+      } else {
+        setComposeTo((prev) => [...new Set([...prev, ...emails])]);
+        setShowImportMenu(false);
+        setImportError(null);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleGSheetsImport = async () => {
+    if (!gSheetsUrl.trim()) return;
+    setImportError(null);
+    setIsImporting(true);
+    try {
+      const res = await fetch(`/api/fetch-csv?url=${encodeURIComponent(gSheetsUrl.trim())}`);
+      if (!res.ok) throw new Error("Failed to fetch sheet");
+      const text = await res.text();
+      const emails = parseEmailsFromCSV(text);
+      if (emails.length === 0) {
+        setImportError("No email addresses found in the sheet.");
+      } else {
+        setComposeTo((prev) => [...new Set([...prev, ...emails])]);
+        setGSheetsUrl("");
+        setShowGSheetsInput(false);
+        setShowImportMenu(false);
+        setImportError(null);
+      }
+    } catch {
+      setImportError("Could not fetch the sheet. Make sure it is publicly accessible.");
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const processFiles = (files: File[]) => {
     const newEntries: AttachmentEntry[] = files.map((file) => ({
@@ -266,6 +322,19 @@ export default function MailboxPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showSendDropdown]);
+
+  useEffect(() => {
+    if (!showImportMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (importMenuRef.current && !importMenuRef.current.contains(e.target as Node)) {
+        setShowImportMenu(false);
+        setShowGSheetsInput(false);
+        setImportError(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showImportMenu]);
 
   const handleMoveToTrash = async (emailId: Id<"emails">) => {
     await moveToFolder({ emailId, folder: "trash" });
@@ -428,9 +497,13 @@ export default function MailboxPage() {
         <div className="flex w-48 shrink-0 flex-col border-r border-gray-100 bg-gray-50 p-3">
           <button
             onClick={handleOpenCompose}
-            className="mb-3 w-full rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
+            className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
           >
-            Compose
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New
           </button>
           <nav className="space-y-1">
             {folderConfig.filter((f) => !f.navHidden).map((folder) => (
@@ -725,43 +798,115 @@ export default function MailboxPage() {
                 <span className="text-sm text-gray-500">From:</span>
                 <span className="text-sm text-gray-900">{mailbox.fullAddress}</span>
               </div>
-              <div className="flex min-h-[2rem] flex-wrap items-center gap-1.5 border-b border-gray-100 pb-2">
-                <span className="shrink-0 text-sm text-gray-500">To:</span>
-                {composeTo.map((email, i) => (
-                  <span key={i} className="flex items-center gap-1 rounded-full bg-violet-100 py-0.5 pl-2.5 pr-1 text-xs font-medium text-violet-800">
-                    {email}
-                    <button
-                      type="button"
-                      onClick={() => setComposeTo((prev) => prev.filter((_, j) => j !== i))}
-                      className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-violet-500 hover:bg-violet-200 hover:text-violet-700"
-                      title="Remove"
-                    >
-                      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-                <input
-                  type="text"
-                  value={composeToInput}
-                  onChange={(e) => setComposeToInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === "," || e.key === "Tab") {
-                      e.preventDefault();
+              <div className="border-b border-gray-100 pb-2">
+                <div className="flex min-h-[2rem] flex-wrap items-center gap-1.5">
+                  <span className="shrink-0 text-sm text-gray-500">To:</span>
+                  {composeTo.map((email, i) => (
+                    <span key={i} className="flex items-center gap-1 rounded-full bg-violet-100 py-0.5 pl-2.5 pr-1 text-xs font-medium text-violet-800">
+                      {email}
+                      <button
+                        type="button"
+                        onClick={() => setComposeTo((prev) => prev.filter((_, j) => j !== i))}
+                        className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-violet-500 hover:bg-violet-200 hover:text-violet-700"
+                        title="Remove"
+                      >
+                        <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    value={composeToInput}
+                    onChange={(e) => setComposeToInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === "," || e.key === "Tab") {
+                        e.preventDefault();
+                        const val = composeToInput.trim().replace(/,+$/, "");
+                        if (val) { setComposeTo((prev) => [...prev, val]); setComposeToInput(""); }
+                      } else if (e.key === "Backspace" && !composeToInput && composeTo.length > 0) {
+                        setComposeTo((prev) => prev.slice(0, -1));
+                      }
+                    }}
+                    onBlur={() => {
                       const val = composeToInput.trim().replace(/,+$/, "");
                       if (val) { setComposeTo((prev) => [...prev, val]); setComposeToInput(""); }
-                    } else if (e.key === "Backspace" && !composeToInput && composeTo.length > 0) {
-                      setComposeTo((prev) => prev.slice(0, -1));
-                    }
-                  }}
-                  onBlur={() => {
-                    const val = composeToInput.trim().replace(/,+$/, "");
-                    if (val) { setComposeTo((prev) => [...prev, val]); setComposeToInput(""); }
-                  }}
-                  className="min-w-[140px] flex-1 text-sm text-gray-900 outline-none placeholder-gray-400"
-                  placeholder={composeTo.length === 0 ? "recipient@example.com" : "Add recipient..."}
-                />
+                    }}
+                    className="min-w-[140px] flex-1 text-sm text-gray-900 outline-none placeholder-gray-400"
+                    placeholder={composeTo.length === 0 ? "recipient@example.com" : "Add recipient..."}
+                  />
+                  {/* Import recipients button */}
+                  <div ref={importMenuRef} className="relative ml-auto shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => { setShowImportMenu((v) => !v); setShowGSheetsInput(false); setImportError(null); }}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-violet-600"
+                      title="Import recipients"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                      </svg>
+                      Import
+                    </button>
+                    {showImportMenu && (
+                      <div className="absolute right-0 top-full z-30 mt-1 w-56 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                        {/* CSV upload option */}
+                        <button
+                          type="button"
+                          onClick={() => csvImportRef.current?.click()}
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                          </svg>
+                          <div>
+                            <p className="font-medium">From CSV file</p>
+                            <p className="text-xs text-gray-400">Upload a .csv file</p>
+                          </div>
+                        </button>
+                        {/* Google Sheets option */}
+                        <button
+                          type="button"
+                          onClick={() => setShowGSheetsInput((v) => !v)}
+                          className="flex w-full items-center gap-3 border-t border-gray-100 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                          </svg>
+                          <div>
+                            <p className="font-medium">From Google Sheets</p>
+                            <p className="text-xs text-gray-400">Paste a sheet URL</p>
+                          </div>
+                        </button>
+                        {showGSheetsInput && (
+                          <div className="border-t border-gray-100 px-4 py-3">
+                            <p className="mb-1.5 text-xs text-gray-500">Paste a public Google Sheets URL:</p>
+                            <input
+                              type="url"
+                              value={gSheetsUrl}
+                              onChange={(e) => setGSheetsUrl(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Enter") handleGSheetsImport(); }}
+                              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-800 outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-100"
+                              placeholder="https://docs.google.com/spreadsheets/..."
+                            />
+                            <button
+                              type="button"
+                              onClick={handleGSheetsImport}
+                              disabled={isImporting || !gSheetsUrl.trim()}
+                              className="mt-2 w-full rounded-md bg-violet-600 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+                            >
+                              {isImporting ? "Importing..." : "Import"}
+                            </button>
+                          </div>
+                        )}
+                        {importError && (
+                          <p className="border-t border-gray-100 px-4 py-2 text-xs text-red-600">{importError}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="flex items-center gap-3 border-b border-gray-100 pb-2">
                 <span className="text-sm text-gray-500">Subject:</span>
@@ -852,6 +997,14 @@ export default function MailboxPage() {
                   processFiles(files);
                 }
               }}
+            />
+            {/* Hidden CSV input for recipient import */}
+            <input
+              ref={csvImportRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="absolute w-0 h-0 overflow-hidden opacity-0"
+              onChange={handleCSVImport}
             />
             <div className="mt-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
