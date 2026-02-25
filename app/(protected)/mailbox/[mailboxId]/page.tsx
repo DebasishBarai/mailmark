@@ -36,10 +36,10 @@ function timeAgo(timestamp: number) {
 }
 
 function getDisplayName(emailStr: string): string {
-  // Extract name from "Name <email>" format
   const match = emailStr.match(/^(.+?)\s*<[^>]+>$/);
   if (match) return match[1].trim().replace(/^["']|["']$/g, "");
-  // No display name — show full email address as-is
+  const atIndex = emailStr.indexOf("@");
+  if (atIndex > 0) return emailStr.substring(0, atIndex);
   return emailStr;
 }
 
