@@ -845,7 +845,8 @@ export default function MailboxPage() {
             <div className="mt-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {/* Split send button */}
-                <div ref={sendDropdownRef} className="relative inline-flex overflow-hidden rounded-lg">
+                <div ref={sendDropdownRef} className="relative">
+                  <div className="inline-flex overflow-hidden rounded-lg">
                   <button
                     onClick={sendMode === "campaign" ? handleSendCampaign : handleSend}
                     disabled={(composeTo.length === 0 && !composeToInput.trim()) || !composeSubject.trim() || isSending || isAnyUploading}
@@ -875,6 +876,7 @@ export default function MailboxPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                     </svg>
                   </button>
+                  </div>
                   {showSendDropdown && (
                     <div className="absolute bottom-full left-0 z-20 mb-1 w-60 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
                       <button
