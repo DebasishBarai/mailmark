@@ -593,40 +593,48 @@ export default function MailboxPage() {
                   dangerouslySetInnerHTML={{ __html: composeQuote }}
                 />
               )}
-            </div>
-            {/* Selected attachments */}
-            {composeAttachments.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {composeAttachments.map((file, i) => (
-                  <div key={i} className="flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-700">
-                    <svg className="h-3 w-3 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
-                    </svg>
-                    <span className="max-w-[140px] truncate">{file.name}</span>
-                    <span className="text-gray-400">({file.size < 1024 ? "< 1" : Math.round(file.size / 1024)}kb)</span>
-                    <button
-                      onClick={() => setComposeAttachments((prev) => prev.filter((_, j) => j !== i))}
-                      className="ml-0.5 text-gray-400 hover:text-red-500"
-                    >×</button>
+              {/* Selected attachments */}
+              {composeAttachments.length > 0 && (
+                <div className="border-t border-gray-100 pt-2">
+                  <p className="mb-1.5 text-xs font-medium text-gray-500">
+                    {composeAttachments.length} attachment{composeAttachments.length > 1 ? "s" : ""}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {composeAttachments.map((file, i) => (
+                      <div key={i} className="flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-xs text-violet-700">
+                        <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                        </svg>
+                        <span className="max-w-[140px] truncate font-medium">{file.name}</span>
+                        <span className="text-violet-400">({file.size < 1024 ? "< 1" : Math.round(file.size / 1024)}kb)</span>
+                        <button
+                          type="button"
+                          onClick={() => setComposeAttachments((prev) => prev.filter((_, j) => j !== i))}
+                          className="ml-0.5 text-violet-400 hover:text-red-500"
+                          title="Remove attachment"
+                        >×</button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
             {sendError && (
               <div className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
                 {sendError}
               </div>
             )}
-            {/* Hidden file input */}
+            {/* File input — not display:none so onChange fires reliably in all browsers */}
             <input
               ref={fileInputRef}
               type="file"
               multiple
-              className="hidden"
+              className="absolute w-0 h-0 overflow-hidden opacity-0"
               onChange={(e) => {
-                if (e.target.files) {
-                  setComposeAttachments((prev) => [...prev, ...Array.from(e.target.files!)]);
-                  e.target.value = "";
+                const files = Array.from(e.target.files ?? []);
+                e.target.value = "";
+                if (files.length > 0) {
+                  setComposeAttachments((prev) => [...prev, ...files]);
                 }
               }}
             />
@@ -637,7 +645,11 @@ export default function MailboxPage() {
                   disabled={!composeTo.trim() || !composeSubject.trim() || isSending}
                   className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
                 >
-                  {isSending ? "Sending..." : "Send"}
+                  {isSending
+                    ? composeAttachments.length > 0
+                      ? `Sending with ${composeAttachments.length} attachment${composeAttachments.length > 1 ? "s" : ""}...`
+                      : "Sending..."
+                    : "Send"}
                 </button>
                 <button
                   type="button"
