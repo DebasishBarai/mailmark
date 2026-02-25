@@ -65,7 +65,8 @@ export default function MailboxPage() {
   type ComposeMode = "compose" | "reply" | "replyAll" | "forward";
   const [showCompose, setShowCompose] = useState(false);
   const [composeMode, setComposeMode] = useState<ComposeMode>("compose");
-  const [composeTo, setComposeTo] = useState("");
+  const [composeTo, setComposeTo] = useState<string[]>([]);
+  const [composeToInput, setComposeToInput] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [composeQuote, setComposeQuote] = useState("");
@@ -146,11 +147,14 @@ export default function MailboxPage() {
   };
 
   const handleSend = async () => {
-    if (!composeTo.trim() || !composeSubject.trim()) return;
+    // include any email still being typed but not yet chipped
+    const pendingInput = composeToInput.trim();
+    const allRecipients = pendingInput ? [...composeTo, pendingInput] : composeTo;
+    if (allRecipients.length === 0 || !composeSubject.trim()) return;
     setIsSending(true);
     setSendError(null);
     try {
-      const recipients = composeTo.split(",").map((e) => e.trim()).filter(Boolean);
+      const recipients = allRecipients;
       const fullBody = composeBody.replace(/\n/g, "<br>") + (composeQuote ? `<br><br>${composeQuote}` : "");
       const attachmentData = composeAttachments
         .filter((att) => att.status === "uploaded" && att.data)
@@ -167,7 +171,8 @@ export default function MailboxPage() {
         attachments: attachmentData.length > 0 ? attachmentData : undefined,
       });
       setShowCompose(false);
-      setComposeTo("");
+      setComposeTo([]);
+      setComposeToInput("");
       setComposeSubject("");
       setComposeBody("");
       setComposeQuote("");
@@ -189,7 +194,8 @@ export default function MailboxPage() {
 
   const handleOpenCompose = () => {
     setComposeMode("compose");
-    setComposeTo("");
+    setComposeTo([]);
+    setComposeToInput("");
     setComposeSubject("");
     setComposeBody("");
     setComposeQuote("");
@@ -201,7 +207,8 @@ export default function MailboxPage() {
   const handleReply = () => {
     if (!selectedEmail || !emailBody) return;
     setComposeMode("reply");
-    setComposeTo(selectedEmail.from);
+    setComposeTo([selectedEmail.from]);
+    setComposeToInput("");
     setComposeSubject(
       selectedEmail.subject.startsWith("Re:")
         ? selectedEmail.subject
@@ -224,7 +231,8 @@ export default function MailboxPage() {
       ...selectedEmail.to.filter((addr) => addr !== myAddress),
     ];
     setComposeMode("replyAll");
-    setComposeTo(recipients.join(", "));
+    setComposeTo(recipients);
+    setComposeToInput("");
     setComposeSubject(
       selectedEmail.subject.startsWith("Re:")
         ? selectedEmail.subject
@@ -242,7 +250,8 @@ export default function MailboxPage() {
   const handleForward = () => {
     if (!selectedEmail || !emailBody) return;
     setComposeMode("forward");
-    setComposeTo("");
+    setComposeTo([]);
+    setComposeToInput("");
     setComposeSubject(
       selectedEmail.subject.startsWith("Fwd:")
         ? selectedEmail.subject
@@ -582,7 +591,7 @@ export default function MailboxPage() {
               {{ compose: "New Message", reply: "Reply", replyAll: "Reply All", forward: "Forward" }[composeMode]}
             </h3>
             <button
-              onClick={() => { setShowCompose(false); setSendError(null); setComposeQuote(""); setComposeAttachments([]); }}
+              onClick={() => { setShowCompose(false); setSendError(null); setComposeTo([]); setComposeToInput(""); setComposeQuote(""); setComposeAttachments([]); }}
               className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -596,14 +605,42 @@ export default function MailboxPage() {
                 <span className="text-sm text-gray-500">From:</span>
                 <span className="text-sm text-gray-900">{mailbox.fullAddress}</span>
               </div>
-              <div className="flex items-center gap-3 border-b border-gray-100 pb-2">
-                <span className="text-sm text-gray-500">To:</span>
+              <div className="flex min-h-[2rem] flex-wrap items-center gap-1.5 border-b border-gray-100 pb-2">
+                <span className="shrink-0 text-sm text-gray-500">To:</span>
+                {composeTo.map((email, i) => (
+                  <span key={i} className="flex items-center gap-1 rounded-full bg-violet-100 py-0.5 pl-2.5 pr-1 text-xs font-medium text-violet-800">
+                    {email}
+                    <button
+                      type="button"
+                      onClick={() => setComposeTo((prev) => prev.filter((_, j) => j !== i))}
+                      className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-violet-500 hover:bg-violet-200 hover:text-violet-700"
+                      title="Remove"
+                    >
+                      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
                 <input
                   type="text"
-                  value={composeTo}
-                  onChange={(e) => setComposeTo(e.target.value)}
-                  className="flex-1 text-sm text-gray-900 outline-none placeholder-gray-400"
-                  placeholder="recipient@example.com"
+                  value={composeToInput}
+                  onChange={(e) => setComposeToInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === "," || e.key === "Tab") {
+                      e.preventDefault();
+                      const val = composeToInput.trim().replace(/,+$/, "");
+                      if (val) { setComposeTo((prev) => [...prev, val]); setComposeToInput(""); }
+                    } else if (e.key === "Backspace" && !composeToInput && composeTo.length > 0) {
+                      setComposeTo((prev) => prev.slice(0, -1));
+                    }
+                  }}
+                  onBlur={() => {
+                    const val = composeToInput.trim().replace(/,+$/, "");
+                    if (val) { setComposeTo((prev) => [...prev, val]); setComposeToInput(""); }
+                  }}
+                  className="min-w-[140px] flex-1 text-sm text-gray-900 outline-none placeholder-gray-400"
+                  placeholder={composeTo.length === 0 ? "recipient@example.com" : "Add recipient..."}
                 />
               </div>
               <div className="flex items-center gap-3 border-b border-gray-100 pb-2">
@@ -700,7 +737,7 @@ export default function MailboxPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleSend}
-                  disabled={!composeTo.trim() || !composeSubject.trim() || isSending || isAnyUploading}
+                  disabled={(composeTo.length === 0 && !composeToInput.trim()) || !composeSubject.trim() || isSending || isAnyUploading}
                   className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
                 >
                   {isAnyUploading
@@ -723,7 +760,7 @@ export default function MailboxPage() {
                 </button>
               </div>
               <button
-                onClick={() => { setShowCompose(false); setComposeQuote(""); setComposeAttachments([]); }}
+                onClick={() => { setShowCompose(false); setComposeTo([]); setComposeToInput(""); setComposeQuote(""); setComposeAttachments([]); }}
                 className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
