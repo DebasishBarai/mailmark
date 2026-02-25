@@ -51,6 +51,16 @@ http.route({
       s3Key,
     });
 
+    // Save sender as contact if "from" has a display name (e.g. "Name <email>")
+    const fromMatch = from.match(/^(.+?)\s*<([^>]+)>$/);
+    if (fromMatch) {
+      await ctx.runMutation(internal.contacts.upsert, {
+        userId: mailbox.userId,
+        email: fromMatch[2].toLowerCase(),
+        name: fromMatch[1].trim().replace(/^["']|["']$/g, ""),
+      });
+    }
+
     // Move S3 object from domain/incoming/ to domain/mailbox/incoming/
     await ctx.runAction(internal.ses.moveIncomingEmail, {
       emailId,

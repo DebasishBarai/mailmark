@@ -98,6 +98,33 @@ export const create = mutation({
   },
 });
 
+export const updateDisplayName = mutation({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    displayName: v.string(),
+  },
+  handler: async (ctx, { mailboxId, displayName }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const mailbox = await ctx.db.get(mailboxId);
+    if (!mailbox) throw new Error("Mailbox not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || mailbox.userId !== user._id) {
+      throw new Error("Not authorized");
+    }
+
+    await ctx.db.patch(mailboxId, {
+      displayName: displayName.trim() || undefined,
+    });
+  },
+});
+
 export const remove = mutation({
   args: { mailboxId: v.id("mailboxes") },
   handler: async (ctx, { mailboxId }) => {

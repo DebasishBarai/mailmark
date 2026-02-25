@@ -61,4 +61,12 @@ export default defineSchema({
   })
     .index("by_mailbox_folder", ["mailboxId", "folder"])
     .index("by_message_id", ["messageId"]),
+
+  contacts: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    name: v.string(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_user_email", ["userId", "email"]),
 });

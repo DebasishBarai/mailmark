@@ -35,9 +35,16 @@ function timeAgo(timestamp: number) {
   return `${days}d ago`;
 }
 
-function getDisplayName(emailStr: string): string {
-  const match = emailStr.match(/^(.+?)\s*<[^>]+>$/);
+function getDisplayName(emailStr: string, contactMap?: Map<string, string>): string {
+  // Extract name from "Name <email>" format
+  const match = emailStr.match(/^(.+?)\s*<([^>]+)>$/);
   if (match) return match[1].trim().replace(/^["']|["']$/g, "");
+  // Look up in contacts by raw email address
+  if (contactMap) {
+    const name = contactMap.get(emailStr.toLowerCase());
+    if (name) return name;
+  }
+  // Fallback: local part of email
   const atIndex = emailStr.indexOf("@");
   if (atIndex > 0) return emailStr.substring(0, atIndex);
   return emailStr;
@@ -68,6 +75,10 @@ export default function MailboxPage() {
     folder: "inbox",
   });
   const unreadCount = inboxEmails?.filter((e: Doc<"emails">) => !e.read).length ?? 0;
+  const contacts = useQuery(api.contacts.listForCurrentUser);
+  // Build a lookup map: raw email → display name
+  const contactNameMap = new Map<string, string>();
+  contacts?.forEach((c) => contactNameMap.set(c.email, c.name));
   const markAsRead = useMutation(api.emails.markAsRead);
   const markAsUnread = useMutation(api.emails.markAsUnread);
   const toggleStar = useMutation(api.emails.toggleStar);
@@ -515,9 +526,9 @@ export default function MailboxPage() {
                     <span className={`truncate text-sm ${!email.read ? "font-semibold text-gray-900" : "text-gray-700"}`}>
                       {activeFolder === "sent" || activeFolder === "outbox"
                         ? email.to.length > 1
-                          ? `${showEmailIds ? getRawEmail(email.to[0]) : getDisplayName(email.to[0])} +${email.to.length - 1}`
-                          : showEmailIds ? getRawEmail(email.to[0]) : getDisplayName(email.to[0])
-                        : showEmailIds ? getRawEmail(email.from) : getDisplayName(email.from)}
+                          ? `${showEmailIds ? getRawEmail(email.to[0]) : getDisplayName(email.to[0], contactNameMap)} +${email.to.length - 1}`
+                          : showEmailIds ? getRawEmail(email.to[0]) : getDisplayName(email.to[0], contactNameMap)
+                        : showEmailIds ? getRawEmail(email.from) : getDisplayName(email.from, contactNameMap)}
                     </span>
                     <div className="flex items-center gap-1">
                       {email.starred && (
@@ -551,11 +562,11 @@ export default function MailboxPage() {
                 </h2>
                 <div className="mt-2 flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
-                    {getDisplayName(selectedEmail.from)[0].toUpperCase()}
+                    {getDisplayName(selectedEmail.from, contactNameMap)[0].toUpperCase()}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-900">
-                      {getDisplayName(selectedEmail.from)}
+                      {getDisplayName(selectedEmail.from, contactNameMap)}
                       {showEmailIds && (
                         <span className="ml-1.5 font-normal text-gray-500">&lt;{getRawEmail(selectedEmail.from)}&gt;</span>
                       )}
@@ -565,7 +576,7 @@ export default function MailboxPage() {
                       {selectedEmail.to.map((addr) =>
                         showEmailIds
                           ? getRawEmail(addr)
-                          : getDisplayName(addr)
+                          : getDisplayName(addr, contactNameMap)
                       ).join(", ")}
                     </p>
                   </div>

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as contacts from "../contacts.js";
 import type * as domainActions from "../domainActions.js";
 import type * as domains from "../domains.js";
 import type * as emails from "../emails.js";
@@ -23,6 +24,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  contacts: typeof contacts;
   domainActions: typeof domainActions;
   domains: typeof domains;
   emails: typeof emails;

@@ -53,15 +53,6 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
       const mail = message.mail;
       const receipt = message.receipt;
 
-      console.log("[DEBUG] mail.source:", mail.source);
-      console.log("[DEBUG] mail.commonHeaders:", JSON.stringify(mail.commonHeaders, null, 2));
-      console.log("[DEBUG] mail.commonHeaders.from:", mail.commonHeaders?.from);
-      console.log("[DEBUG] mail.commonHeaders.to:", mail.commonHeaders?.to);
-      console.log("[DEBUG] mail.commonHeaders.subject:", mail.commonHeaders?.subject);
-      console.log("[DEBUG] mail.destination:", mail.destination);
-      console.log("[DEBUG] mail.messageId:", mail.messageId);
-      console.log("[DEBUG] receipt.action:", JSON.stringify(receipt?.action, null, 2));
-
       // The SNS action triggers this notification, so receipt.action refers to
       // the SNS action (not S3). Construct the S3 key from the known prefix
       // pattern and messageId. Also check receipt.action.objectKey as fallback.
@@ -80,8 +71,6 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
         messageId: sesMessageId || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         hasAttachments: (mail.commonHeaders?.["content-type"] || "").includes("multipart") || false,
       };
-
-      console.log("[DEBUG] Final emailData:", JSON.stringify(emailData, null, 2));
 
       return await ingestEmail(emailData);
     }

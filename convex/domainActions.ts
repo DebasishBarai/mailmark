@@ -321,7 +321,6 @@ async function ensureSnsTopicForDomain(domain: string): Promise<string> {
 
   // Subscribe the webhook endpoint (idempotent for same topic+protocol+endpoint)
   const webhookUrl = `${process.env.APP_URL}/api/ses-webhook`;
-  console.log("SNS subscription endpoint:", webhookUrl);
   await sns.send(
     new SubscribeCommand({
       TopicArn: topicArn,
