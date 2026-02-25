@@ -241,11 +241,12 @@ export const insertSent = internalMutation({
     date: v.number(),
     s3Key: v.string(),
     hasAttachments: v.optional(v.boolean()),
+    folder: v.optional(v.string()),
   },
-  handler: async (ctx, { hasAttachments, ...rest }) => {
+  handler: async (ctx, { hasAttachments, folder, ...rest }) => {
     return await ctx.db.insert("emails", {
       ...rest,
-      folder: "sent",
+      folder: folder ?? "sent",
       read: true,
       starred: false,
       hasAttachments: hasAttachments ?? false,

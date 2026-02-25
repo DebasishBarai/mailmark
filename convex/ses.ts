@@ -85,8 +85,10 @@ export const sendEmail = action({
       contentType: v.string(),
       data: v.string(), // base64-encoded
     }))),
+    folder: v.optional(v.string()),
   },
-  handler: async (ctx, { mailboxId, to, subject, body, attachments }) => {
+  handler: async (ctx, { mailboxId, to, subject, body, attachments, folder }) => {
+    const emailFolder = folder ?? "sent";
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
@@ -144,7 +146,7 @@ export const sendEmail = action({
     }
 
     // Save raw email to S3
-    const s3Key = `${mailbox.domain}/${mailbox.address}/sent/${messageId}.eml`;
+    const s3Key = `${mailbox.domain}/${mailbox.address}/${emailFolder}/${messageId}.eml`;
     const s3 = getS3Client();
     await s3.send(
       new PutObjectCommand({
@@ -167,6 +169,7 @@ export const sendEmail = action({
       date: Date.now(),
       s3Key,
       hasAttachments,
+      folder: emailFolder,
     });
 
     return { success: true, messageId };
