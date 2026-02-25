@@ -136,18 +136,47 @@ export const fetchEmailBody = action({
     const rawEmail = await response.Body?.transformToString("utf-8");
     if (!rawEmail) throw new Error("Email not found in S3");
 
-    // Parse MIME email to extract HTML or text body
+    // Parse MIME email to extract HTML or text body and attachment metadata
     const parsed = await simpleParser(rawEmail);
-    if (parsed.html) {
-      return parsed.html as string;
-    }
-    if (parsed.textAsHtml) {
-      return parsed.textAsHtml;
-    }
-    if (parsed.text) {
-      return parsed.text;
-    }
-    return rawEmail;
+    const body = (parsed.html as string | false | undefined) || parsed.textAsHtml || parsed.text || rawEmail;
+    const attachments = (parsed.attachments ?? []).map((att) => ({
+      filename: att.filename ?? "attachment",
+      contentType: att.contentType ?? "application/octet-stream",
+      size: att.size ?? 0,
+    }));
+    return { body, attachments };
+  },
+});
+
+export const getAttachment = action({
+  args: {
+    s3Key: v.string(),
+    attachmentIndex: v.number(),
+  },
+  handler: async (ctx, { s3Key, attachmentIndex }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const s3 = getS3Client();
+    const response = await s3.send(
+      new GetObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET!,
+        Key: s3Key,
+      })
+    );
+
+    const rawEmail = await response.Body?.transformToString("utf-8");
+    if (!rawEmail) throw new Error("Email not found in S3");
+
+    const parsed = await simpleParser(rawEmail);
+    const att = parsed.attachments?.[attachmentIndex];
+    if (!att) throw new Error("Attachment not found");
+
+    return {
+      filename: att.filename ?? "attachment",
+      contentType: att.contentType ?? "application/octet-stream",
+      data: att.content.toString("base64"),
+    };
   },
 });
 
