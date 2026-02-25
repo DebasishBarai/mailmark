@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useAction } from "convex/react";
@@ -12,7 +12,7 @@ const folderConfig = [
   { key: "sent", label: "Sent" },
   { key: "outbox", label: "Outbox" },
   { key: "drafts", label: "Drafts" },
-  { key: "campaigns", label: "Campaigns" },
+  { key: "campaigns", label: "Campaigns", navHidden: true },
 ];
 
 const folderIcons: Record<string, string> = {
@@ -84,6 +84,9 @@ export default function MailboxPage() {
   >([]);
   const [downloadingAttachment, setDownloadingAttachment] = useState<number | null>(null);
   const [showEmailIds, setShowEmailIds] = useState(false);
+  const [sendMode, setSendMode] = useState<"send" | "campaign">("send");
+  const [showSendDropdown, setShowSendDropdown] = useState(false);
+  const sendDropdownRef = useRef<HTMLDivElement>(null);
 
   type ComposeMode = "compose" | "reply" | "replyAll" | "forward";
   const [showCompose, setShowCompose] = useState(false);
@@ -206,6 +209,52 @@ export default function MailboxPage() {
       setIsSending(false);
     }
   };
+
+  const handleSendCampaign = async () => {
+    const pendingInput = composeToInput.trim();
+    const allRecipients = pendingInput ? [...composeTo, pendingInput] : composeTo;
+    if (allRecipients.length === 0 || !composeSubject.trim()) return;
+    setIsSending(true);
+    setSendError(null);
+    try {
+      const fullBody = composeBody.replace(/\n/g, "<br>") + (composeQuote ? `<br><br>${composeQuote}` : "");
+      const attachmentData = composeAttachments
+        .filter((att) => att.status === "uploaded" && att.data)
+        .map((att) => ({ filename: att.filename, contentType: att.contentType, data: att.data! }));
+      for (const recipient of allRecipients) {
+        await sendEmail({
+          mailboxId: mbId,
+          to: [recipient],
+          subject: composeSubject,
+          body: fullBody,
+          attachments: attachmentData.length > 0 ? attachmentData : undefined,
+          folder: "campaigns",
+        });
+      }
+      setShowCompose(false);
+      setComposeTo([]);
+      setComposeToInput("");
+      setComposeSubject("");
+      setComposeBody("");
+      setComposeQuote("");
+      setComposeAttachments([]);
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Failed to send campaign. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showSendDropdown) return;
+    const handler = (e: MouseEvent) => {
+      if (sendDropdownRef.current && !sendDropdownRef.current.contains(e.target as Node)) {
+        setShowSendDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showSendDropdown]);
 
   const handleMoveToTrash = async (emailId: Id<"emails">) => {
     await moveToFolder({ emailId, folder: "trash" });
@@ -373,7 +422,7 @@ export default function MailboxPage() {
             Compose
           </button>
           <nav className="space-y-1">
-            {folderConfig.map((folder) => (
+            {folderConfig.filter((f) => !f.navHidden).map((folder) => (
               <button
                 key={folder.key}
                 onClick={() => {
@@ -795,19 +844,61 @@ export default function MailboxPage() {
             />
             <div className="mt-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <button
-                  onClick={handleSend}
-                  disabled={(composeTo.length === 0 && !composeToInput.trim()) || !composeSubject.trim() || isSending || isAnyUploading}
-                  className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
-                >
-                  {isAnyUploading
-                    ? "Processing attachments..."
-                    : isSending
-                      ? composeAttachments.length > 0
-                        ? `Sending with ${composeAttachments.length} attachment${composeAttachments.length > 1 ? "s" : ""}...`
-                        : "Sending..."
-                      : "Send"}
-                </button>
+                {/* Split send button */}
+                <div ref={sendDropdownRef} className="relative flex items-center">
+                  <button
+                    onClick={sendMode === "campaign" ? handleSendCampaign : handleSend}
+                    disabled={(composeTo.length === 0 && !composeToInput.trim()) || !composeSubject.trim() || isSending || isAnyUploading}
+                    className="rounded-l-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    {isAnyUploading
+                      ? "Processing attachments..."
+                      : isSending
+                        ? sendMode === "campaign"
+                          ? "Sending campaign..."
+                          : composeAttachments.length > 0
+                            ? `Sending with ${composeAttachments.length} attachment${composeAttachments.length > 1 ? "s" : ""}...`
+                            : "Sending..."
+                        : sendMode === "campaign"
+                          ? "Send as Campaign"
+                          : "Send"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowSendDropdown((v) => !v)}
+                    disabled={isSending || isAnyUploading}
+                    className="rounded-r-lg border-l border-violet-500 bg-violet-600 px-2 py-2.5 text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+                    title="Choose send mode"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </button>
+                  {showSendDropdown && (
+                    <div className="absolute bottom-full left-0 z-20 mb-1 w-60 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                      <button
+                        onClick={() => { setSendMode("send"); setShowSendDropdown(false); }}
+                        className={`flex w-full items-start gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-gray-50 ${sendMode === "send" ? "bg-violet-50" : ""}`}
+                      >
+                        <div className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 ${sendMode === "send" ? "border-violet-600 bg-violet-600" : "border-gray-300"}`} />
+                        <div>
+                          <p className={`font-medium ${sendMode === "send" ? "text-violet-700" : "text-gray-800"}`}>Send</p>
+                          <p className="text-xs text-gray-400">One email to all recipients</p>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => { setSendMode("campaign"); setShowSendDropdown(false); }}
+                        className={`flex w-full items-start gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-gray-50 ${sendMode === "campaign" ? "bg-violet-50" : ""}`}
+                      >
+                        <div className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 ${sendMode === "campaign" ? "border-violet-600 bg-violet-600" : "border-gray-300"}`} />
+                        <div>
+                          <p className={`font-medium ${sendMode === "campaign" ? "text-violet-700" : "text-gray-800"}`}>Send as Campaign</p>
+                          <p className="text-xs text-gray-400">Individual email per recipient</p>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
