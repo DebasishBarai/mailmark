@@ -15,6 +15,14 @@ const folderConfig = [
   { key: "campaigns", label: "Campaigns" },
 ];
 
+const folderIcons: Record<string, string> = {
+  inbox: "M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.1 13.177a2.25 2.25 0 00-.1.661z",
+  sent: "M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5",
+  outbox: "M9 8.25H7.5a2.25 2.25 0 00-2.25 2.25v9a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H15m0-3l-3-3m0 0l-3 3m3-3V15",
+  drafts: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10",
+  campaigns: "M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46",
+};
+
 function timeAgo(timestamp: number) {
   const diff = Date.now() - timestamp;
   const minutes = Math.floor(diff / 60000);
@@ -65,7 +73,8 @@ export default function MailboxPage() {
   type ComposeMode = "compose" | "reply" | "replyAll" | "forward";
   const [showCompose, setShowCompose] = useState(false);
   const [composeMode, setComposeMode] = useState<ComposeMode>("compose");
-  const [composeTo, setComposeTo] = useState("");
+  const [composeTo, setComposeTo] = useState<string[]>([]);
+  const [composeToInput, setComposeToInput] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [composeQuote, setComposeQuote] = useState("");
@@ -146,11 +155,14 @@ export default function MailboxPage() {
   };
 
   const handleSend = async () => {
-    if (!composeTo.trim() || !composeSubject.trim()) return;
+    // include any email still being typed but not yet chipped
+    const pendingInput = composeToInput.trim();
+    const allRecipients = pendingInput ? [...composeTo, pendingInput] : composeTo;
+    if (allRecipients.length === 0 || !composeSubject.trim()) return;
     setIsSending(true);
     setSendError(null);
     try {
-      const recipients = composeTo.split(",").map((e) => e.trim()).filter(Boolean);
+      const recipients = allRecipients;
       const fullBody = composeBody.replace(/\n/g, "<br>") + (composeQuote ? `<br><br>${composeQuote}` : "");
       const attachmentData = composeAttachments
         .filter((att) => att.status === "uploaded" && att.data)
@@ -167,7 +179,8 @@ export default function MailboxPage() {
         attachments: attachmentData.length > 0 ? attachmentData : undefined,
       });
       setShowCompose(false);
-      setComposeTo("");
+      setComposeTo([]);
+      setComposeToInput("");
       setComposeSubject("");
       setComposeBody("");
       setComposeQuote("");
@@ -189,7 +202,8 @@ export default function MailboxPage() {
 
   const handleOpenCompose = () => {
     setComposeMode("compose");
-    setComposeTo("");
+    setComposeTo([]);
+    setComposeToInput("");
     setComposeSubject("");
     setComposeBody("");
     setComposeQuote("");
@@ -201,7 +215,8 @@ export default function MailboxPage() {
   const handleReply = () => {
     if (!selectedEmail || !emailBody) return;
     setComposeMode("reply");
-    setComposeTo(selectedEmail.from);
+    setComposeTo([selectedEmail.from]);
+    setComposeToInput("");
     setComposeSubject(
       selectedEmail.subject.startsWith("Re:")
         ? selectedEmail.subject
@@ -224,7 +239,8 @@ export default function MailboxPage() {
       ...selectedEmail.to.filter((addr) => addr !== myAddress),
     ];
     setComposeMode("replyAll");
-    setComposeTo(recipients.join(", "));
+    setComposeTo(recipients);
+    setComposeToInput("");
     setComposeSubject(
       selectedEmail.subject.startsWith("Re:")
         ? selectedEmail.subject
@@ -242,7 +258,8 @@ export default function MailboxPage() {
   const handleForward = () => {
     if (!selectedEmail || !emailBody) return;
     setComposeMode("forward");
-    setComposeTo("");
+    setComposeTo([]);
+    setComposeToInput("");
     setComposeSubject(
       selectedEmail.subject.startsWith("Fwd:")
         ? selectedEmail.subject
@@ -354,7 +371,12 @@ export default function MailboxPage() {
                   : "text-gray-600 hover:bg-gray-100"
                   }`}
               >
-                <span>{folder.label}</span>
+                <span className="flex items-center gap-2">
+                  <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d={folderIcons[folder.key]} />
+                  </svg>
+                  {folder.label}
+                </span>
                 {folder.key === "inbox" && unreadCount > 0 && (
                   <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[10px] text-white">
                     {unreadCount}
@@ -582,7 +604,7 @@ export default function MailboxPage() {
               {{ compose: "New Message", reply: "Reply", replyAll: "Reply All", forward: "Forward" }[composeMode]}
             </h3>
             <button
-              onClick={() => { setShowCompose(false); setSendError(null); setComposeQuote(""); setComposeAttachments([]); }}
+              onClick={() => { setShowCompose(false); setSendError(null); setComposeTo([]); setComposeToInput(""); setComposeQuote(""); setComposeAttachments([]); }}
               className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -596,14 +618,42 @@ export default function MailboxPage() {
                 <span className="text-sm text-gray-500">From:</span>
                 <span className="text-sm text-gray-900">{mailbox.fullAddress}</span>
               </div>
-              <div className="flex items-center gap-3 border-b border-gray-100 pb-2">
-                <span className="text-sm text-gray-500">To:</span>
+              <div className="flex min-h-[2rem] flex-wrap items-center gap-1.5 border-b border-gray-100 pb-2">
+                <span className="shrink-0 text-sm text-gray-500">To:</span>
+                {composeTo.map((email, i) => (
+                  <span key={i} className="flex items-center gap-1 rounded-full bg-violet-100 py-0.5 pl-2.5 pr-1 text-xs font-medium text-violet-800">
+                    {email}
+                    <button
+                      type="button"
+                      onClick={() => setComposeTo((prev) => prev.filter((_, j) => j !== i))}
+                      className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-violet-500 hover:bg-violet-200 hover:text-violet-700"
+                      title="Remove"
+                    >
+                      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
                 <input
                   type="text"
-                  value={composeTo}
-                  onChange={(e) => setComposeTo(e.target.value)}
-                  className="flex-1 text-sm text-gray-900 outline-none placeholder-gray-400"
-                  placeholder="recipient@example.com"
+                  value={composeToInput}
+                  onChange={(e) => setComposeToInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === "," || e.key === "Tab") {
+                      e.preventDefault();
+                      const val = composeToInput.trim().replace(/,+$/, "");
+                      if (val) { setComposeTo((prev) => [...prev, val]); setComposeToInput(""); }
+                    } else if (e.key === "Backspace" && !composeToInput && composeTo.length > 0) {
+                      setComposeTo((prev) => prev.slice(0, -1));
+                    }
+                  }}
+                  onBlur={() => {
+                    const val = composeToInput.trim().replace(/,+$/, "");
+                    if (val) { setComposeTo((prev) => [...prev, val]); setComposeToInput(""); }
+                  }}
+                  className="min-w-[140px] flex-1 text-sm text-gray-900 outline-none placeholder-gray-400"
+                  placeholder={composeTo.length === 0 ? "recipient@example.com" : "Add recipient..."}
                 />
               </div>
               <div className="flex items-center gap-3 border-b border-gray-100 pb-2">
@@ -700,7 +750,7 @@ export default function MailboxPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleSend}
-                  disabled={!composeTo.trim() || !composeSubject.trim() || isSending || isAnyUploading}
+                  disabled={(composeTo.length === 0 && !composeToInput.trim()) || !composeSubject.trim() || isSending || isAnyUploading}
                   className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
                 >
                   {isAnyUploading
@@ -723,7 +773,7 @@ export default function MailboxPage() {
                 </button>
               </div>
               <button
-                onClick={() => { setShowCompose(false); setComposeQuote(""); setComposeAttachments([]); }}
+                onClick={() => { setShowCompose(false); setComposeTo([]); setComposeToInput(""); setComposeQuote(""); setComposeAttachments([]); }}
                 className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
