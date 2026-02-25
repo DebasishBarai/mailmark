@@ -47,16 +47,24 @@ export default function MailboxPage() {
   });
   const unreadCount = inboxEmails?.filter((e: Doc<"emails">) => !e.read).length ?? 0;
   const markAsRead = useMutation(api.emails.markAsRead);
+  const markAsUnread = useMutation(api.emails.markAsUnread);
   const toggleStar = useMutation(api.emails.toggleStar);
   const moveToFolder = useMutation(api.emails.moveToFolder);
   const sendEmail = useAction(api.ses.sendEmail);
   const fetchEmailBody = useAction(api.ses.fetchEmailBody);
+  const getAttachment = useAction(api.ses.getAttachment);
 
   const [selectedEmailId, setSelectedEmailId] = useState<Id<"emails"> | null>(null);
   const [emailBody, setEmailBody] = useState<string | null>(null);
   const [loadingBody, setLoadingBody] = useState(false);
+  const [emailAttachments, setEmailAttachments] = useState<
+    Array<{ filename: string; contentType: string; size: number }>
+  >([]);
+  const [downloadingAttachment, setDownloadingAttachment] = useState<number | null>(null);
 
+  type ComposeMode = "compose" | "reply" | "replyAll" | "forward";
   const [showCompose, setShowCompose] = useState(false);
+  const [composeMode, setComposeMode] = useState<ComposeMode>("compose");
   const [composeTo, setComposeTo] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
@@ -70,6 +78,7 @@ export default function MailboxPage() {
   const handleSelectEmail = async (emailId: Id<"emails">) => {
     setSelectedEmailId(emailId);
     setEmailBody(null);
+    setEmailAttachments([]);
 
     const email = emails?.find((e: Doc<"emails">) => e._id === emailId);
     if (email && !email.read) {
@@ -80,8 +89,9 @@ export default function MailboxPage() {
     if (email) {
       setLoadingBody(true);
       try {
-        const body = await fetchEmailBody({ s3Key: email.s3Key });
-        setEmailBody(body);
+        const result = await fetchEmailBody({ s3Key: email.s3Key });
+        setEmailBody(result.body);
+        setEmailAttachments(result.attachments);
       } catch {
         setEmailBody("Failed to load email body.");
       } finally {
@@ -118,6 +128,93 @@ export default function MailboxPage() {
     if (selectedEmailId === emailId) {
       setSelectedEmailId(null);
       setEmailBody(null);
+    }
+  };
+
+  const handleOpenCompose = () => {
+    setComposeMode("compose");
+    setComposeTo("");
+    setComposeSubject("");
+    setComposeBody("");
+    setSendError(null);
+    setShowCompose(true);
+  };
+
+  const handleReply = () => {
+    if (!selectedEmail || !emailBody) return;
+    setComposeMode("reply");
+    setComposeTo(selectedEmail.from);
+    setComposeSubject(
+      selectedEmail.subject.startsWith("Re:")
+        ? selectedEmail.subject
+        : `Re: ${selectedEmail.subject}`
+    );
+    setComposeBody(
+      `<br><br><blockquote style="margin:0 0 0 .8ex;border-left:2px solid #ccc;padding-left:1ex;"><p><strong>On ${new Date(selectedEmail.date).toLocaleString()}, ${selectedEmail.from} wrote:</strong></p>${emailBody}</blockquote>`
+    );
+    setSendError(null);
+    setShowCompose(true);
+  };
+
+  const handleReplyAll = () => {
+    if (!selectedEmail || !emailBody) return;
+    const myAddress = mailbox.fullAddress;
+    const recipients = [
+      selectedEmail.from,
+      ...selectedEmail.to.filter((addr) => addr !== myAddress),
+    ];
+    setComposeMode("replyAll");
+    setComposeTo(recipients.join(", "));
+    setComposeSubject(
+      selectedEmail.subject.startsWith("Re:")
+        ? selectedEmail.subject
+        : `Re: ${selectedEmail.subject}`
+    );
+    setComposeBody(
+      `<br><br><blockquote style="margin:0 0 0 .8ex;border-left:2px solid #ccc;padding-left:1ex;"><p><strong>On ${new Date(selectedEmail.date).toLocaleString()}, ${selectedEmail.from} wrote:</strong></p>${emailBody}</blockquote>`
+    );
+    setSendError(null);
+    setShowCompose(true);
+  };
+
+  const handleForward = () => {
+    if (!selectedEmail || !emailBody) return;
+    setComposeMode("forward");
+    setComposeTo("");
+    setComposeSubject(
+      selectedEmail.subject.startsWith("Fwd:")
+        ? selectedEmail.subject
+        : `Fwd: ${selectedEmail.subject}`
+    );
+    setComposeBody(
+      `<br><br><p>---------- Forwarded message ----------</p><p>From: ${selectedEmail.from}<br>Date: ${new Date(selectedEmail.date).toLocaleString()}<br>Subject: ${selectedEmail.subject}<br>To: ${selectedEmail.to.join(", ")}</p><br>${emailBody}`
+    );
+    setSendError(null);
+    setShowCompose(true);
+  };
+
+  const handleMarkAsUnread = async () => {
+    if (!selectedEmail) return;
+    await markAsUnread({ emailId: selectedEmail._id });
+  };
+
+  const handleDownloadAttachment = async (index: number) => {
+    if (!selectedEmail) return;
+    setDownloadingAttachment(index);
+    try {
+      const result = await getAttachment({ s3Key: selectedEmail.s3Key, attachmentIndex: index });
+      const bytes = Uint8Array.from(atob(result.data), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: result.contentType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silent fail
+    } finally {
+      setDownloadingAttachment(null);
     }
   };
 
@@ -174,7 +271,7 @@ export default function MailboxPage() {
         {/* Folder sidebar */}
         <div className="flex w-48 shrink-0 flex-col border-r border-gray-100 bg-gray-50 p-3">
           <button
-            onClick={() => { setShowCompose(true); setSendError(null); }}
+            onClick={handleOpenCompose}
             className="mb-3 w-full rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
           >
             Compose
@@ -293,7 +390,51 @@ export default function MailboxPage() {
                   <span className="text-xs text-gray-400">{timeAgo(selectedEmail.date)}</span>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-1">
+                {emailBody && (
+                  <>
+                    <button
+                      onClick={handleReply}
+                      title="Reply"
+                      className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                      </svg>
+                      Reply
+                    </button>
+                    <button
+                      onClick={handleReplyAll}
+                      title="Reply All"
+                      className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25L9 3m0 0l6 5.25M9 3v13.5m6-10.5L21 9m0 0l-6 5.25M21 9v7.5" />
+                      </svg>
+                      Reply All
+                    </button>
+                    <button
+                      onClick={handleForward}
+                      title="Forward"
+                      className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
+                      </svg>
+                      Forward
+                    </button>
+                    <div className="mx-1 h-4 w-px bg-gray-200" />
+                  </>
+                )}
+                <button
+                  onClick={handleMarkAsUnread}
+                  title="Mark as unread"
+                  className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-blue-500"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 9v.906a2.25 2.25 0 01-1.183 1.981l-6.478 3.488M2.25 9v.906a2.25 2.25 0 001.183 1.981l6.478 3.488m8.839 2.51l-4.66-2.51m0 0l-1.023-.55a2.25 2.25 0 00-2.134 0l-1.022.55m0 0l-4.661 2.51m16.5 1.615a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V8.844a2.25 2.25 0 011.183-1.98l7.5-4.04a2.25 2.25 0 012.134 0l7.5 4.04a2.25 2.25 0 011.183 1.98V19.5z" />
+                  </svg>
+                </button>
                 <button
                   onClick={() => toggleStar({ emailId: selectedEmail._id })}
                   className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-yellow-500"
@@ -325,6 +466,34 @@ export default function MailboxPage() {
                 <p>{selectedEmail.snippet}</p>
               )}
             </div>
+            {emailAttachments.length > 0 && (
+              <div className="mt-6 border-t border-gray-100 pt-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Attachments ({emailAttachments.length})
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {emailAttachments.map((att, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleDownloadAttachment(i)}
+                      disabled={downloadingAttachment === i}
+                      className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                      </svg>
+                      <span className="max-w-[160px] truncate">{att.filename}</span>
+                      <span className="text-gray-400">
+                        ({att.size < 1024 ? "< 1" : Math.round(att.size / 1024)}kb)
+                      </span>
+                      {downloadingAttachment === i && (
+                        <span className="text-violet-600">Downloading...</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -345,7 +514,9 @@ export default function MailboxPage() {
       {showCompose && (
         <div className="fixed bottom-0 right-8 z-50 w-full max-w-lg rounded-t-2xl border border-gray-200 bg-white shadow-2xl">
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-3">
-            <h3 className="text-sm font-semibold text-gray-900">New Message</h3>
+            <h3 className="text-sm font-semibold text-gray-900">
+              {{ compose: "New Message", reply: "Reply", replyAll: "Reply All", forward: "Forward" }[composeMode]}
+            </h3>
             <button
               onClick={() => { setShowCompose(false); setSendError(null); }}
               className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
