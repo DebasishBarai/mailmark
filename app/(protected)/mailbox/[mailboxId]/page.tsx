@@ -845,11 +845,11 @@ export default function MailboxPage() {
             <div className="mt-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {/* Split send button */}
-                <div ref={sendDropdownRef} className="relative flex items-center">
+                <div ref={sendDropdownRef} className="relative inline-flex overflow-hidden rounded-lg">
                   <button
                     onClick={sendMode === "campaign" ? handleSendCampaign : handleSend}
                     disabled={(composeTo.length === 0 && !composeToInput.trim()) || !composeSubject.trim() || isSending || isAnyUploading}
-                    className="rounded-l-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+                    className="bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
                   >
                     {isAnyUploading
                       ? "Processing attachments..."
@@ -863,11 +863,12 @@ export default function MailboxPage() {
                           ? "Send as Campaign"
                           : "Send"}
                   </button>
+                  <div className="w-px self-stretch bg-violet-500" />
                   <button
                     type="button"
                     onClick={() => setShowSendDropdown((v) => !v)}
                     disabled={isSending || isAnyUploading}
-                    className="rounded-r-lg border-l border-violet-500 bg-violet-600 px-2 py-2.5 text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+                    className="bg-violet-600 px-2.5 text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
                     title="Choose send mode"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
