@@ -157,7 +157,7 @@ export default function MailboxPage() {
   };
 
   const handleReplyAll = () => {
-    if (!selectedEmail || !emailBody) return;
+    if (!selectedEmail || !emailBody || !mailbox) return;
     const myAddress = mailbox.fullAddress;
     const recipients = [
       selectedEmail.from,
