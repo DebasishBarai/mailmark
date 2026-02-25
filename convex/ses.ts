@@ -162,7 +162,7 @@ export const sendEmail = action({
     await ctx.runMutation(internal.emails.insertSent, {
       mailboxId,
       messageId,
-      from: mailbox.fullAddress,
+      from: fromAddress,
       to,
       subject,
       snippet,
