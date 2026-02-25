@@ -43,6 +43,12 @@ function getDisplayName(emailStr: string): string {
   return emailStr;
 }
 
+function getRawEmail(emailStr: string): string {
+  const match = emailStr.match(/<([^>]+)>/);
+  if (match) return match[1];
+  return emailStr;
+}
+
 export default function MailboxPage() {
   const { mailboxId } = useParams<{ mailboxId: string }>();
   const mbId = mailboxId as Id<"mailboxes">;
@@ -77,6 +83,7 @@ export default function MailboxPage() {
     Array<{ filename: string; contentType: string; size: number }>
   >([]);
   const [downloadingAttachment, setDownloadingAttachment] = useState<number | null>(null);
+  const [showEmailIds, setShowEmailIds] = useState(false);
 
   type ComposeMode = "compose" | "reply" | "replyAll" | "forward";
   const [showCompose, setShowCompose] = useState(false);
@@ -417,7 +424,22 @@ export default function MailboxPage() {
         </div>
 
         {/* Email list */}
-        <div className={`shrink-0 overflow-y-auto border-r border-gray-200 bg-white ${selectedEmailId ? "w-80" : "flex-1"}`}>
+        <div className={`flex shrink-0 flex-col border-r border-gray-200 bg-white ${selectedEmailId ? "w-80" : "flex-1"}`}>
+          {/* List header */}
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
+            <span className="text-xs font-medium capitalize text-gray-500">{activeFolder}</span>
+            <button
+              onClick={() => setShowEmailIds((v) => !v)}
+              title={showEmailIds ? "Show names" : "Show email addresses"}
+              className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] transition-colors ${showEmailIds ? "bg-violet-100 text-violet-700 font-medium" : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"}`}
+            >
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 10-2.636 6.364M16.5 12V8.25" />
+              </svg>
+              {showEmailIds ? "Email IDs" : "Names"}
+            </button>
+          </div>
+          <div className="overflow-y-auto flex-1">
           {emails.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <div className="text-center">
@@ -444,9 +466,9 @@ export default function MailboxPage() {
                     <span className={`truncate text-sm ${!email.read ? "font-semibold text-gray-900" : "text-gray-700"}`}>
                       {activeFolder === "sent" || activeFolder === "outbox"
                         ? email.to.length > 1
-                          ? `${getDisplayName(email.to[0])} +${email.to.length - 1}`
-                          : getDisplayName(email.to[0])
-                        : getDisplayName(email.from)}
+                          ? `${showEmailIds ? getRawEmail(email.to[0]) : getDisplayName(email.to[0])} +${email.to.length - 1}`
+                          : showEmailIds ? getRawEmail(email.to[0]) : getDisplayName(email.to[0])
+                        : showEmailIds ? getRawEmail(email.from) : getDisplayName(email.from)}
                     </span>
                     <div className="flex items-center gap-1">
                       {email.starred && (
@@ -467,6 +489,7 @@ export default function MailboxPage() {
               ))}
             </div>
           )}
+          </div>
         </div>
 
         {/* Email detail */}
@@ -482,8 +505,20 @@ export default function MailboxPage() {
                     {getDisplayName(selectedEmail.from)[0].toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{getDisplayName(selectedEmail.from)}</p>
-                    <p className="text-xs text-gray-500">To: {selectedEmail.to.map(getDisplayName).join(", ")}</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {getDisplayName(selectedEmail.from)}
+                      {showEmailIds && (
+                        <span className="ml-1.5 font-normal text-gray-500">&lt;{getRawEmail(selectedEmail.from)}&gt;</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      To:{" "}
+                      {selectedEmail.to.map((addr) =>
+                        showEmailIds
+                          ? getRawEmail(addr)
+                          : getDisplayName(addr)
+                      ).join(", ")}
+                    </p>
                   </div>
                   <span className="text-xs text-gray-400">{timeAgo(selectedEmail.date)}</span>
                 </div>
