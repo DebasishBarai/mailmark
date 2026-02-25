@@ -68,6 +68,7 @@ export default function MailboxPage() {
   const [composeTo, setComposeTo] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
+  const [composeQuote, setComposeQuote] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
@@ -106,16 +107,18 @@ export default function MailboxPage() {
     setSendError(null);
     try {
       const recipients = composeTo.split(",").map((e) => e.trim()).filter(Boolean);
+      const fullBody = composeBody.replace(/\n/g, "<br>") + (composeQuote ? `<br><br>${composeQuote}` : "");
       await sendEmail({
         mailboxId: mbId,
         to: recipients,
         subject: composeSubject,
-        body: composeBody,
+        body: fullBody,
       });
       setShowCompose(false);
       setComposeTo("");
       setComposeSubject("");
       setComposeBody("");
+      setComposeQuote("");
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to send email. Please try again.");
     } finally {
@@ -136,6 +139,7 @@ export default function MailboxPage() {
     setComposeTo("");
     setComposeSubject("");
     setComposeBody("");
+    setComposeQuote("");
     setSendError(null);
     setShowCompose(true);
   };
@@ -149,8 +153,9 @@ export default function MailboxPage() {
         ? selectedEmail.subject
         : `Re: ${selectedEmail.subject}`
     );
-    setComposeBody(
-      `<br><br><blockquote style="margin:0 0 0 .8ex;border-left:2px solid #ccc;padding-left:1ex;"><p><strong>On ${new Date(selectedEmail.date).toLocaleString()}, ${selectedEmail.from} wrote:</strong></p>${emailBody}</blockquote>`
+    setComposeBody("");
+    setComposeQuote(
+      `<blockquote style="margin:0 0 0 .8ex;border-left:2px solid #ccc;padding-left:1ex;"><p><strong>On ${new Date(selectedEmail.date).toLocaleString()}, ${selectedEmail.from} wrote:</strong></p>${emailBody}</blockquote>`
     );
     setSendError(null);
     setShowCompose(true);
@@ -170,8 +175,9 @@ export default function MailboxPage() {
         ? selectedEmail.subject
         : `Re: ${selectedEmail.subject}`
     );
-    setComposeBody(
-      `<br><br><blockquote style="margin:0 0 0 .8ex;border-left:2px solid #ccc;padding-left:1ex;"><p><strong>On ${new Date(selectedEmail.date).toLocaleString()}, ${selectedEmail.from} wrote:</strong></p>${emailBody}</blockquote>`
+    setComposeBody("");
+    setComposeQuote(
+      `<blockquote style="margin:0 0 0 .8ex;border-left:2px solid #ccc;padding-left:1ex;"><p><strong>On ${new Date(selectedEmail.date).toLocaleString()}, ${selectedEmail.from} wrote:</strong></p>${emailBody}</blockquote>`
     );
     setSendError(null);
     setShowCompose(true);
@@ -186,8 +192,9 @@ export default function MailboxPage() {
         ? selectedEmail.subject
         : `Fwd: ${selectedEmail.subject}`
     );
-    setComposeBody(
-      `<br><br><p>---------- Forwarded message ----------</p><p>From: ${selectedEmail.from}<br>Date: ${new Date(selectedEmail.date).toLocaleString()}<br>Subject: ${selectedEmail.subject}<br>To: ${selectedEmail.to.join(", ")}</p><br>${emailBody}`
+    setComposeBody("");
+    setComposeQuote(
+      `<p>---------- Forwarded message ----------</p><p>From: ${selectedEmail.from}<br>Date: ${new Date(selectedEmail.date).toLocaleString()}<br>Subject: ${selectedEmail.subject}<br>To: ${selectedEmail.to.join(", ")}</p><br>${emailBody}`
     );
     setSendError(null);
     setShowCompose(true);
@@ -518,7 +525,7 @@ export default function MailboxPage() {
               {{ compose: "New Message", reply: "Reply", replyAll: "Reply All", forward: "Forward" }[composeMode]}
             </h3>
             <button
-              onClick={() => { setShowCompose(false); setSendError(null); }}
+              onClick={() => { setShowCompose(false); setSendError(null); setComposeQuote(""); }}
               className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -553,12 +560,18 @@ export default function MailboxPage() {
                 />
               </div>
               <textarea
-                rows={8}
+                rows={composeQuote ? 4 : 8}
                 value={composeBody}
                 onChange={(e) => setComposeBody(e.target.value)}
                 className="w-full resize-none text-sm text-gray-700 outline-none placeholder-gray-400"
                 placeholder="Write your message..."
               />
+              {composeQuote && (
+                <div
+                  className="mt-2 max-h-40 overflow-y-auto border-t border-gray-100 pt-2 text-sm text-gray-400"
+                  dangerouslySetInnerHTML={{ __html: composeQuote }}
+                />
+              )}
             </div>
             {sendError && (
               <div className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -574,7 +587,7 @@ export default function MailboxPage() {
                 {isSending ? "Sending..." : "Send"}
               </button>
               <button
-                onClick={() => setShowCompose(false)}
+                onClick={() => { setShowCompose(false); setComposeQuote(""); }}
                 className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
