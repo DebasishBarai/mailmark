@@ -69,8 +69,50 @@ export default function MailboxPage() {
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [composeQuote, setComposeQuote] = useState("");
-  const [composeAttachments, setComposeAttachments] = useState<File[]>([]);
+  type AttachmentEntry = {
+    id: number;
+    filename: string;
+    size: number;
+    contentType: string;
+    status: "uploading" | "uploaded";
+    data?: string; // base64
+  };
+  const [composeAttachments, setComposeAttachments] = useState<AttachmentEntry[]>([]);
+  const attachmentIdRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const processFiles = (files: File[]) => {
+    const newEntries: AttachmentEntry[] = files.map((file) => ({
+      id: ++attachmentIdRef.current,
+      filename: file.name,
+      size: file.size,
+      contentType: file.type || "application/octet-stream",
+      status: "uploading" as const,
+    }));
+    setComposeAttachments((prev) => [...prev, ...newEntries]);
+
+    // Encode each file to base64 in background
+    newEntries.forEach((entry, i) => {
+      const file = files[i];
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(",")[1] ?? "";
+        setComposeAttachments((prev) =>
+          prev.map((att) =>
+            att.id === entry.id ? { ...att, status: "uploaded", data: base64 } : att
+          )
+        );
+      };
+      reader.onerror = () => {
+        // Remove failed entry
+        setComposeAttachments((prev) => prev.filter((att) => att.id !== entry.id));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const isAnyUploading = composeAttachments.some((att) => att.status === "uploading");
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
@@ -110,19 +152,13 @@ export default function MailboxPage() {
     try {
       const recipients = composeTo.split(",").map((e) => e.trim()).filter(Boolean);
       const fullBody = composeBody.replace(/\n/g, "<br>") + (composeQuote ? `<br><br>${composeQuote}` : "");
-      const attachmentData = await Promise.all(
-        composeAttachments.map(async (file) => {
-          const buffer = await file.arrayBuffer();
-          const bytes = new Uint8Array(buffer);
-          let binary = "";
-          bytes.forEach((b) => (binary += String.fromCharCode(b)));
-          return {
-            filename: file.name,
-            contentType: file.type || "application/octet-stream",
-            data: btoa(binary),
-          };
-        })
-      );
+      const attachmentData = composeAttachments
+        .filter((att) => att.status === "uploaded" && att.data)
+        .map((att) => ({
+          filename: att.filename,
+          contentType: att.contentType,
+          data: att.data!,
+        }));
       await sendEmail({
         mailboxId: mbId,
         to: recipients,
@@ -598,21 +634,43 @@ export default function MailboxPage() {
                 <div className="border-t border-gray-100 pt-2">
                   <p className="mb-1.5 text-xs font-medium text-gray-500">
                     {composeAttachments.length} attachment{composeAttachments.length > 1 ? "s" : ""}
+                    {isAnyUploading && <span className="ml-1 text-amber-500">— processing...</span>}
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {composeAttachments.map((file, i) => (
-                      <div key={i} className="flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-xs text-violet-700">
-                        <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
-                        </svg>
-                        <span className="max-w-[140px] truncate font-medium">{file.name}</span>
-                        <span className="text-violet-400">({file.size < 1024 ? "< 1" : Math.round(file.size / 1024)}kb)</span>
-                        <button
-                          type="button"
-                          onClick={() => setComposeAttachments((prev) => prev.filter((_, j) => j !== i))}
-                          className="ml-0.5 text-violet-400 hover:text-red-500"
-                          title="Remove attachment"
-                        >×</button>
+                  <div className="flex flex-col gap-1.5">
+                    {composeAttachments.map((att) => (
+                      <div key={att.id} className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                        <div className="flex items-center gap-2 px-2.5 py-1.5">
+                          {att.status === "uploading" ? (
+                            <svg className="h-3.5 w-3.5 shrink-0 animate-spin text-amber-500" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                          ) : (
+                            <svg className="h-3.5 w-3.5 shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                          )}
+                          <span className="max-w-[180px] truncate text-xs font-medium text-gray-700">{att.filename}</span>
+                          <span className="text-xs text-gray-400">({att.size < 1024 ? "< 1" : Math.round(att.size / 1024)}kb)</span>
+                          <span className={`ml-auto text-[10px] font-semibold uppercase tracking-wide ${att.status === "uploading" ? "text-amber-500" : "text-green-500"}`}>
+                            {att.status === "uploading" ? "Uploading" : "Uploaded"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setComposeAttachments((prev) => prev.filter((a) => a.id !== att.id))}
+                            className="text-gray-400 hover:text-red-500"
+                            title="Remove attachment"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                        {att.status === "uploading" && (
+                          <div className="h-1 w-full bg-gray-100">
+                            <div className="h-full animate-pulse rounded-full bg-amber-400" style={{ width: "60%" }} />
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -634,7 +692,7 @@ export default function MailboxPage() {
                 const files = Array.from(e.target.files ?? []);
                 e.target.value = "";
                 if (files.length > 0) {
-                  setComposeAttachments((prev) => [...prev, ...files]);
+                  processFiles(files);
                 }
               }}
             />
@@ -642,14 +700,16 @@ export default function MailboxPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleSend}
-                  disabled={!composeTo.trim() || !composeSubject.trim() || isSending}
+                  disabled={!composeTo.trim() || !composeSubject.trim() || isSending || isAnyUploading}
                   className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
                 >
-                  {isSending
-                    ? composeAttachments.length > 0
-                      ? `Sending with ${composeAttachments.length} attachment${composeAttachments.length > 1 ? "s" : ""}...`
-                      : "Sending..."
-                    : "Send"}
+                  {isAnyUploading
+                    ? "Processing attachments..."
+                    : isSending
+                      ? composeAttachments.length > 0
+                        ? `Sending with ${composeAttachments.length} attachment${composeAttachments.length > 1 ? "s" : ""}...`
+                        : "Sending..."
+                      : "Send"}
                 </button>
                 <button
                   type="button"
