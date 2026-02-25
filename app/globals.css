@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+}
+
+.dark {
+  --background: #0f172a;
+  --foreground: #f1f5f9;
 }
 
 @theme inline {
@@ -16,6 +23,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 html {

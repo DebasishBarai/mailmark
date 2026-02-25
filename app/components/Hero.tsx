@@ -2,32 +2,32 @@ import CTAButton from "./CTAButton";
 
 export default function Hero() {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-violet-50 to-white px-6 py-24 md:py-32">
+    <section className="relative overflow-hidden bg-gradient-to-b from-violet-50 to-white px-6 py-24 dark:from-violet-950/30 dark:to-gray-900 md:py-32">
       <div className="mx-auto max-w-7xl">
         <div className="grid items-center gap-12 md:grid-cols-2">
           {/* Text */}
           <div className="flex flex-col items-center text-center md:items-start md:text-left">
-            <span className="mb-4 inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700">
+            <span className="mb-4 inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
               Email Hosting + Campaigns
             </span>
-            <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 md:text-5xl lg:text-6xl">
+            <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 dark:text-white md:text-5xl lg:text-6xl">
               Your domain.{" "}
               <span className="text-violet-600">Your mailboxes.</span>{" "}
               Your campaigns.
             </h1>
-            <p className="mt-6 max-w-lg text-lg leading-relaxed text-gray-600">
+            <p className="mt-6 max-w-lg text-lg leading-relaxed text-gray-600 dark:text-gray-400">
               Add your domain, create unlimited mailboxes like
               support@yourco.com and sales@yourco.com, and manage everything
               from a beautiful email UI — inbox, sent, outbox, and built-in
               campaign tools.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-              <CTAButton className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-200 transition-all hover:bg-violet-700 hover:shadow-xl">
+              <CTAButton className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-200 transition-all hover:bg-violet-700 hover:shadow-xl dark:shadow-violet-900/30">
                 Get Started Free
               </CTAButton>
               <a
                 href="#how-it-works"
-                className="inline-flex items-center justify-center rounded-full border border-gray-300 px-8 py-3.5 text-base font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                className="inline-flex items-center justify-center rounded-full border border-gray-300 px-8 py-3.5 text-base font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 See How It Works
               </a>
@@ -46,8 +46,8 @@ export default function Hero() {
                   </svg>
                 ))}
               </div>
-              <span className="text-sm text-gray-500">
-                Trusted by <strong className="text-gray-800">10,000+</strong>{" "}
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                Trusted by <strong className="text-gray-800 dark:text-gray-200">10,000+</strong>{" "}
                 businesses
               </span>
             </div>
@@ -55,19 +55,19 @@ export default function Hero() {
 
           {/* Hero visual — email UI mockup */}
           <div className="relative">
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
               {/* Title bar */}
-              <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3">
+              <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900">
                 <div className="h-3 w-3 rounded-full bg-red-400" />
                 <div className="h-3 w-3 rounded-full bg-yellow-400" />
                 <div className="h-3 w-3 rounded-full bg-green-400" />
-                <span className="ml-3 text-xs font-medium text-gray-500">
+                <span className="ml-3 text-xs font-medium text-gray-500 dark:text-gray-400">
                   DevMail — sales@yourco.com
                 </span>
               </div>
               <div className="flex">
                 {/* Sidebar */}
-                <div className="hidden w-48 border-r border-gray-100 bg-gray-50 p-3 sm:block">
+                <div className="hidden w-48 border-r border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900 sm:block">
                   <div className="mb-3 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white">
                     Compose
                   </div>
@@ -78,8 +78,8 @@ export default function Hero() {
                           key={item}
                           className={`flex items-center justify-between rounded-md px-3 py-1.5 text-xs ${
                             i === 0
-                              ? "bg-violet-50 font-semibold text-violet-700"
-                              : "text-gray-600"
+                              ? "bg-violet-50 font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
+                              : "text-gray-600 dark:text-gray-400"
                           }`}
                         >
                           <span>{item}</span>
@@ -92,8 +92,8 @@ export default function Hero() {
                       )
                     )}
                   </div>
-                  <div className="mt-4 border-t border-gray-200 pt-3">
-                    <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  <div className="mt-4 border-t border-gray-200 pt-3 dark:border-gray-700">
+                    <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                       Mailboxes
                     </p>
                     <div className="space-y-1">
@@ -103,8 +103,8 @@ export default function Hero() {
                             key={mb}
                             className={`truncate rounded-md px-2 py-1 text-[10px] ${
                               i === 0
-                                ? "bg-violet-50 font-medium text-violet-700"
-                                : "text-gray-500"
+                                ? "bg-violet-50 font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
+                                : "text-gray-500 dark:text-gray-400"
                             }`}
                           >
                             {mb}
@@ -151,26 +151,26 @@ export default function Hero() {
                         key={email.subject}
                         className={`rounded-lg border px-3 py-2 ${
                           email.unread
-                            ? "border-violet-100 bg-violet-50/50"
-                            : "border-gray-100 bg-white"
+                            ? "border-violet-100 bg-violet-50/50 dark:border-violet-800/50 dark:bg-violet-900/20"
+                            : "border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800"
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <span
-                            className={`text-xs ${email.unread ? "font-semibold text-gray-900" : "text-gray-600"}`}
+                            className={`text-xs ${email.unread ? "font-semibold text-gray-900 dark:text-gray-100" : "text-gray-600 dark:text-gray-400"}`}
                           >
                             {email.from}
                           </span>
-                          <span className="text-[10px] text-gray-400">
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500">
                             {email.time}
                           </span>
                         </div>
                         <p
-                          className={`text-xs ${email.unread ? "font-medium text-gray-800" : "text-gray-600"}`}
+                          className={`text-xs ${email.unread ? "font-medium text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"}`}
                         >
                           {email.subject}
                         </p>
-                        <p className="truncate text-[10px] text-gray-400">
+                        <p className="truncate text-[10px] text-gray-400 dark:text-gray-500">
                           {email.preview}
                         </p>
                       </div>

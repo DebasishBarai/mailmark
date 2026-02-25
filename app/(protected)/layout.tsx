@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { Authenticated, Unauthenticated, AuthLoading, useAction, useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import ThemeToggle from "../components/ThemeToggle";
 
 const sidebarLinks = [
   {
@@ -39,10 +40,10 @@ const sidebarLinks = [
 
 function LoadingSpinner() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="flex flex-col items-center gap-4">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600" />
-        <p className="text-sm text-gray-500">Loading...</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>
       </div>
     </div>
   );
@@ -74,14 +75,14 @@ function AppShell({ children }: { children: ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 z-40 flex h-full flex-col border-r border-gray-200 bg-white transition-all ${sidebarCollapsed ? "w-16" : "w-60"
+        className={`fixed left-0 top-0 z-40 flex h-full flex-col border-r border-gray-200 bg-white transition-all dark:border-gray-700 dark:bg-gray-800 ${sidebarCollapsed ? "w-16" : "w-60"
           }`}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4">
+        <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4 dark:border-gray-700/50">
           {!sidebarCollapsed && (
             <Link href="/dashboard" className="text-xl font-bold text-violet-600">
               DevMail
@@ -89,7 +90,7 @@ function AppShell({ children }: { children: ReactNode }) {
           )}
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
             aria-label="Toggle sidebar"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -108,12 +109,12 @@ function AppShell({ children }: { children: ReactNode }) {
                 key={link.href}
                 href={link.href}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive
-                    ? "bg-violet-50 text-violet-700"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
                   }`}
                 title={sidebarCollapsed ? link.label : undefined}
               >
-                <span className={isActive ? "text-violet-600" : "text-gray-400"}>
+                <span className={isActive ? "text-violet-600 dark:text-violet-400" : "text-gray-400 dark:text-gray-500"}>
                   {link.icon}
                 </span>
                 {!sidebarCollapsed && <span>{link.label}</span>}
@@ -123,11 +124,12 @@ function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         {/* User section */}
-        <div className="border-t border-gray-100 p-3">
-          <div className={`flex items-center gap-3 ${sidebarCollapsed ? "justify-center" : ""}`}>
+        <div className="border-t border-gray-100 p-3 dark:border-gray-700/50">
+          <div className={`flex items-center gap-3 ${sidebarCollapsed ? "flex-col" : ""}`}>
+            <ThemeToggle />
             <UserButton />
             {!sidebarCollapsed && (
-              <span className="text-xs text-gray-500">Account</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Account</span>
             )}
           </div>
         </div>

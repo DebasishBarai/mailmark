@@ -75,13 +75,13 @@ const gridFeatures = [
 
 export default function FeatureGrid() {
   return (
-    <section className="bg-white px-6 py-24">
+    <section className="bg-white px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
             Everything you need in one platform
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600">
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
             Domain management, email hosting, and campaign tools — no need for
             separate services.
           </p>
@@ -90,13 +90,13 @@ export default function FeatureGrid() {
           {gridFeatures.map((feature) => (
             <div
               key={feature.title}
-              className="flex flex-col items-center rounded-2xl border border-gray-100 p-8 text-center transition-all hover:border-violet-200 hover:shadow-lg"
+              className="flex flex-col items-center rounded-2xl border border-gray-100 p-8 text-center transition-all hover:border-violet-200 hover:shadow-lg dark:border-gray-700 dark:hover:border-violet-700"
             >
               <div className="mb-4 text-violet-600">{feature.icon}</div>
-              <h3 className="text-base font-semibold text-gray-900">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
                 {feature.title}
               </h3>
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                 {feature.description}
               </p>
             </div>

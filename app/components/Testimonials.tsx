@@ -36,13 +36,13 @@ function Stars({ count }: { count: number }) {
 
 export default function Testimonials() {
   return (
-    <section className="bg-gray-50 px-6 py-24">
+    <section className="bg-gray-50 px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
             Loved by businesses everywhere
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600">
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
             See why teams choose DevMail for their domain email and campaigns.
           </p>
         </div>
@@ -50,15 +50,15 @@ export default function Testimonials() {
           {testimonials.map((t) => (
             <div
               key={t.name}
-              className="flex flex-col rounded-2xl border border-gray-100 bg-white p-8 shadow-sm transition-shadow hover:shadow-md"
+              className="flex flex-col rounded-2xl border border-gray-100 bg-white p-8 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
             >
               <Stars count={t.stars} />
-              <p className="mt-4 flex-1 text-sm leading-relaxed text-gray-600">
+              <p className="mt-4 flex-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                 &ldquo;{t.quote}&rdquo;
               </p>
-              <div className="mt-6 border-t border-gray-100 pt-4">
-                <p className="text-sm font-semibold text-gray-900">{t.name}</p>
-                <p className="text-xs text-gray-500">{t.role}</p>
+              <div className="mt-6 border-t border-gray-100 pt-4 dark:border-gray-700">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{t.name}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t.role}</p>
               </div>
             </div>
           ))}

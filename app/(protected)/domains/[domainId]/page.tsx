@@ -76,10 +76,10 @@ export default function DomainDetailPage() {
   if (isLoading) {
     return (
       <div className="p-8">
-        <div className="mb-6 h-4 w-48 animate-pulse rounded bg-gray-200" />
-        <div className="mb-8 h-8 w-64 animate-pulse rounded bg-gray-200" />
-        <div className="mb-8 h-64 animate-pulse rounded-xl border border-gray-200 bg-gray-100" />
-        <div className="h-48 animate-pulse rounded-xl border border-gray-200 bg-gray-100" />
+        <div className="mb-6 h-4 w-48 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+        <div className="mb-8 h-8 w-64 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+        <div className="mb-8 h-64 animate-pulse rounded-xl border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-700" />
+        <div className="h-48 animate-pulse rounded-xl border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-700" />
       </div>
     );
   }
@@ -88,7 +88,7 @@ export default function DomainDetailPage() {
     return (
       <div className="flex h-full items-center justify-center p-8">
         <div className="text-center">
-          <p className="text-lg font-medium text-gray-900">Domain not found</p>
+          <p className="text-lg font-medium text-gray-900 dark:text-white">Domain not found</p>
           <Link href="/domains" className="mt-2 text-sm text-violet-600 hover:text-violet-700">
             Back to domains
           </Link>
@@ -166,30 +166,30 @@ export default function DomainDetailPage() {
   return (
     <div className="p-8">
       {/* Breadcrumb */}
-      <div className="mb-6 flex items-center gap-2 text-sm text-gray-500">
+      <div className="mb-6 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
         <Link href="/domains" className="hover:text-violet-600">Domains</Link>
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
         </svg>
-        <span className="font-medium text-gray-900">{domain.domain}</span>
+        <span className="font-medium text-gray-900 dark:text-white">{domain.domain}</span>
       </div>
 
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">{domain.domain}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{domain.domain}</h1>
             {domain.verified ? (
-              <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+              <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
                 Verified
               </span>
             ) : (
-              <span className="rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-700">
+              <span className="rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
                 Pending Verification
               </span>
             )}
           </div>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {mailboxes.length} mailbox{mailboxes.length !== 1 ? "es" : ""} configured
           </p>
         </div>
@@ -219,7 +219,7 @@ export default function DomainDetailPage() {
           <button
             onClick={handleRemoveDomain}
             disabled={isRemoving}
-            className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
           >
             {isRemoving ? "Removing..." : "Remove Domain"}
           </button>
@@ -227,17 +227,17 @@ export default function DomainDetailPage() {
       </div>
 
       {/* DNS Records */}
-      <div className="mb-8 rounded-xl border border-gray-200 bg-white">
-        <div className="border-b border-gray-100 px-6 py-4">
-          <h2 className="text-base font-semibold text-gray-900">DNS Records</h2>
-          <p className="mt-1 text-xs text-gray-500">
+      <div className="mb-8 rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+        <div className="border-b border-gray-100 px-6 py-4 dark:border-gray-700/50">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">DNS Records</h2>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Add these records to your domain&apos;s DNS settings. DKIM verification can take up to 72 hours.
           </p>
         </div>
 
         {dkimTokens.length === 0 ? (
           <div className="px-6 py-8 text-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               No DKIM tokens found. This domain may not have been registered with SES properly.
             </p>
           </div>
@@ -245,19 +245,19 @@ export default function DomainDetailPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-left">
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Purpose</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Type</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Name</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Priority</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Value</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                <tr className="border-b border-gray-100 bg-gray-50 text-left dark:border-gray-700/50 dark:bg-gray-700">
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Purpose</th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Type</th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Name</th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Priority</th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Value</th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-700/30">
                 {dnsRecords.map((record, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    <td className="whitespace-nowrap px-6 py-3 text-xs font-medium text-gray-900">
+                  <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td className="whitespace-nowrap px-6 py-3 text-xs font-medium text-gray-900 dark:text-white">
                       {record.purpose}
                     </td>
                     <td className="whitespace-nowrap px-6 py-3 font-mono text-xs font-medium text-violet-600">
@@ -265,12 +265,12 @@ export default function DomainDetailPage() {
                     </td>
                     <td className="px-6 py-3">
                       <div className="flex items-center gap-2">
-                        <code className="max-w-[200px] truncate rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700">
+                        <code className="max-w-[200px] truncate rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                           {record.name}
                         </code>
                         <button
                           onClick={() => handleCopy(record.name, `name-${i}`)}
-                          className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                           title="Copy"
                         >
                           {copiedKey === `name-${i}` ? (
@@ -285,18 +285,18 @@ export default function DomainDetailPage() {
                         </button>
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-6 py-3 font-mono text-xs text-gray-700">
-                      {"priority" in record ? record.priority : <span className="text-gray-300">—</span>}
+                    <td className="whitespace-nowrap px-6 py-3 font-mono text-xs text-gray-700 dark:text-gray-300">
+                      {"priority" in record ? record.priority : <span className="text-gray-300 dark:text-gray-600">—</span>}
                     </td>
                     <td className="px-6 py-3">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <code className="max-w-[250px] truncate rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700">
+                          <code className="max-w-[250px] truncate rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                             {record.value}
                           </code>
                           <button
                             onClick={() => handleCopy(record.verified ? record.value : record.recommendedValue, `value-${i}`)}
-                            className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                             title="Copy"
                           >
                             {copiedKey === `value-${i}` ? (
@@ -311,25 +311,25 @@ export default function DomainDetailPage() {
                           </button>
                         </div>
                         {record.verified && record.value !== record.recommendedValue && (
-                          <div className="flex items-center gap-1 text-[10px] text-amber-600">
+                          <div className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
                             <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                             </svg>
-                            <span>Recommended: <code className="rounded bg-amber-50 px-1">{record.recommendedValue}</code></span>
+                            <span>Recommended: <code className="rounded bg-amber-50 px-1 dark:bg-amber-900/30">{record.recommendedValue}</code></span>
                           </div>
                         )}
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-6 py-3">
                       {record.verified ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
                           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                           </svg>
                           Verified
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
                           Pending
                         </span>
                       )}
@@ -342,7 +342,7 @@ export default function DomainDetailPage() {
         )}
 
         {!domain.verified && (
-          <div className="border-t border-gray-100 px-6 py-3">
+          <div className="border-t border-gray-100 px-6 py-3 dark:border-gray-700/50">
             <button
               onClick={handleVerifyDns}
               disabled={isVerifying}
@@ -355,9 +355,9 @@ export default function DomainDetailPage() {
       </div>
 
       {/* Mailboxes */}
-      <div className="rounded-xl border border-gray-200 bg-white">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <h2 className="text-base font-semibold text-gray-900">Mailboxes</h2>
+      <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-700/50">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">Mailboxes</h2>
           <button
             onClick={() => setShowCreateMailbox(true)}
             className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
@@ -370,8 +370,8 @@ export default function DomainDetailPage() {
         </div>
         {mailboxes.length === 0 ? (
           <div className="px-6 py-12 text-center">
-            <p className="text-sm font-medium text-gray-900">No mailboxes yet</p>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">No mailboxes yet</p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Create your first mailbox for {domain.domain}.
             </p>
             <button
@@ -385,25 +385,25 @@ export default function DomainDetailPage() {
             </button>
           </div>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-gray-50 dark:divide-gray-700/30">
             {mailboxes.map((mb: Doc<"mailboxes">) => (
               <Link
                 key={mb._id}
                 href={`/mailbox/${mb._id}`}
-                className="flex items-center justify-between px-6 py-4 transition-colors hover:bg-gray-50"
+                className="flex items-center justify-between px-6 py-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-sm font-bold text-violet-600">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-sm font-bold text-violet-600 dark:bg-violet-900/40 dark:text-violet-400">
                     {mb.address[0].toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{mb.fullAddress}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{mb.fullAddress}</p>
                     {mb.displayName && (
-                      <p className="text-xs text-gray-500">{mb.displayName}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{mb.displayName}</p>
                     )}
                   </div>
                 </div>
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <svg className="h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                 </svg>
               </Link>
@@ -415,13 +415,13 @@ export default function DomainDetailPage() {
       {/* Create mailbox modal */}
       {showCreateMailbox && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
-            <h2 className="text-lg font-bold text-gray-900">Create Mailbox</h2>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-gray-800">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Create Mailbox</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Create a new email address for {domain.domain}.
             </p>
             <div className="mt-6">
-              <label htmlFor="mailbox" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="mailbox" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Email address
               </label>
               <div className="mt-1 flex items-center">
@@ -432,15 +432,15 @@ export default function DomainDetailPage() {
                   onChange={(e) => setNewMailbox(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleCreateMailbox()}
                   placeholder="name"
-                  className="w-full rounded-l-lg border border-r-0 border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                  className="w-full rounded-l-lg border border-r-0 border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
                 />
-                <span className="rounded-r-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-500">
+                <span className="rounded-r-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-500 dark:border-gray-600 dark:bg-gray-600 dark:text-gray-400">
                   @{domain.domain}
                 </span>
               </div>
             </div>
             <div className="mt-4">
-              <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Display name (optional)
               </label>
               <input
@@ -450,7 +450,7 @@ export default function DomainDetailPage() {
                 onChange={(e) => setNewDisplayName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleCreateMailbox()}
                 placeholder="Sales Team"
-                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
               />
             </div>
             <div className="mt-6 flex gap-3">
@@ -460,7 +460,7 @@ export default function DomainDetailPage() {
                   setNewMailbox("");
                   setNewDisplayName("");
                 }}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>

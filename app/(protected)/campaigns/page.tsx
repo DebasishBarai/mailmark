@@ -67,10 +67,10 @@ const campaigns = [
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    Completed: "bg-green-100 text-green-700",
-    Sending: "bg-blue-100 text-blue-700",
-    Draft: "bg-gray-100 text-gray-600",
-    Scheduled: "bg-amber-100 text-amber-700",
+    Completed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    Sending: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    Draft: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
+    Scheduled: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   };
   return (
     <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status] || styles.Draft}`}>
@@ -82,8 +82,8 @@ function StatusBadge({ status }: { status: string }) {
 function StatCell({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-center">
-      <p className="text-sm font-semibold text-gray-900">{value.toLocaleString()}</p>
-      <p className="text-[10px] text-gray-500">{label}</p>
+      <p className="text-sm font-semibold text-gray-900 dark:text-white">{value.toLocaleString()}</p>
+      <p className="text-[10px] text-gray-500 dark:text-gray-400">{label}</p>
     </div>
   );
 }
@@ -96,8 +96,8 @@ export default function CampaignsPage() {
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Campaigns</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Campaigns</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Create and manage your email campaigns.
           </p>
         </div>
@@ -117,20 +117,20 @@ export default function CampaignsPage() {
         {campaigns.map((campaign) => (
           <div
             key={campaign.id}
-            className="rounded-xl border border-gray-200 bg-white p-6 transition-shadow hover:shadow-md"
+            className="rounded-xl border border-gray-200 bg-white p-6 transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
           >
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-3">
-                  <h3 className="text-base font-semibold text-gray-900">{campaign.name}</h3>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">{campaign.name}</h3>
                   <StatusBadge status={campaign.status} />
                 </div>
-                <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+                <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                   <span>From: {campaign.from}</span>
                   <span>Created: {campaign.createdAt}</span>
                 </div>
               </div>
-              <button className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+              <button className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
                 </svg>
@@ -138,7 +138,7 @@ export default function CampaignsPage() {
             </div>
 
             {campaign.sent > 0 && (
-              <div className="mt-4 flex gap-6 rounded-lg bg-gray-50 px-6 py-3">
+              <div className="mt-4 flex gap-6 rounded-lg bg-gray-50 px-6 py-3 dark:bg-gray-700/50">
                 <StatCell label="Sent" value={campaign.sent} />
                 <StatCell label="Opened" value={campaign.opened} />
                 <StatCell label="Clicked" value={campaign.clicked} />
@@ -146,10 +146,10 @@ export default function CampaignsPage() {
                 <StatCell label="Bounced" value={campaign.bounced} />
                 {campaign.sent > 0 && (
                   <div className="text-center">
-                    <p className="text-sm font-semibold text-violet-600">
+                    <p className="text-sm font-semibold text-violet-600 dark:text-violet-400">
                       {Math.round((campaign.opened / campaign.sent) * 100)}%
                     </p>
-                    <p className="text-[10px] text-gray-500">Open Rate</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">Open Rate</p>
                   </div>
                 )}
               </div>
@@ -164,7 +164,7 @@ export default function CampaignsPage() {
             )}
 
             {campaign.status === "Scheduled" && (
-              <div className="mt-4 flex items-center gap-2 text-xs text-amber-600">
+              <div className="mt-4 flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -178,30 +178,30 @@ export default function CampaignsPage() {
       {/* New campaign modal */}
       {showNewCampaign && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-2xl">
-            <h2 className="text-lg font-bold text-gray-900">New Campaign</h2>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-2xl dark:bg-gray-800">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">New Campaign</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Set up a new email campaign.
             </p>
             <div className="mt-6 space-y-4">
               <div>
-                <label htmlFor="campaign-name" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="campaign-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Campaign name
                 </label>
                 <input
                   id="campaign-name"
                   type="text"
                   placeholder="e.g., Product Launch Q2"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
                 />
               </div>
               <div>
-                <label htmlFor="campaign-from" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="campaign-from" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Send from
                 </label>
                 <select
                   id="campaign-from"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 >
                   <option>sales@acmecorp.com</option>
                   <option>support@acmecorp.com</option>
@@ -210,32 +210,32 @@ export default function CampaignsPage() {
                 </select>
               </div>
               <div>
-                <label htmlFor="campaign-subject" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="campaign-subject" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Subject line
                 </label>
                 <input
                   id="campaign-subject"
                   type="text"
                   placeholder="Hi {firstName}, check this out"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
                 />
               </div>
               <div>
-                <label htmlFor="campaign-body" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="campaign-body" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Message
                 </label>
                 <textarea
                   id="campaign-body"
                   rows={5}
                   placeholder="Write your campaign email..."
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
                 />
               </div>
             </div>
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => setShowNewCampaign(false)}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>

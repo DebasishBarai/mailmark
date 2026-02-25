@@ -72,13 +72,13 @@ function CheckIcon() {
 
 export default function Pricing() {
   return (
-    <section id="pricing" className="bg-white px-6 py-24">
+    <section id="pricing" className="bg-white px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
             Simple, transparent pricing
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600">
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
             Start free and scale as you grow. No hidden fees, no surprises.
           </p>
         </div>
@@ -90,7 +90,7 @@ export default function Pricing() {
               className={`relative flex flex-col rounded-2xl p-8 shadow-sm transition-shadow hover:shadow-md ${
                 plan.highlighted
                   ? "bg-violet-600 text-white ring-2 ring-violet-600"
-                  : "border border-gray-200 bg-white"
+                  : "border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
               }`}
             >
               {plan.highlighted && (
@@ -101,24 +101,24 @@ export default function Pricing() {
 
               <div>
                 <h3
-                  className={`text-lg font-semibold ${plan.highlighted ? "text-white" : "text-gray-900"}`}
+                  className={`text-lg font-semibold ${plan.highlighted ? "text-white" : "text-gray-900 dark:text-white"}`}
                 >
                   {plan.name}
                 </h3>
                 <div className="mt-4 flex items-baseline gap-1">
                   <span
-                    className={`text-4xl font-bold tracking-tight ${plan.highlighted ? "text-white" : "text-gray-900"}`}
+                    className={`text-4xl font-bold tracking-tight ${plan.highlighted ? "text-white" : "text-gray-900 dark:text-white"}`}
                   >
                     {plan.price}
                   </span>
                   <span
-                    className={`text-sm ${plan.highlighted ? "text-violet-200" : "text-gray-500"}`}
+                    className={`text-sm ${plan.highlighted ? "text-violet-200" : "text-gray-500 dark:text-gray-400"}`}
                   >
                     /{plan.period}
                   </span>
                 </div>
                 <p
-                  className={`mt-3 text-sm ${plan.highlighted ? "text-violet-100" : "text-gray-600"}`}
+                  className={`mt-3 text-sm ${plan.highlighted ? "text-violet-100" : "text-gray-600 dark:text-gray-400"}`}
                 >
                   {plan.description}
                 </p>
@@ -133,7 +133,7 @@ export default function Pricing() {
                       <CheckIcon />
                     </span>
                     <span
-                      className={`text-sm ${plan.highlighted ? "text-violet-100" : "text-gray-600"}`}
+                      className={`text-sm ${plan.highlighted ? "text-violet-100" : "text-gray-600 dark:text-gray-400"}`}
                     >
                       {feature}
                     </span>
@@ -149,12 +149,12 @@ export default function Pricing() {
                 ) : plan.name === "Business" ? (
                   <a
                     href="mailto:sales@devmail.app"
-                    className="inline-flex w-full items-center justify-center rounded-full border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50"
+                    className="inline-flex w-full items-center justify-center rounded-full border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
                   >
                     {plan.cta}
                   </a>
                 ) : (
-                  <CTAButton className="inline-flex w-full items-center justify-center rounded-full border border-violet-600 bg-white px-6 py-3 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-50">
+                  <CTAButton className="inline-flex w-full items-center justify-center rounded-full border border-violet-600 bg-white px-6 py-3 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-50 dark:bg-gray-700 dark:text-violet-300 dark:hover:bg-violet-900/30">
                     {plan.cta}
                   </CTAButton>
                 )}
@@ -163,7 +163,7 @@ export default function Pricing() {
           ))}
         </div>
 
-        <p className="mt-10 text-center text-sm text-gray-500">
+        <p className="mt-10 text-center text-sm text-gray-500 dark:text-gray-400">
           All plans include a 14-day free trial. No credit card required to get started.
         </p>
       </div>

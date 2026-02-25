@@ -48,7 +48,7 @@ const faqs = [
 function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg
-      className={`h-5 w-5 shrink-0 text-gray-500 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+      className={`h-5 w-5 shrink-0 text-gray-500 transition-transform duration-200 dark:text-gray-400 ${open ? "rotate-180" : ""}`}
       viewBox="0 0 20 20"
       fill="currentColor"
       aria-hidden="true"
@@ -70,18 +70,18 @@ export default function FAQ() {
   }
 
   return (
-    <section id="faq" className="bg-gray-50 px-6 py-24">
+    <section id="faq" className="bg-gray-50 px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-3xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
             Frequently asked questions
           </h2>
-          <p className="mt-4 text-lg text-gray-600">
+          <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
             Everything you need to know about DevMail.
           </p>
         </div>
 
-        <dl className="mt-16 divide-y divide-gray-200">
+        <dl className="mt-16 divide-y divide-gray-200 dark:divide-gray-700">
           {faqs.map((faq, index) => {
             const isOpen = openIndex === index;
             return (
@@ -92,7 +92,7 @@ export default function FAQ() {
                     className="flex w-full items-start justify-between text-left"
                     aria-expanded={isOpen}
                   >
-                    <span className="text-base font-semibold text-gray-900">
+                    <span className="text-base font-semibold text-gray-900 dark:text-white">
                       {faq.question}
                     </span>
                     <span className="ml-6 flex h-7 items-center">
@@ -102,7 +102,7 @@ export default function FAQ() {
                 </dt>
                 {isOpen && (
                   <dd className="mt-3 pr-12">
-                    <p className="text-sm leading-relaxed text-gray-600">
+                    <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                       {faq.answer}
                     </p>
                   </dd>
