@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useAction } from "convex/react";
@@ -69,6 +69,8 @@ export default function MailboxPage() {
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [composeQuote, setComposeQuote] = useState("");
+  const [composeAttachments, setComposeAttachments] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
@@ -108,17 +110,32 @@ export default function MailboxPage() {
     try {
       const recipients = composeTo.split(",").map((e) => e.trim()).filter(Boolean);
       const fullBody = composeBody.replace(/\n/g, "<br>") + (composeQuote ? `<br><br>${composeQuote}` : "");
+      const attachmentData = await Promise.all(
+        composeAttachments.map(async (file) => {
+          const buffer = await file.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
+          let binary = "";
+          bytes.forEach((b) => (binary += String.fromCharCode(b)));
+          return {
+            filename: file.name,
+            contentType: file.type || "application/octet-stream",
+            data: btoa(binary),
+          };
+        })
+      );
       await sendEmail({
         mailboxId: mbId,
         to: recipients,
         subject: composeSubject,
         body: fullBody,
+        attachments: attachmentData.length > 0 ? attachmentData : undefined,
       });
       setShowCompose(false);
       setComposeTo("");
       setComposeSubject("");
       setComposeBody("");
       setComposeQuote("");
+      setComposeAttachments([]);
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to send email. Please try again.");
     } finally {
@@ -140,6 +157,7 @@ export default function MailboxPage() {
     setComposeSubject("");
     setComposeBody("");
     setComposeQuote("");
+    setComposeAttachments([]);
     setSendError(null);
     setShowCompose(true);
   };
@@ -157,6 +175,7 @@ export default function MailboxPage() {
     setComposeQuote(
       `<blockquote style="margin:0 0 0 .8ex;border-left:2px solid #ccc;padding-left:1ex;"><p><strong>On ${new Date(selectedEmail.date).toLocaleString()}, ${selectedEmail.from} wrote:</strong></p>${emailBody}</blockquote>`
     );
+    setComposeAttachments([]);
     setSendError(null);
     setShowCompose(true);
   };
@@ -179,6 +198,7 @@ export default function MailboxPage() {
     setComposeQuote(
       `<blockquote style="margin:0 0 0 .8ex;border-left:2px solid #ccc;padding-left:1ex;"><p><strong>On ${new Date(selectedEmail.date).toLocaleString()}, ${selectedEmail.from} wrote:</strong></p>${emailBody}</blockquote>`
     );
+    setComposeAttachments([]);
     setSendError(null);
     setShowCompose(true);
   };
@@ -196,6 +216,7 @@ export default function MailboxPage() {
     setComposeQuote(
       `<p>---------- Forwarded message ----------</p><p>From: ${selectedEmail.from}<br>Date: ${new Date(selectedEmail.date).toLocaleString()}<br>Subject: ${selectedEmail.subject}<br>To: ${selectedEmail.to.join(", ")}</p><br>${emailBody}`
     );
+    setComposeAttachments([]);
     setSendError(null);
     setShowCompose(true);
   };
@@ -525,7 +546,7 @@ export default function MailboxPage() {
               {{ compose: "New Message", reply: "Reply", replyAll: "Reply All", forward: "Forward" }[composeMode]}
             </h3>
             <button
-              onClick={() => { setShowCompose(false); setSendError(null); setComposeQuote(""); }}
+              onClick={() => { setShowCompose(false); setSendError(null); setComposeQuote(""); setComposeAttachments([]); }}
               className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -573,21 +594,64 @@ export default function MailboxPage() {
                 />
               )}
             </div>
+            {/* Selected attachments */}
+            {composeAttachments.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {composeAttachments.map((file, i) => (
+                  <div key={i} className="flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-700">
+                    <svg className="h-3 w-3 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                    </svg>
+                    <span className="max-w-[140px] truncate">{file.name}</span>
+                    <span className="text-gray-400">({file.size < 1024 ? "< 1" : Math.round(file.size / 1024)}kb)</span>
+                    <button
+                      onClick={() => setComposeAttachments((prev) => prev.filter((_, j) => j !== i))}
+                      className="ml-0.5 text-gray-400 hover:text-red-500"
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            )}
             {sendError && (
               <div className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
                 {sendError}
               </div>
             )}
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) {
+                  setComposeAttachments((prev) => [...prev, ...Array.from(e.target.files!)]);
+                  e.target.value = "";
+                }
+              }}
+            />
             <div className="mt-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSend}
+                  disabled={!composeTo.trim() || !composeSubject.trim() || isSending}
+                  className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {isSending ? "Sending..." : "Send"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-violet-500"
+                  title="Attach files"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                  </svg>
+                </button>
+              </div>
               <button
-                onClick={handleSend}
-                disabled={!composeTo.trim() || !composeSubject.trim() || isSending}
-                className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
-              >
-                {isSending ? "Sending..." : "Send"}
-              </button>
-              <button
-                onClick={() => { setShowCompose(false); setComposeQuote(""); }}
+                onClick={() => { setShowCompose(false); setComposeQuote(""); setComposeAttachments([]); }}
                 className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">

@@ -25,6 +25,45 @@ function getSESClient() {
   });
 }
 
+function buildRawMimeEmail(
+  from: string,
+  to: string[],
+  subject: string,
+  messageId: string,
+  domain: string,
+  body: string,
+  attachments: Array<{ filename: string; contentType: string; data: string }>
+): string {
+  const boundary = `----=_Part_${messageId}`;
+  const lines: string[] = [
+    `MIME-Version: 1.0`,
+    `From: ${from}`,
+    `To: ${to.join(", ")}`,
+    `Subject: ${subject}`,
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: <${messageId}@${domain}>`,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    ``,
+    `--${boundary}`,
+    `Content-Type: text/html; charset=UTF-8`,
+    ``,
+    body,
+  ];
+  for (const att of attachments) {
+    const wrapped = att.data.match(/.{1,76}/g)?.join("\r\n") ?? att.data;
+    lines.push(
+      `--${boundary}`,
+      `Content-Type: ${att.contentType}; name="${att.filename}"`,
+      `Content-Disposition: attachment; filename="${att.filename}"`,
+      `Content-Transfer-Encoding: base64`,
+      ``,
+      wrapped
+    );
+  }
+  lines.push(`--${boundary}--`);
+  return lines.join("\r\n");
+}
+
 function getS3Client() {
   return new S3Client({
     region: process.env.AWS_REGION!,
@@ -41,8 +80,13 @@ export const sendEmail = action({
     to: v.array(v.string()),
     subject: v.string(),
     body: v.string(),
+    attachments: v.optional(v.array(v.object({
+      filename: v.string(),
+      contentType: v.string(),
+      data: v.string(), // base64-encoded
+    }))),
   },
-  handler: async (ctx, { mailboxId, to, subject, body }) => {
+  handler: async (ctx, { mailboxId, to, subject, body, attachments }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
@@ -57,41 +101,50 @@ export const sendEmail = action({
       ? `${mailbox.displayName} <${mailbox.fullAddress}>`
       : mailbox.fullAddress;
 
-    // Send via SES
     const ses = getSESClient();
     const messageId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const hasAttachments = (attachments ?? []).length > 0;
 
-    await ses.send(
-      new SendEmailCommand({
-        FromEmailAddress: fromAddress,
-        Destination: {
-          ToAddresses: to,
-        },
-        Content: {
-          Simple: {
-            Subject: { Data: subject },
-            Body: {
-              Html: { Data: body },
-              Text: { Data: body.replace(/<[^>]*>/g, "") },
+    let rawEmail: string;
+    if (hasAttachments) {
+      rawEmail = buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, body, attachments!);
+      await ses.send(
+        new SendEmailCommand({
+          FromEmailAddress: fromAddress,
+          Destination: { ToAddresses: to },
+          Content: { Raw: { Data: new TextEncoder().encode(rawEmail) } },
+        })
+      );
+    } else {
+      await ses.send(
+        new SendEmailCommand({
+          FromEmailAddress: fromAddress,
+          Destination: { ToAddresses: to },
+          Content: {
+            Simple: {
+              Subject: { Data: subject },
+              Body: {
+                Html: { Data: body },
+                Text: { Data: body.replace(/<[^>]*>/g, "") },
+              },
             },
           },
-        },
-      })
-    );
+        })
+      );
+      rawEmail = [
+        `From: ${fromAddress}`,
+        `To: ${to.join(", ")}`,
+        `Subject: ${subject}`,
+        `Date: ${new Date().toUTCString()}`,
+        `Message-ID: <${messageId}@${mailbox.domain}>`,
+        `Content-Type: text/html; charset=UTF-8`,
+        "",
+        body,
+      ].join("\r\n");
+    }
 
     // Save raw email to S3
     const s3Key = `${mailbox.domain}/${mailbox.address}/sent/${messageId}.eml`;
-    const rawEmail = [
-      `From: ${fromAddress}`,
-      `To: ${to.join(", ")}`,
-      `Subject: ${subject}`,
-      `Date: ${new Date().toUTCString()}`,
-      `Message-ID: <${messageId}@${mailbox.domain}>`,
-      `Content-Type: text/html; charset=UTF-8`,
-      "",
-      body,
-    ].join("\r\n");
-
     const s3 = getS3Client();
     await s3.send(
       new PutObjectCommand({
@@ -113,6 +166,7 @@ export const sendEmail = action({
       snippet,
       date: Date.now(),
       s3Key,
+      hasAttachments,
     });
 
     return { success: true, messageId };
