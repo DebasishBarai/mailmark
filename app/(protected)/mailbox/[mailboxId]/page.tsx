@@ -35,6 +35,14 @@ function timeAgo(timestamp: number) {
   return `${days}d ago`;
 }
 
+function getDisplayName(emailStr: string): string {
+  const match = emailStr.match(/^(.+?)\s*<[^>]+>$/);
+  if (match) return match[1].trim().replace(/^["']|["']$/g, "");
+  const atIndex = emailStr.indexOf("@");
+  if (atIndex > 0) return emailStr.substring(0, atIndex);
+  return emailStr;
+}
+
 export default function MailboxPage() {
   const { mailboxId } = useParams<{ mailboxId: string }>();
   const mbId = mailboxId as Id<"mailboxes">;
@@ -433,8 +441,12 @@ export default function MailboxPage() {
                     }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`text-sm ${!email.read ? "font-semibold text-gray-900" : "text-gray-700"}`}>
-                      {email.from}
+                    <span className={`truncate text-sm ${!email.read ? "font-semibold text-gray-900" : "text-gray-700"}`}>
+                      {activeFolder === "sent" || activeFolder === "outbox"
+                        ? email.to.length > 1
+                          ? `${getDisplayName(email.to[0])} +${email.to.length - 1}`
+                          : getDisplayName(email.to[0])
+                        : getDisplayName(email.from)}
                     </span>
                     <div className="flex items-center gap-1">
                       {email.starred && (
@@ -467,11 +479,11 @@ export default function MailboxPage() {
                 </h2>
                 <div className="mt-2 flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
-                    {selectedEmail.from[0].toUpperCase()}
+                    {getDisplayName(selectedEmail.from)[0].toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{selectedEmail.from}</p>
-                    <p className="text-xs text-gray-500">To: {selectedEmail.to.join(", ")}</p>
+                    <p className="text-sm font-medium text-gray-900">{getDisplayName(selectedEmail.from)}</p>
+                    <p className="text-xs text-gray-500">To: {selectedEmail.to.map(getDisplayName).join(", ")}</p>
                   </div>
                   <span className="text-xs text-gray-400">{timeAgo(selectedEmail.date)}</span>
                 </div>
