@@ -73,19 +73,19 @@ const practices = [
 
 export default function SecurityPage() {
   return (
-    <main>
+    <main className="bg-white dark:bg-gray-900">
       <Header />
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-24">
+      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-24 dark:from-violet-950/30 dark:to-gray-900">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700">
+          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
             Security
           </span>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl dark:text-white">
             Your data is safe with us
           </h1>
-          <p className="mt-6 text-lg leading-relaxed text-gray-600">
+          <p className="mt-6 text-lg leading-relaxed text-gray-600 dark:text-gray-300">
             Security isn&apos;t a feature — it&apos;s the foundation. Here&apos;s
             how we protect your email infrastructure and data.
           </p>
@@ -93,19 +93,19 @@ export default function SecurityPage() {
       </section>
 
       {/* Security practices */}
-      <section className="bg-white px-6 py-16">
+      <section className="bg-white px-6 py-16 dark:bg-gray-900">
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {practices.map((p) => (
               <div
                 key={p.title}
-                className="rounded-2xl border border-gray-100 p-6 transition-all hover:border-violet-200 hover:shadow-md"
+                className="rounded-2xl border border-gray-100 p-6 transition-all hover:border-violet-200 hover:shadow-md dark:border-gray-700 dark:hover:border-violet-700"
               >
-                <div className="inline-flex rounded-xl bg-violet-100 p-2.5 text-violet-600">
+                <div className="inline-flex rounded-xl bg-violet-100 p-2.5 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400">
                   {p.icon}
                 </div>
-                <h3 className="mt-4 text-lg font-semibold text-gray-900">{p.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">{p.description}</p>
+                <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">{p.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{p.description}</p>
               </div>
             ))}
           </div>
@@ -113,10 +113,10 @@ export default function SecurityPage() {
       </section>
 
       {/* Email security */}
-      <section className="bg-gray-50 px-6 py-16">
+      <section className="bg-gray-50 px-6 py-16 dark:bg-gray-800">
         <div className="mx-auto max-w-3xl">
-          <h2 className="text-2xl font-bold text-gray-900">Email security standards</h2>
-          <p className="mt-3 text-gray-600">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Email security standards</h2>
+          <p className="mt-3 text-gray-600 dark:text-gray-300">
             DevMail automatically configures your domain with the industry-standard email authentication suite:
           </p>
           <div className="mt-6 space-y-4">
@@ -126,11 +126,11 @@ export default function SecurityPage() {
               { name: "DMARC", desc: "Tells receiving servers what to do when an email fails SPF or DKIM checks, and sends you forensic reports." },
               { name: "MTA-STS", desc: "Enforces TLS for all email sent to your domain, preventing downgrade attacks." },
             ].map((item) => (
-              <div key={item.name} className="flex gap-4 rounded-xl border border-gray-100 bg-white p-4">
-                <span className="shrink-0 rounded-lg bg-violet-100 px-3 py-1 text-sm font-bold text-violet-700">
+              <div key={item.name} className="flex gap-4 rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+                <span className="shrink-0 rounded-lg bg-violet-100 px-3 py-1 text-sm font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
                   {item.name}
                 </span>
-                <p className="text-sm text-gray-600">{item.desc}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -138,23 +138,23 @@ export default function SecurityPage() {
       </section>
 
       {/* Bug bounty / disclosure */}
-      <section className="bg-white px-6 py-16">
+      <section className="bg-white px-6 py-16 dark:bg-gray-900">
         <div className="mx-auto max-w-3xl">
-          <h2 className="text-2xl font-bold text-gray-900">Responsible disclosure</h2>
-          <p className="mt-4 text-gray-600">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Responsible disclosure</h2>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">
             We believe security researchers play an important role in keeping the internet
             safe. If you discover a vulnerability in DevMail, please disclose it to us
             responsibly.
           </p>
-          <div className="mt-6 rounded-2xl border border-violet-100 bg-violet-50 p-6">
-            <p className="font-semibold text-violet-900">Report a vulnerability</p>
-            <p className="mt-2 text-sm text-violet-800">
+          <div className="mt-6 rounded-2xl border border-violet-100 bg-violet-50 p-6 dark:border-violet-800 dark:bg-violet-900/20">
+            <p className="font-semibold text-violet-900 dark:text-violet-200">Report a vulnerability</p>
+            <p className="mt-2 text-sm text-violet-800 dark:text-violet-300">
               Email: <a href="mailto:security@devmail.app" className="font-medium underline">security@devmail.app</a>
             </p>
-            <p className="mt-1 text-sm text-violet-800">
+            <p className="mt-1 text-sm text-violet-800 dark:text-violet-300">
               Please include: a description of the vulnerability, steps to reproduce, potential impact, and your contact details.
             </p>
-            <p className="mt-3 text-sm text-violet-700">
+            <p className="mt-3 text-sm text-violet-700 dark:text-violet-400">
               We will acknowledge your report within 48 hours, investigate promptly, and notify you when the issue is resolved. We do not take legal action against researchers who report vulnerabilities in good faith.
             </p>
           </div>
@@ -162,12 +162,12 @@ export default function SecurityPage() {
       </section>
 
       {/* Contact */}
-      <section className="bg-gray-50 px-6 py-16">
+      <section className="bg-gray-50 px-6 py-16 dark:bg-gray-800">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-xl font-bold text-gray-900">Security questions?</h2>
-          <p className="mt-3 text-gray-600">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Security questions?</h2>
+          <p className="mt-3 text-gray-600 dark:text-gray-300">
             For any security-related questions, contact our security team directly at{" "}
-            <a href="mailto:security@devmail.app" className="font-medium text-violet-600 hover:underline">
+            <a href="mailto:security@devmail.app" className="font-medium text-violet-600 hover:underline dark:text-violet-400">
               security@devmail.app
             </a>
             .

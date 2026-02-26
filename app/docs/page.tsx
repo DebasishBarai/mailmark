@@ -100,45 +100,45 @@ const sections = [
 ];
 
 const colorMap: Record<string, string> = {
-  violet: "bg-violet-100 text-violet-600",
-  blue: "bg-blue-100 text-blue-600",
-  emerald: "bg-emerald-100 text-emerald-600",
-  amber: "bg-amber-100 text-amber-600",
-  pink: "bg-pink-100 text-pink-600",
-  gray: "bg-gray-100 text-gray-600",
+  violet: "bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400",
+  blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400",
+  emerald: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400",
+  amber: "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400",
+  pink: "bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-400",
+  gray: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
 };
 
 const borderMap: Record<string, string> = {
-  violet: "hover:border-violet-200",
-  blue: "hover:border-blue-200",
-  emerald: "hover:border-emerald-200",
-  amber: "hover:border-amber-200",
-  pink: "hover:border-pink-200",
-  gray: "hover:border-gray-300",
+  violet: "hover:border-violet-200 dark:hover:border-violet-700",
+  blue: "hover:border-blue-200 dark:hover:border-blue-700",
+  emerald: "hover:border-emerald-200 dark:hover:border-emerald-700",
+  amber: "hover:border-amber-200 dark:hover:border-amber-700",
+  pink: "hover:border-pink-200 dark:hover:border-pink-700",
+  gray: "hover:border-gray-300 dark:hover:border-gray-600",
 };
 
 export default function DocsPage() {
   return (
-    <main>
+    <main className="bg-white dark:bg-gray-900">
       <Header />
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-20">
+      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-20 dark:from-violet-950/30 dark:to-gray-900">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700">
+          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
             Documentation
           </span>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl dark:text-white">
             How can we help?
           </h1>
-          <p className="mt-4 text-lg text-gray-600">
+          <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
             Everything you need to set up domains, create mailboxes, and run
             email campaigns with DevMail.
           </p>
           {/* Static search bar */}
           <div className="relative mx-auto mt-8 max-w-xl">
             <svg
-              className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+              className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 dark:text-gray-500"
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth={1.5}
@@ -149,25 +149,25 @@ export default function DocsPage() {
             <input
               type="text"
               placeholder="Search docs…"
-              className="w-full rounded-full border border-gray-200 bg-white py-3 pl-12 pr-6 text-sm shadow-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+              className="w-full rounded-full border border-gray-200 bg-white py-3 pl-12 pr-6 text-sm shadow-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500 dark:focus:border-violet-500 dark:focus:ring-violet-900/30"
             />
           </div>
         </div>
       </section>
 
       {/* Doc sections grid */}
-      <section className="bg-white px-6 py-16">
+      <section className="bg-white px-6 py-16 dark:bg-gray-900">
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {sections.map((section) => (
               <div
                 key={section.title}
-                className={`rounded-2xl border border-gray-100 p-6 transition-all hover:shadow-md ${borderMap[section.color]}`}
+                className={`rounded-2xl border border-gray-100 p-6 transition-all hover:shadow-md dark:border-gray-700 ${borderMap[section.color]}`}
               >
                 <div className={`inline-flex rounded-xl p-2.5 ${colorMap[section.color]}`}>
                   {section.icon}
                 </div>
-                <h2 className="mt-4 text-lg font-semibold text-gray-900">
+                <h2 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
                   {section.title}
                 </h2>
                 <ul className="mt-3 space-y-2">
@@ -175,9 +175,9 @@ export default function DocsPage() {
                     <li key={article}>
                       <a
                         href="#"
-                        className="flex items-center text-sm text-gray-600 transition-colors hover:text-violet-600"
+                        className="flex items-center text-sm text-gray-600 transition-colors hover:text-violet-600 dark:text-gray-300 dark:hover:text-violet-400"
                       >
-                        <svg className="mr-2 h-3.5 w-3.5 shrink-0 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <svg className="mr-2 h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                         </svg>
                         {article}
@@ -187,7 +187,7 @@ export default function DocsPage() {
                 </ul>
                 <a
                   href="#"
-                  className="mt-5 inline-flex items-center text-sm font-medium text-violet-600 hover:text-violet-700"
+                  className="mt-5 inline-flex items-center text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
                 >
                   View all articles →
                 </a>
@@ -198,17 +198,17 @@ export default function DocsPage() {
       </section>
 
       {/* Help CTA */}
-      <section className="bg-gray-50 px-6 py-16">
+      <section className="bg-gray-50 px-6 py-16 dark:bg-gray-800">
         <div className="mx-auto max-w-3xl text-center">
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             Can&apos;t find what you&apos;re looking for?
           </h2>
-          <p className="mt-3 text-gray-600">
+          <p className="mt-3 text-gray-600 dark:text-gray-300">
             Our support team typically responds within 2 hours on business days.
           </p>
           <a
             href="/contact"
-            className="mt-6 inline-block rounded-full bg-violet-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700"
+            className="mt-6 inline-block rounded-full bg-violet-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700 dark:shadow-violet-900/30"
           >
             Contact support
           </a>
