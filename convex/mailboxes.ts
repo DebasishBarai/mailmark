@@ -143,6 +143,16 @@ export const remove = mutation({
       throw new Error("Mailbox not found");
     }
 
+    // Cascade-delete all emails belonging to this mailbox
+    const emails = await ctx.db
+      .query("emails")
+      .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mailboxId))
+      .collect();
+
+    for (const email of emails) {
+      await ctx.db.delete(email._id);
+    }
+
     await ctx.db.delete(mailboxId);
   },
 });
