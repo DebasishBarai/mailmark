@@ -128,7 +128,7 @@ export const updateDisplayName = mutation({
 });
 
 // Deletes all DB records for the mailbox and returns the s3Keys to clean up.
-const removeRecords = internalMutation({
+export const removeRecords = internalMutation({
   args: { mailboxId: v.id("mailboxes") },
   handler: async (ctx, { mailboxId }) => {
     const identity = await ctx.auth.getUserIdentity();
