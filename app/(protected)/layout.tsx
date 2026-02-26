@@ -7,6 +7,7 @@ import { UserButton } from "@clerk/nextjs";
 import { Authenticated, Unauthenticated, AuthLoading, useAction, useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import ThemeToggle from "../components/ThemeToggle";
+import { SidebarProvider, useSidebar } from "../components/SidebarContext";
 
 const sidebarLinks = [
   {
@@ -73,6 +74,7 @@ function SyncUser() {
 function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { folderSection } = useSidebar();
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -99,29 +101,35 @@ function AppShell({ children }: { children: ReactNode }) {
           </button>
         </div>
 
-        {/* Nav links */}
-        <nav className="flex-1 space-y-1 p-3">
-          {sidebarLinks.map((link) => {
-            const isActive =
-              pathname === link.href || pathname.startsWith(link.href + "/");
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive
-                    ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
-                  }`}
-                title={sidebarCollapsed ? link.label : undefined}
-              >
-                <span className={isActive ? "text-violet-600 dark:text-violet-400" : "text-gray-400 dark:text-gray-500"}>
-                  {link.icon}
-                </span>
-                {!sidebarCollapsed && <span>{link.label}</span>}
-              </Link>
-            );
-          })}
-        </nav>
+        {/* Scrollable nav area */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Nav links */}
+          <nav className="space-y-1 p-3">
+            {sidebarLinks.map((link) => {
+              const isActive =
+                pathname === link.href || pathname.startsWith(link.href + "/");
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive
+                      ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+                    }`}
+                  title={sidebarCollapsed ? link.label : undefined}
+                >
+                  <span className={isActive ? "text-violet-600 dark:text-violet-400" : "text-gray-400 dark:text-gray-500"}>
+                    {link.icon}
+                  </span>
+                  {!sidebarCollapsed && <span>{link.label}</span>}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Injected folder section (e.g. from mailbox page) */}
+          {folderSection && folderSection.render(sidebarCollapsed)}
+        </div>
 
         {/* User section */}
         <div className="border-t border-gray-100 p-3 dark:border-gray-700/50">
@@ -148,7 +156,7 @@ function AppShell({ children }: { children: ReactNode }) {
 
 export default function ProtectedLayout({ children }: { children: ReactNode }) {
   return (
-    <>
+    <SidebarProvider>
       <AuthLoading>
         <LoadingSpinner />
       </AuthLoading>
@@ -159,6 +167,6 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
         <SyncUser />
         <AppShell>{children}</AppShell>
       </Authenticated>
-    </>
+    </SidebarProvider>
   );
 }
