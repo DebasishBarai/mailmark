@@ -61,32 +61,32 @@ const tiers = [
 
 export default function AffiliatePage() {
   return (
-    <main>
+    <main className="bg-white dark:bg-gray-900">
       <Header />
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-24">
+      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-24 dark:from-violet-950/30 dark:to-gray-900">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700">
+          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
             Affiliate Program
           </span>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl dark:text-white">
             Earn 30% recurring commission
           </h1>
-          <p className="mt-6 text-lg leading-relaxed text-gray-600">
+          <p className="mt-6 text-lg leading-relaxed text-gray-600 dark:text-gray-300">
             Recommend DevMail to your audience and earn a 30% commission on every
             payment — forever, not just for one year.
           </p>
           <div className="mt-8 flex justify-center gap-4">
             <a
               href="/contact"
-              className="rounded-full bg-violet-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700"
+              className="rounded-full bg-violet-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700 dark:shadow-violet-900/30"
             >
               Apply now — it&apos;s free
             </a>
             <a
               href="#how-it-works"
-              className="rounded-full border border-gray-300 px-8 py-3.5 text-base font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+              className="rounded-full border border-gray-300 px-8 py-3.5 text-base font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
             >
               Learn more
             </a>
@@ -95,15 +95,15 @@ export default function AffiliatePage() {
       </section>
 
       {/* Commission table */}
-      <section className="bg-white px-6 py-16">
+      <section className="bg-white px-6 py-16 dark:bg-gray-900">
         <div className="mx-auto max-w-3xl">
-          <h2 className="text-center text-2xl font-bold text-gray-900">
+          <h2 className="text-center text-2xl font-bold text-gray-900 dark:text-white">
             What you earn
           </h2>
-          <div className="mt-8 overflow-hidden rounded-2xl border border-gray-100">
+          <div className="mt-8 overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-700">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
                   <th className="px-6 py-4">Plan</th>
                   <th className="px-6 py-4">Customer pays</th>
                   <th className="px-6 py-4">You earn</th>
@@ -114,11 +114,11 @@ export default function AffiliatePage() {
                 {tiers.map((tier) => (
                   <tr
                     key={tier.plan}
-                    className={`border-b border-gray-100 last:border-0 ${
-                      tier.highlight ? "bg-violet-50" : "bg-white"
+                    className={`border-b border-gray-100 last:border-0 dark:border-gray-700 ${
+                      tier.highlight ? "bg-violet-50 dark:bg-violet-900/20" : "bg-white dark:bg-gray-900"
                     }`}
                   >
-                    <td className="px-6 py-4 font-semibold text-gray-900">
+                    <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">
                       {tier.plan}
                       {tier.highlight && (
                         <span className="ml-2 rounded-full bg-violet-600 px-2 py-0.5 text-xs text-white">
@@ -126,9 +126,9 @@ export default function AffiliatePage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-gray-700">{tier.price}</td>
-                    <td className="px-6 py-4 font-semibold text-violet-700">{tier.commission}</td>
-                    <td className="px-6 py-4 text-gray-500">{tier.note}</td>
+                    <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{tier.price}</td>
+                    <td className="px-6 py-4 font-semibold text-violet-700 dark:text-violet-400">{tier.commission}</td>
+                    <td className="px-6 py-4 text-gray-500 dark:text-gray-400">{tier.note}</td>
                   </tr>
                 ))}
               </tbody>
@@ -138,17 +138,17 @@ export default function AffiliatePage() {
       </section>
 
       {/* How it works */}
-      <section id="how-it-works" className="bg-gray-50 px-6 py-16">
+      <section id="how-it-works" className="bg-gray-50 px-6 py-16 dark:bg-gray-800">
         <div className="mx-auto max-w-7xl">
-          <h2 className="text-center text-2xl font-bold text-gray-900">
+          <h2 className="text-center text-2xl font-bold text-gray-900 dark:text-white">
             How it works
           </h2>
           <div className="mt-10 grid gap-8 sm:grid-cols-3">
             {steps.map((s) => (
-              <div key={s.step} className="rounded-2xl border border-gray-100 bg-white p-8">
-                <span className="text-4xl font-extrabold text-violet-100">{s.step}</span>
-                <h3 className="mt-2 text-lg font-semibold text-gray-900">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">{s.description}</p>
+              <div key={s.step} className="rounded-2xl border border-gray-100 bg-white p-8 dark:border-gray-700 dark:bg-gray-900">
+                <span className="text-4xl font-extrabold text-violet-100 dark:text-violet-900">{s.step}</span>
+                <h3 className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{s.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{s.description}</p>
               </div>
             ))}
           </div>
@@ -156,14 +156,14 @@ export default function AffiliatePage() {
       </section>
 
       {/* FAQ */}
-      <section className="bg-white px-6 py-16">
+      <section className="bg-white px-6 py-16 dark:bg-gray-900">
         <div className="mx-auto max-w-3xl">
-          <h2 className="text-2xl font-bold text-gray-900">Common questions</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Common questions</h2>
           <div className="mt-8 space-y-6">
             {faqs.map((faq) => (
-              <div key={faq.q} className="border-b border-gray-100 pb-6 last:border-0">
-                <p className="font-semibold text-gray-900">{faq.q}</p>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">{faq.a}</p>
+              <div key={faq.q} className="border-b border-gray-100 pb-6 last:border-0 dark:border-gray-700">
+                <p className="font-semibold text-gray-900 dark:text-white">{faq.q}</p>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{faq.a}</p>
               </div>
             ))}
           </div>
@@ -171,7 +171,7 @@ export default function AffiliatePage() {
       </section>
 
       {/* CTA */}
-      <section className="bg-violet-600 px-6 py-16">
+      <section className="bg-violet-600 px-6 py-16 dark:bg-violet-800">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-2xl font-bold text-white">Ready to start earning?</h2>
           <p className="mt-3 text-violet-100">

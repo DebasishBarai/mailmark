@@ -112,22 +112,22 @@ Legal Department
 
 export default function TermsPage() {
   return (
-    <main>
+    <main className="bg-white dark:bg-gray-900">
       <Header />
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-20">
+      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-20 dark:from-violet-950/30 dark:to-gray-900">
         <div className="mx-auto max-w-3xl">
-          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700">
+          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
             Legal
           </span>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl dark:text-white">
             Terms of Service
           </h1>
-          <p className="mt-4 text-gray-500">
+          <p className="mt-4 text-gray-500 dark:text-gray-400">
             Last updated: <strong>January 15, 2026</strong>
           </p>
-          <p className="mt-4 text-gray-600">
+          <p className="mt-4 text-gray-600 dark:text-gray-300">
             Please read these terms carefully before using DevMail. They
             describe the rules for using our platform and your rights and
             responsibilities as a user.
@@ -135,18 +135,18 @@ export default function TermsPage() {
         </div>
       </section>
 
-      <section className="bg-white px-6 py-12">
+      <section className="bg-white px-6 py-12 dark:bg-gray-900">
         <div className="mx-auto max-w-3xl">
           <div className="space-y-10">
             {sections.map((section) => (
-              <div key={section.title} className="border-b border-gray-100 pb-10 last:border-0">
-                <h2 className="text-xl font-bold text-gray-900">{section.title}</h2>
+              <div key={section.title} className="border-b border-gray-100 pb-10 last:border-0 dark:border-gray-700">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">{section.title}</h2>
                 <div className="mt-4 space-y-3">
                   {section.content.split("\n\n").map((para, i) => (
-                    <p key={i} className="text-sm leading-relaxed text-gray-600">
+                    <p key={i} className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                       {para.split("**").map((part, j) =>
                         j % 2 === 1 ? (
-                          <strong key={j} className="font-semibold text-gray-800">
+                          <strong key={j} className="font-semibold text-gray-800 dark:text-gray-100">
                             {part}
                           </strong>
                         ) : (

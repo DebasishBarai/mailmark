@@ -60,19 +60,19 @@ const stats = [
 
 export default function AboutPage() {
   return (
-    <main>
+    <main className="bg-white dark:bg-gray-900">
       <Header />
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-24">
+      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-24 dark:from-violet-950/30 dark:to-gray-900">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700">
+          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
             About DevMail
           </span>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl dark:text-white">
             Email that&apos;s truly yours
           </h1>
-          <p className="mt-6 text-lg leading-relaxed text-gray-600">
+          <p className="mt-6 text-lg leading-relaxed text-gray-600 dark:text-gray-300">
             We built DevMail because we were tired of paying three different
             services to host email, send campaigns, and manage our team&apos;s
             inboxes. There had to be a better way.
@@ -81,13 +81,13 @@ export default function AboutPage() {
       </section>
 
       {/* Stats */}
-      <section className="border-y border-gray-100 bg-white px-6 py-12">
+      <section className="border-y border-gray-100 bg-white px-6 py-12 dark:border-gray-700 dark:bg-gray-900">
         <div className="mx-auto max-w-7xl">
           <dl className="grid grid-cols-2 gap-8 lg:grid-cols-4">
             {stats.map((stat) => (
               <div key={stat.label} className="text-center">
                 <dt className="text-3xl font-extrabold text-violet-600">{stat.value}</dt>
-                <dd className="mt-1 text-sm text-gray-500">{stat.label}</dd>
+                <dd className="mt-1 text-sm text-gray-500 dark:text-gray-400">{stat.label}</dd>
               </div>
             ))}
           </dl>
@@ -95,10 +95,10 @@ export default function AboutPage() {
       </section>
 
       {/* Story */}
-      <section className="bg-white px-6 py-20">
+      <section className="bg-white px-6 py-20 dark:bg-gray-900">
         <div className="mx-auto max-w-3xl">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900">Our story</h2>
-          <div className="mt-6 space-y-5 text-gray-600 leading-relaxed">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Our story</h2>
+          <div className="mt-6 space-y-5 text-gray-600 leading-relaxed dark:text-gray-300">
             <p>
               DevMail started in 2024 when our founders — a team of engineers
               frustrated by fragmented email tooling — decided to build the
@@ -125,13 +125,13 @@ export default function AboutPage() {
       </section>
 
       {/* Values */}
-      <section className="bg-gray-50 px-6 py-20">
+      <section className="bg-gray-50 px-6 py-20 dark:bg-gray-800">
         <div className="mx-auto max-w-7xl">
           <div className="text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
               What we stand for
             </h2>
-            <p className="mt-3 text-gray-600">
+            <p className="mt-3 text-gray-600 dark:text-gray-300">
               Four principles that guide every decision we make.
             </p>
           </div>
@@ -139,13 +139,13 @@ export default function AboutPage() {
             {values.map((v) => (
               <div
                 key={v.title}
-                className="rounded-2xl border border-gray-100 bg-white p-8 transition-all hover:border-violet-200 hover:shadow-md"
+                className="rounded-2xl border border-gray-100 bg-white p-8 transition-all hover:border-violet-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-900 dark:hover:border-violet-700"
               >
-                <div className="inline-flex rounded-xl bg-violet-100 p-2.5 text-violet-600">
+                <div className="inline-flex rounded-xl bg-violet-100 p-2.5 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400">
                   {v.icon}
                 </div>
-                <h3 className="mt-4 text-lg font-semibold text-gray-900">{v.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">{v.description}</p>
+                <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">{v.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{v.description}</p>
               </div>
             ))}
           </div>
@@ -153,18 +153,18 @@ export default function AboutPage() {
       </section>
 
       {/* CTA */}
-      <section className="bg-white px-6 py-20">
+      <section className="bg-white px-6 py-20 dark:bg-gray-900">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             Want to join us?
           </h2>
-          <p className="mt-3 text-gray-600">
+          <p className="mt-3 text-gray-600 dark:text-gray-300">
             We&apos;re a small, remote-first team building in public. Check out
             our open roles.
           </p>
           <a
             href="/careers"
-            className="mt-6 inline-block rounded-full bg-violet-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700"
+            className="mt-6 inline-block rounded-full bg-violet-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700 dark:shadow-violet-900/30"
           >
             View open positions
           </a>

@@ -47,38 +47,38 @@ export default function ContactPage() {
   }
 
   return (
-    <main>
+    <main className="bg-white dark:bg-gray-900">
       <Header />
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-20">
+      <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-20 dark:from-violet-950/30 dark:to-gray-900">
         <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700">
+          <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
             Contact
           </span>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl dark:text-white">
             We&apos;re here to help
           </h1>
-          <p className="mt-4 text-lg text-gray-600">
+          <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
             Typical response time is under 2 hours on business days. We read
             every message.
           </p>
         </div>
       </section>
 
-      <section className="bg-white px-6 py-16">
+      <section className="bg-white px-6 py-16 dark:bg-gray-900">
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-16 lg:grid-cols-2">
             {/* Contact form */}
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Send a message</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Send a message</h2>
               {submitted ? (
-                <div className="mt-8 rounded-2xl border border-emerald-100 bg-emerald-50 p-8 text-center">
+                <div className="mt-8 rounded-2xl border border-emerald-100 bg-emerald-50 p-8 text-center dark:border-emerald-800 dark:bg-emerald-900/20">
                   <svg className="mx-auto h-12 w-12 text-emerald-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <h3 className="mt-4 text-lg font-semibold text-gray-900">Message received!</h3>
-                  <p className="mt-2 text-sm text-gray-600">
+                  <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">Message received!</h3>
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                     Thanks for reaching out, {form.name.split(" ")[0] || "there"}. We&apos;ll reply to{" "}
                     <strong>{form.email}</strong> shortly.
                   </p>
@@ -87,7 +87,7 @@ export default function ContactPage() {
                 <form onSubmit={handleSubmit} className="mt-8 space-y-5">
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div>
-                      <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
                         Full name <span className="text-red-400">*</span>
                       </label>
                       <input
@@ -96,11 +96,11 @@ export default function ContactPage() {
                         placeholder="Jane Smith"
                         value={form.name}
                         onChange={(e) => setForm({ ...form, name: e.target.value })}
-                        className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500 dark:focus:border-violet-500 dark:focus:ring-violet-900/30"
                       />
                     </div>
                     <div>
-                      <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
                         Email address <span className="text-red-400">*</span>
                       </label>
                       <input
@@ -109,19 +109,19 @@ export default function ContactPage() {
                         placeholder="jane@example.com"
                         value={form.email}
                         onChange={(e) => setForm({ ...form, email: e.target.value })}
-                        className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500 dark:focus:border-violet-500 dark:focus:ring-violet-900/30"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
                       Subject <span className="text-red-400">*</span>
                     </label>
                     <select
                       required
                       value={form.subject}
                       onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                      className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                      className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-violet-500 dark:focus:ring-violet-900/30"
                     >
                       <option value="">Select a topic…</option>
                       <option>Technical support</option>
@@ -132,7 +132,7 @@ export default function ContactPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
                       Message <span className="text-red-400">*</span>
                     </label>
                     <textarea
@@ -141,12 +141,12 @@ export default function ContactPage() {
                       placeholder="Tell us how we can help…"
                       value={form.message}
                       onChange={(e) => setForm({ ...form, message: e.target.value })}
-                      className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                      className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500 dark:focus:border-violet-500 dark:focus:ring-violet-900/30"
                     />
                   </div>
                   <button
                     type="submit"
-                    className="rounded-full bg-violet-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700"
+                    className="rounded-full bg-violet-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700 dark:shadow-violet-900/30"
                   >
                     Send message
                   </button>
@@ -156,30 +156,30 @@ export default function ContactPage() {
 
             {/* Contact options */}
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Other ways to reach us</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Other ways to reach us</h2>
               <div className="mt-8 space-y-4">
                 {contactOptions.map((opt) => (
                   <a
                     key={opt.title}
                     href={opt.href}
-                    className="flex items-start gap-4 rounded-2xl border border-gray-100 p-5 transition-all hover:border-violet-200 hover:shadow-md"
+                    className="flex items-start gap-4 rounded-2xl border border-gray-100 p-5 transition-all hover:border-violet-200 hover:shadow-md dark:border-gray-700 dark:hover:border-violet-700"
                   >
-                    <div className="shrink-0 rounded-xl bg-violet-100 p-2.5 text-violet-600">
+                    <div className="shrink-0 rounded-xl bg-violet-100 p-2.5 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400">
                       {opt.icon}
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900">{opt.title}</p>
-                      <p className="mt-0.5 text-sm text-gray-500">{opt.description}</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{opt.title}</p>
+                      <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{opt.description}</p>
                     </div>
                   </a>
                 ))}
               </div>
-              <div className="mt-8 rounded-2xl bg-violet-50 p-6">
-                <p className="text-sm font-semibold text-violet-800">Business hours</p>
-                <p className="mt-1 text-sm text-violet-700">
+              <div className="mt-8 rounded-2xl bg-violet-50 p-6 dark:bg-violet-900/20">
+                <p className="text-sm font-semibold text-violet-800 dark:text-violet-300">Business hours</p>
+                <p className="mt-1 text-sm text-violet-700 dark:text-violet-400">
                   Monday – Friday, 9 am – 6 pm UTC
                 </p>
-                <p className="mt-3 text-sm text-violet-700">
+                <p className="mt-3 text-sm text-violet-700 dark:text-violet-400">
                   For urgent issues outside business hours, email{" "}
                   <a href="mailto:urgent@devmail.app" className="font-medium underline">
                     urgent@devmail.app
