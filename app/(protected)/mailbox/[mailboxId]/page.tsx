@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
+import { useSidebar } from "../../../components/SidebarContext";
 
 const folderConfig = [
   { key: "inbox", label: "Inbox" },
@@ -344,7 +345,7 @@ export default function MailboxPage() {
     }
   };
 
-  const handleOpenCompose = () => {
+  const handleOpenCompose = useCallback(() => {
     setComposeMode("compose");
     setComposeTo([]);
     setComposeToInput("");
@@ -354,7 +355,88 @@ export default function MailboxPage() {
     setComposeAttachments([]);
     setSendError(null);
     setShowCompose(true);
-  };
+  }, []);
+
+  const { setFolderSection } = useSidebar();
+
+  useEffect(() => {
+    setFolderSection({
+      render: (collapsed: boolean) => (
+        <div className="px-3 pb-3">
+          <div className="my-2 border-t border-gray-100 dark:border-gray-700" />
+          {!collapsed && (
+            <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+              Mailbox
+            </p>
+          )}
+          <button
+            onClick={handleOpenCompose}
+            title={collapsed ? "New email" : undefined}
+            className={`mb-2 flex w-full items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700 ${collapsed ? "px-0" : ""}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            {!collapsed && "New"}
+          </button>
+          <nav className="space-y-1">
+            {folderConfig.filter((f) => !f.navHidden).map((folder) => (
+              <button
+                key={folder.key}
+                onClick={() => {
+                  setActiveFolder(folder.key);
+                  setSelectedEmailId(null);
+                  setEmailBody(null);
+                }}
+                title={collapsed ? folder.label : undefined}
+                className={`flex w-full items-center ${collapsed ? "justify-center" : "justify-between"} rounded-md px-3 py-1.5 text-xs transition-colors ${
+                  activeFolder === folder.key
+                    ? "bg-violet-50 dark:bg-violet-900/20 font-semibold text-violet-700 dark:text-violet-300"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                <span className={`flex items-center ${collapsed ? "" : "gap-2"}`}>
+                  <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d={folderIcons[folder.key]} />
+                  </svg>
+                  {!collapsed && folder.label}
+                </span>
+                {!collapsed && folder.key === "inbox" && unreadCount > 0 && (
+                  <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[10px] text-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+          {!collapsed && domainMailboxes && domainMailboxes.length > 1 && (
+            <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
+              <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                Mailboxes
+              </p>
+              <div className="space-y-1">
+                {domainMailboxes.map((mb: Doc<"mailboxes">) => (
+                  <Link
+                    key={mb._id}
+                    href={`/mailbox/${mb._id}`}
+                    className={`block truncate rounded-md px-2 py-1 text-[10px] transition-colors ${
+                      mb._id === mbId
+                        ? "bg-violet-50 dark:bg-violet-900/20 font-medium text-violet-700 dark:text-violet-300"
+                        : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    {mb.fullAddress}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ),
+    });
+    return () => setFolderSection(null);
+  }, [activeFolder, unreadCount, domainMailboxes, mbId, handleOpenCompose, setFolderSection]);
 
   const handleReply = () => {
     if (!selectedEmail || !emailBody) return;
@@ -493,69 +575,6 @@ export default function MailboxPage() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Folder sidebar */}
-        <div className="flex w-48 shrink-0 flex-col border-r border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3">
-          <button
-            onClick={handleOpenCompose}
-            className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            New
-          </button>
-          <nav className="space-y-1">
-            {folderConfig.filter((f) => !f.navHidden).map((folder) => (
-              <button
-                key={folder.key}
-                onClick={() => {
-                  setActiveFolder(folder.key);
-                  setSelectedEmailId(null);
-                  setEmailBody(null);
-                }}
-                className={`flex w-full items-center justify-between rounded-md px-3 py-1.5 text-xs transition-colors ${activeFolder === folder.key
-                  ? "bg-violet-50 dark:bg-violet-900/20 font-semibold text-violet-700 dark:text-violet-300"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  }`}
-              >
-                <span className="flex items-center gap-2">
-                  <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d={folderIcons[folder.key]} />
-                  </svg>
-                  {folder.label}
-                </span>
-                {folder.key === "inbox" && unreadCount > 0 && (
-                  <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[10px] text-white">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-            ))}
-          </nav>
-          {domainMailboxes && domainMailboxes.length > 1 && (
-            <div className="mt-auto border-t border-gray-200 dark:border-gray-700 pt-3">
-              <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                Mailboxes
-              </p>
-              <div className="space-y-1">
-                {domainMailboxes.map((mb: Doc<"mailboxes">) => (
-                  <Link
-                    key={mb._id}
-                    href={`/mailbox/${mb._id}`}
-                    className={`block truncate rounded-md px-2 py-1 text-[10px] transition-colors ${mb._id === mbId
-                      ? "bg-violet-50 dark:bg-violet-900/20 font-medium text-violet-700 dark:text-violet-300"
-                      : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      }`}
-                  >
-                    {mb.fullAddress}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Email list */}
         <div className={`flex shrink-0 flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${selectedEmailId ? "w-80" : "flex-1"}`}>
           {/* List header */}
