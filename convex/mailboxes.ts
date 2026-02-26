@@ -1,5 +1,7 @@
 import { v } from "convex/values";
-import { query, mutation, internalQuery } from "./_generated/server";
+import { query, mutation, action, internalMutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 
 export const listByDomain = query({
   args: { domainId: v.id("domains") },
@@ -125,7 +127,8 @@ export const updateDisplayName = mutation({
   },
 });
 
-export const remove = mutation({
+// Deletes all DB records for the mailbox and returns the s3Keys to clean up.
+const removeRecords = internalMutation({
   args: { mailboxId: v.id("mailboxes") },
   handler: async (ctx, { mailboxId }) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -143,17 +146,53 @@ export const remove = mutation({
       throw new Error("Mailbox not found");
     }
 
-    // Cascade-delete all emails belonging to this mailbox
     const emails = await ctx.db
       .query("emails")
       .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mailboxId))
       .collect();
+
+    const s3Keys = emails.map((e) => e.s3Key);
 
     for (const email of emails) {
       await ctx.db.delete(email._id);
     }
 
     await ctx.db.delete(mailboxId);
+    return s3Keys;
+  },
+});
+
+export const remove = action({
+  args: { mailboxId: v.id("mailboxes") },
+  handler: async (ctx, { mailboxId }) => {
+    const s3Keys: string[] = await ctx.runMutation(
+      internal.mailboxes.removeRecords,
+      { mailboxId }
+    );
+
+    if (s3Keys.length === 0) return;
+
+    const s3 = new S3Client({
+      region: process.env.AWS_REGION!,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+
+    const bucket = process.env.AWS_S3_BUCKET!;
+
+    // DeleteObjectsCommand accepts up to 1000 keys per request
+    for (let i = 0; i < s3Keys.length; i += 1000) {
+      await s3.send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: {
+            Objects: s3Keys.slice(i, i + 1000).map((Key) => ({ Key })),
+          },
+        })
+      );
+    }
   },
 });
 
