@@ -7,6 +7,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { useSidebar } from "../../../components/SidebarContext";
+import { Users } from "lucide-react";
 
 const folderConfig = [
   { key: "inbox", label: "Inbox" },
@@ -80,6 +81,11 @@ export default function MailboxPage() {
   // Build a lookup map: raw email → display name
   const contactNameMap = new Map<string, string>();
   contacts?.forEach((c) => contactNameMap.set(c.email, c.name));
+  const senderGroups = useQuery(api.senderGroups.list, { mailboxId: mbId });
+  const createSenderGroup = useMutation(api.senderGroups.create);
+  const updateSenderGroup = useMutation(api.senderGroups.update);
+  const updateGroupMailboxes = useMutation(api.senderGroups.updateMailboxes);
+  const removeSenderGroup = useMutation(api.senderGroups.remove);
   const markAsRead = useMutation(api.emails.markAsRead);
   const markAsUnread = useMutation(api.emails.markAsUnread);
   const toggleStar = useMutation(api.emails.toggleStar);
@@ -104,6 +110,7 @@ export default function MailboxPage() {
   const [showCompose, setShowCompose] = useState(false);
   const [composeMode, setComposeMode] = useState<ComposeMode>("compose");
   const [composeTo, setComposeTo] = useState<string[]>([]);
+  const [composeGroupIds, setComposeGroupIds] = useState<Id<"senderGroups">[]>([]);
   const [composeToInput, setComposeToInput] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
@@ -126,6 +133,19 @@ export default function MailboxPage() {
   const [gSheetsUrl, setGSheetsUrl] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+
+  // Sender group management state
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<Id<"senderGroups"> | null>(null);
+  const [groupName, setGroupName] = useState("");
+  const [groupEmails, setGroupEmails] = useState<string[]>([]);
+  const [groupEmailInput, setGroupEmailInput] = useState("");
+  const [groupMailboxIds, setGroupMailboxIds] = useState<Id<"mailboxes">[]>([]);
+  const [showGroupPicker, setShowGroupPicker] = useState(false);
+  const groupPickerRef = useRef<HTMLDivElement>(null);
+
+  const isValidEmail = (email: string) =>
+    /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(email);
 
   const parseEmailsFromCSV = (text: string): string[] => {
     const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
@@ -174,6 +194,57 @@ export default function MailboxPage() {
     } finally {
       setIsImporting(false);
     }
+  };
+
+  const openCreateGroup = () => {
+    setEditingGroup(null);
+    setGroupName("");
+    setGroupEmails([]);
+    setGroupEmailInput("");
+    setGroupMailboxIds([mbId]);
+    setShowGroupModal(true);
+  };
+
+  const openEditGroup = (group: Doc<"senderGroups">) => {
+    setEditingGroup(group._id);
+    setGroupName(group.name);
+    setGroupEmails([...group.emails]);
+    setGroupEmailInput("");
+    setGroupMailboxIds([...group.mailboxIds]);
+    setShowGroupModal(true);
+  };
+
+  const handleSaveGroup = async () => {
+    const name = groupName.trim();
+    if (!name || groupEmails.length === 0 || groupMailboxIds.length === 0) return;
+    if (editingGroup) {
+      await updateSenderGroup({ id: editingGroup, name, emails: groupEmails });
+      await updateGroupMailboxes({ id: editingGroup, mailboxIds: groupMailboxIds });
+    } else {
+      await createSenderGroup({ mailboxId: mbId, name, emails: groupEmails });
+    }
+    setShowGroupModal(false);
+  };
+
+  const handleDeleteGroup = async (id: Id<"senderGroups">) => {
+    await removeSenderGroup({ id });
+    if (editingGroup === id) setShowGroupModal(false);
+  };
+
+  const addGroupToRecipients = (group: Doc<"senderGroups">) => {
+    setComposeGroupIds((prev) => prev.includes(group._id) ? prev : [...prev, group._id]);
+    setShowGroupPicker(false);
+  };
+
+  // Resolve all recipients: individual emails + expanded group emails, deduplicated
+  const resolveAllRecipients = () => {
+    const groupEmails = (senderGroups ?? [])
+      .filter((g) => composeGroupIds.includes(g._id))
+      .flatMap((g) => g.emails);
+    const pendingInput = composeToInput.trim();
+    const all = [...composeTo, ...groupEmails];
+    if (pendingInput && isValidEmail(pendingInput)) all.push(pendingInput);
+    return [...new Set(all)];
   };
 
   const processFiles = (files: File[]) => {
@@ -241,14 +312,11 @@ export default function MailboxPage() {
   };
 
   const handleSend = async () => {
-    // include any email still being typed but not yet chipped
-    const pendingInput = composeToInput.trim();
-    const allRecipients = pendingInput ? [...composeTo, pendingInput] : composeTo;
+    const allRecipients = resolveAllRecipients();
     if (allRecipients.length === 0 || !composeSubject.trim()) return;
     setIsSending(true);
     setSendError(null);
     try {
-      const recipients = allRecipients;
       const fullBody = composeBody.replace(/\n/g, "<br>") + (composeQuote ? `<br><br>${composeQuote}` : "");
       const attachmentData = composeAttachments
         .filter((att) => att.status === "uploaded" && att.data)
@@ -259,13 +327,14 @@ export default function MailboxPage() {
         }));
       await sendEmail({
         mailboxId: mbId,
-        to: recipients,
+        to: allRecipients,
         subject: composeSubject,
         body: fullBody,
         attachments: attachmentData.length > 0 ? attachmentData : undefined,
       });
       setShowCompose(false);
       setComposeTo([]);
+      setComposeGroupIds([]);
       setComposeToInput("");
       setComposeSubject("");
       setComposeBody("");
@@ -279,8 +348,7 @@ export default function MailboxPage() {
   };
 
   const handleSendCampaign = async () => {
-    const pendingInput = composeToInput.trim();
-    const allRecipients = pendingInput ? [...composeTo, pendingInput] : composeTo;
+    const allRecipients = resolveAllRecipients();
     if (allRecipients.length === 0 || !composeSubject.trim()) return;
     setIsSending(true);
     setSendError(null);
@@ -301,6 +369,7 @@ export default function MailboxPage() {
       }
       setShowCompose(false);
       setComposeTo([]);
+      setComposeGroupIds([]);
       setComposeToInput("");
       setComposeSubject("");
       setComposeBody("");
@@ -337,6 +406,17 @@ export default function MailboxPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showImportMenu]);
 
+  useEffect(() => {
+    if (!showGroupPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (groupPickerRef.current && !groupPickerRef.current.contains(e.target as Node)) {
+        setShowGroupPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showGroupPicker]);
+
   const handleMoveToTrash = async (emailId: Id<"emails">) => {
     await moveToFolder({ emailId, folder: "trash" });
     if (selectedEmailId === emailId) {
@@ -348,6 +428,7 @@ export default function MailboxPage() {
   const handleOpenCompose = useCallback(() => {
     setComposeMode("compose");
     setComposeTo([]);
+    setComposeGroupIds([]);
     setComposeToInput("");
     setComposeSubject("");
     setComposeBody("");
@@ -410,6 +491,43 @@ export default function MailboxPage() {
               </button>
             ))}
           </nav>
+          {!collapsed && (
+            <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
+              <div className="mb-2 flex items-center justify-between px-1">
+                <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  <Users className="h-3 w-3" />
+                  Groups
+                </p>
+                <button
+                  onClick={openCreateGroup}
+                  className="flex h-4 w-4 items-center justify-center rounded text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-violet-600 dark:hover:text-violet-400"
+                  title="Create group"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                </button>
+              </div>
+              <div className="space-y-0.5">
+                {senderGroups?.map((group) => (
+                  <button
+                    key={group._id}
+                    onClick={() => openEditGroup(group)}
+                    className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <span className="flex items-center gap-2 truncate">
+                      <Users className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{group.name}</span>
+                    </span>
+                    <span className="ml-1 shrink-0 text-[10px] text-gray-400 dark:text-gray-500">{group.emails.length}</span>
+                  </button>
+                ))}
+                {senderGroups?.length === 0 && (
+                  <p className="px-3 py-1 text-[10px] text-gray-400 dark:text-gray-500">No groups yet</p>
+                )}
+              </div>
+            </div>
+          )}
           {!collapsed && domainMailboxes && domainMailboxes.length > 1 && (
             <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
               <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
@@ -436,12 +554,13 @@ export default function MailboxPage() {
       ),
     });
     return () => setFolderSection(null);
-  }, [activeFolder, unreadCount, domainMailboxes, mbId, handleOpenCompose, setFolderSection]);
+  }, [activeFolder, unreadCount, domainMailboxes, senderGroups, mbId, handleOpenCompose, setFolderSection]);
 
   const handleReply = () => {
     if (!selectedEmail || !emailBody) return;
     setComposeMode("reply");
     setComposeTo([selectedEmail.from]);
+    setComposeGroupIds([]);
     setComposeToInput("");
     setComposeSubject(
       selectedEmail.subject.startsWith("Re:")
@@ -466,6 +585,7 @@ export default function MailboxPage() {
     ];
     setComposeMode("replyAll");
     setComposeTo(recipients);
+    setComposeGroupIds([]);
     setComposeToInput("");
     setComposeSubject(
       selectedEmail.subject.startsWith("Re:")
@@ -485,6 +605,7 @@ export default function MailboxPage() {
     if (!selectedEmail || !emailBody) return;
     setComposeMode("forward");
     setComposeTo([]);
+    setComposeGroupIds([]);
     setComposeToInput("");
     setComposeSubject(
       selectedEmail.subject.startsWith("Fwd:")
@@ -803,7 +924,7 @@ export default function MailboxPage() {
               {{ compose: "New Message", reply: "Reply", replyAll: "Reply All", forward: "Forward" }[composeMode]}
             </h3>
             <button
-              onClick={() => { setShowCompose(false); setSendError(null); setComposeTo([]); setComposeToInput(""); setComposeQuote(""); setComposeAttachments([]); }}
+              onClick={() => { setShowCompose(false); setSendError(null); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeQuote(""); setComposeAttachments([]); }}
               className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -820,6 +941,36 @@ export default function MailboxPage() {
               <div className="border-b border-gray-100 dark:border-gray-700/50 pb-2">
                 <div className="flex min-h-[2rem] flex-wrap items-center gap-1.5">
                   <span className="shrink-0 text-sm text-gray-500 dark:text-gray-400">To:</span>
+                  {composeGroupIds.map((gId) => {
+                    const group = senderGroups?.find((g) => g._id === gId);
+                    if (!group) return null;
+                    return (
+                      <span key={gId} className="flex items-center gap-1 rounded-full bg-blue-100 dark:bg-blue-900/40 py-0.5 pl-2 pr-1 text-xs font-medium text-blue-800 dark:text-blue-200">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setComposeGroupIds((prev) => prev.filter((id) => id !== gId));
+                            setComposeTo((prev) => [...new Set([...prev, ...group.emails])]);
+                          }}
+                          className="flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-100"
+                          title="Expand to individual emails"
+                        >
+                          <Users className="h-3 w-3" />
+                          {group.name}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setComposeGroupIds((prev) => prev.filter((id) => id !== gId))}
+                          className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-blue-500 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800 hover:text-blue-700"
+                          title="Remove group"
+                        >
+                          <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </span>
+                    );
+                  })}
                   {composeTo.map((email, i) => (
                     <span key={i} className="flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-900/40 py-0.5 pl-2.5 pr-1 text-xs font-medium text-violet-800 dark:text-violet-200">
                       {email}
@@ -843,18 +994,50 @@ export default function MailboxPage() {
                       if (e.key === "Enter" || e.key === "," || e.key === "Tab") {
                         e.preventDefault();
                         const val = composeToInput.trim().replace(/,+$/, "");
-                        if (val) { setComposeTo((prev) => [...prev, val]); setComposeToInput(""); }
+                        if (val && isValidEmail(val)) { setComposeTo((prev) => [...prev, val]); setComposeToInput(""); }
                       } else if (e.key === "Backspace" && !composeToInput && composeTo.length > 0) {
                         setComposeTo((prev) => prev.slice(0, -1));
                       }
                     }}
                     onBlur={() => {
                       const val = composeToInput.trim().replace(/,+$/, "");
-                      if (val) { setComposeTo((prev) => [...prev, val]); setComposeToInput(""); }
+                      if (val && isValidEmail(val)) { setComposeTo((prev) => [...prev, val]); setComposeToInput(""); }
                     }}
                     className="min-w-[140px] flex-1 text-sm text-gray-900 dark:text-white outline-none placeholder-gray-400 dark:placeholder-gray-500 bg-transparent"
-                    placeholder={composeTo.length === 0 ? "recipient@example.com" : "Add recipient..."}
+                    placeholder={composeTo.length === 0 && composeGroupIds.length === 0 ? "recipient@example.com" : "Add recipient..."}
                   />
+                  {/* Groups picker */}
+                  {senderGroups && senderGroups.length > 0 && (
+                    <div ref={groupPickerRef} className="relative shrink-0 ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => setShowGroupPicker((v) => !v)}
+                        className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-violet-600 dark:hover:text-violet-400"
+                        title="Add from group"
+                      >
+                        <Users className="h-3.5 w-3.5" />
+                        Groups
+                      </button>
+                      {showGroupPicker && (
+                        <div className="absolute right-0 top-full z-30 mt-1 w-52 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+                          {senderGroups.map((group) => (
+                            <button
+                              key={group._id}
+                              type="button"
+                              onClick={() => addGroupToRecipients(group)}
+                              className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            >
+                              <span className="flex items-center gap-2 truncate">
+                                <Users className="h-3.5 w-3.5 shrink-0" />
+                                {group.name}
+                              </span>
+                              <span className="ml-2 shrink-0 text-xs text-gray-400">{group.emails.length} emails</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {/* Import recipients button */}
                   <div ref={importMenuRef} className="relative ml-auto shrink-0">
                     <button
@@ -1032,7 +1215,7 @@ export default function MailboxPage() {
                   <div className="inline-flex overflow-hidden rounded-lg">
                   <button
                     onClick={sendMode === "campaign" ? handleSendCampaign : handleSend}
-                    disabled={(composeTo.length === 0 && !composeToInput.trim()) || !composeSubject.trim() || isSending || isAnyUploading}
+                    disabled={(composeTo.length === 0 && composeGroupIds.length === 0 && !composeToInput.trim()) || !composeSubject.trim() || isSending || isAnyUploading}
                     className="bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
                   >
                     {isAnyUploading
@@ -1097,13 +1280,148 @@ export default function MailboxPage() {
                 </button>
               </div>
               <button
-                onClick={() => { setShowCompose(false); setComposeTo([]); setComposeToInput(""); setComposeQuote(""); setComposeAttachments([]); }}
+                onClick={() => { setShowCompose(false); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeQuote(""); setComposeAttachments([]); }}
                 className="rounded-md p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-500"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                 </svg>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sender Group modal */}
+      {showGroupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700/50 px-5 py-3">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                {editingGroup ? "Edit Group" : "Create Group"}
+              </h2>
+              <button
+                onClick={() => setShowGroupModal(false)}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Group Name</label>
+                <input
+                  type="text"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-100"
+                  placeholder="e.g. Marketing Team"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                  Email Addresses ({groupEmails.length})
+                </label>
+                <div className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 p-2">
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {groupEmails.map((email, i) => (
+                      <span key={i} className="flex items-center gap-1 rounded-full bg-blue-100 dark:bg-blue-900/40 py-0.5 pl-2.5 pr-1 text-xs font-medium text-blue-800 dark:text-blue-200">
+                        {email}
+                        <button
+                          type="button"
+                          onClick={() => setGroupEmails((prev) => prev.filter((_, j) => j !== i))}
+                          className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-blue-500 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800 hover:text-blue-700"
+                        >
+                          <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={groupEmailInput}
+                    onChange={(e) => setGroupEmailInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === "," || e.key === "Tab") {
+                        e.preventDefault();
+                        const val = groupEmailInput.trim().replace(/,+$/, "");
+                        if (val && isValidEmail(val) && !groupEmails.includes(val)) {
+                          setGroupEmails((prev) => [...prev, val]);
+                          setGroupEmailInput("");
+                        }
+                      } else if (e.key === "Backspace" && !groupEmailInput && groupEmails.length > 0) {
+                        setGroupEmails((prev) => prev.slice(0, -1));
+                      }
+                    }}
+                    onBlur={() => {
+                      const val = groupEmailInput.trim().replace(/,+$/, "");
+                      if (val && isValidEmail(val) && !groupEmails.includes(val)) {
+                        setGroupEmails((prev) => [...prev, val]);
+                        setGroupEmailInput("");
+                      }
+                    }}
+                    className="w-full text-sm text-gray-900 dark:text-white outline-none placeholder-gray-400 dark:placeholder-gray-500 bg-transparent"
+                    placeholder="Add email and press Enter..."
+                  />
+                </div>
+              </div>
+              {domainMailboxes && domainMailboxes.length > 1 && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                    Shared with Mailboxes
+                  </label>
+                  <div className="space-y-1.5">
+                    {domainMailboxes.map((mb: Doc<"mailboxes">) => (
+                      <label key={mb._id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={groupMailboxIds.includes(mb._id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setGroupMailboxIds((prev) => [...prev, mb._id]);
+                            } else {
+                              setGroupMailboxIds((prev) => prev.filter((id) => id !== mb._id));
+                            }
+                          }}
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{mb.fullAddress}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700/50 px-5 py-3">
+              <div>
+                {editingGroup && (
+                  <button
+                    onClick={() => handleDeleteGroup(editingGroup)}
+                    className="rounded-md px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    Delete Group
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowGroupModal(false)}
+                  className="rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveGroup}
+                  disabled={!groupName.trim() || groupEmails.length === 0}
+                  className="rounded-md bg-violet-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {editingGroup ? "Save Changes" : "Create Group"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

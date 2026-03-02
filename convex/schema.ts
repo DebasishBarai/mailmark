@@ -69,4 +69,11 @@ export default defineSchema({
   })
     .index("by_user_id", ["userId"])
     .index("by_user_email", ["userId", "email"]),
+
+  senderGroups: defineTable({
+    domainId: v.id("domains"),
+    mailboxIds: v.array(v.id("mailboxes")),
+    name: v.string(),
+    emails: v.array(v.string()),
+  }).index("by_domain_id", ["domainId"]),
 });

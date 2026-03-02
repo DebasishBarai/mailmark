@@ -14,6 +14,7 @@ import type * as domains from "../domains.js";
 import type * as emails from "../emails.js";
 import type * as http from "../http.js";
 import type * as mailboxes from "../mailboxes.js";
+import type * as senderGroups from "../senderGroups.js";
 import type * as ses from "../ses.js";
 import type * as users from "../users.js";
 
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   emails: typeof emails;
   http: typeof http;
   mailboxes: typeof mailboxes;
+  senderGroups: typeof senderGroups;
   ses: typeof ses;
   users: typeof users;
 }>;
