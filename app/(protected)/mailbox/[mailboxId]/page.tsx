@@ -143,6 +143,13 @@ export default function MailboxPage() {
   const [groupMailboxIds, setGroupMailboxIds] = useState<Id<"mailboxes">[]>([]);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const groupPickerRef = useRef<HTMLDivElement>(null);
+  const [showGroupImportMenu, setShowGroupImportMenu] = useState(false);
+  const [showGroupGSheetsInput, setShowGroupGSheetsInput] = useState(false);
+  const [groupGSheetsUrl, setGroupGSheetsUrl] = useState("");
+  const [groupImportError, setGroupImportError] = useState<string | null>(null);
+  const [isGroupImporting, setIsGroupImporting] = useState(false);
+  const groupImportMenuRef = useRef<HTMLDivElement>(null);
+  const groupCsvImportRef = useRef<HTMLInputElement>(null);
 
   const isValidEmail = (email: string) =>
     /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(email);
@@ -150,6 +157,50 @@ export default function MailboxPage() {
   const parseEmailsFromCSV = (text: string): string[] => {
     const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
     return [...new Set(text.match(emailRegex) ?? [])];
+  };
+
+  const handleGroupCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const emails = parseEmailsFromCSV(text);
+      if (emails.length === 0) {
+        setGroupImportError("No email addresses found in the CSV.");
+      } else {
+        setGroupEmails((prev) => [...new Set([...prev, ...emails])]);
+        setShowGroupImportMenu(false);
+        setGroupImportError(null);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleGroupGSheetsImport = async () => {
+    if (!groupGSheetsUrl.trim()) return;
+    setGroupImportError(null);
+    setIsGroupImporting(true);
+    try {
+      const res = await fetch(`/api/fetch-csv?url=${encodeURIComponent(groupGSheetsUrl.trim())}`);
+      if (!res.ok) throw new Error("Failed to fetch sheet");
+      const text = await res.text();
+      const emails = parseEmailsFromCSV(text);
+      if (emails.length === 0) {
+        setGroupImportError("No email addresses found in the sheet.");
+      } else {
+        setGroupEmails((prev) => [...new Set([...prev, ...emails])]);
+        setGroupGSheetsUrl("");
+        setShowGroupGSheetsInput(false);
+        setShowGroupImportMenu(false);
+        setGroupImportError(null);
+      }
+    } catch {
+      setGroupImportError("Could not fetch the sheet. Make sure it is publicly accessible.");
+    } finally {
+      setIsGroupImporting(false);
+    }
   };
 
   const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,12 +247,20 @@ export default function MailboxPage() {
     }
   };
 
+  const resetGroupImportState = () => {
+    setShowGroupImportMenu(false);
+    setShowGroupGSheetsInput(false);
+    setGroupGSheetsUrl("");
+    setGroupImportError(null);
+  };
+
   const openCreateGroup = () => {
     setEditingGroup(null);
     setGroupName("");
     setGroupEmails([]);
     setGroupEmailInput("");
     setGroupMailboxIds([mbId]);
+    resetGroupImportState();
     setShowGroupModal(true);
   };
 
@@ -211,6 +270,7 @@ export default function MailboxPage() {
     setGroupEmails([...group.emails]);
     setGroupEmailInput("");
     setGroupMailboxIds([...group.mailboxIds]);
+    resetGroupImportState();
     setShowGroupModal(true);
   };
 
@@ -416,6 +476,19 @@ export default function MailboxPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showGroupPicker]);
+
+  useEffect(() => {
+    if (!showGroupImportMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (groupImportMenuRef.current && !groupImportMenuRef.current.contains(e.target as Node)) {
+        setShowGroupImportMenu(false);
+        setShowGroupGSheetsInput(false);
+        setGroupImportError(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showGroupImportMenu]);
 
   const handleMoveToTrash = async (emailId: Id<"emails">) => {
     await moveToFolder({ emailId, folder: "trash" });
@@ -1367,6 +1440,83 @@ export default function MailboxPage() {
                     className="w-full text-sm text-gray-900 dark:text-white outline-none placeholder-gray-400 dark:placeholder-gray-500 bg-transparent"
                     placeholder="Add email and press Enter..."
                   />
+                </div>
+                {/* Import button for group emails */}
+                <div className="mt-2 flex items-center">
+                  <input
+                    ref={groupCsvImportRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="absolute w-0 h-0 overflow-hidden opacity-0"
+                    onChange={handleGroupCSVImport}
+                  />
+                  <div ref={groupImportMenuRef} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => { setShowGroupImportMenu((v) => !v); setShowGroupGSheetsInput(false); setGroupImportError(null); }}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-violet-600 dark:hover:text-violet-400"
+                      title="Import emails"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                      </svg>
+                      Import
+                    </button>
+                    {showGroupImportMenu && (
+                      <div className="absolute left-0 top-full z-30 mt-1 w-56 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+                        <button
+                          type="button"
+                          onClick={() => groupCsvImportRef.current?.click()}
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                          <svg className="h-4 w-4 shrink-0 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                          </svg>
+                          <div>
+                            <p className="font-medium">From CSV file</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500">Upload a .csv file</p>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowGroupGSheetsInput((v) => !v)}
+                          className="flex w-full items-center gap-3 border-t border-gray-100 dark:border-gray-700/50 px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                          <svg className="h-4 w-4 shrink-0 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                          </svg>
+                          <div>
+                            <p className="font-medium">From Google Sheets</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500">Paste a sheet URL</p>
+                          </div>
+                        </button>
+                        {showGroupGSheetsInput && (
+                          <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-3">
+                            <p className="mb-1.5 text-xs text-gray-500 dark:text-gray-400">Paste a public Google Sheets URL:</p>
+                            <input
+                              type="url"
+                              value={groupGSheetsUrl}
+                              onChange={(e) => setGroupGSheetsUrl(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Enter") handleGroupGSheetsImport(); }}
+                              className="w-full rounded-md border border-gray-200 dark:border-gray-600 dark:bg-gray-700 px-2.5 py-1.5 text-xs text-gray-800 dark:text-white outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-100"
+                              placeholder="https://docs.google.com/spreadsheets/..."
+                            />
+                            <button
+                              type="button"
+                              onClick={handleGroupGSheetsImport}
+                              disabled={isGroupImporting || !groupGSheetsUrl.trim()}
+                              className="mt-2 w-full rounded-md bg-violet-600 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+                            >
+                              {isGroupImporting ? "Importing..." : "Import"}
+                            </button>
+                          </div>
+                        )}
+                        {groupImportError && (
+                          <p className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-2 text-xs text-red-600">{groupImportError}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               {domainMailboxes && domainMailboxes.length > 1 && (

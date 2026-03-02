@@ -17,6 +17,7 @@
     "@xmldom/xmldom": "^0.8.11",
     "convex": "^1.32.0",
     "geist": "^1.7.0",
+    "lucide-react": "^0.576.0",
     "mailparser": "^3.9.3",
     "next": "16.1.6",
     "react": "19.2.3",
