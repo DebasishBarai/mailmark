@@ -318,6 +318,17 @@ export const remove = action({
   },
 });
 
+// Public action so already-verified domains can set up the sending
+// configuration set without having to re-run DNS verification.
+export const setupSendingNotifications = action({
+  args: {},
+  handler: async (ctx): Promise<void> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    await ensureSendingConfigurationSet();
+  },
+});
+
 // Creates an SNS topic for the domain and subscribes the webhook endpoint
 async function ensureSnsTopicForDomain(domain: string): Promise<string> {
   const sns = getSNSClient();
