@@ -448,6 +448,8 @@ export default function MailboxPage() {
   const isAnyUploading = composeAttachments.some((att) => att.status === "uploading");
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [showRecipientBreakdown, setShowRecipientBreakdown] = useState(false);
+  const [recipientFilter, setRecipientFilter] = useState<"all" | "pending" | "delivered" | "opened">("all");
 
   const isLoading = mailbox === undefined || emails === undefined;
 
@@ -1141,6 +1143,78 @@ export default function MailboxPage() {
                 </button>
               </div>
             </div>
+            {isBatchDetail && (
+              <div className="mb-5 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                {/* Toggle header */}
+                <button
+                  onClick={() => setShowRecipientBreakdown((v) => !v)}
+                  className="flex w-full items-center justify-between bg-gray-50 dark:bg-gray-700/50 px-4 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <span>Recipients ({batchEmails.length})</span>
+                  <svg className={`h-3.5 w-3.5 transition-transform ${showRecipientBreakdown ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                  </svg>
+                </button>
+                {showRecipientBreakdown && (() => {
+                  const filteredEmails = batchEmails.filter((e) => {
+                    if (recipientFilter === "pending") return e.deliveryStatus === "pending";
+                    if (recipientFilter === "delivered") return e.deliveryStatus === "delivered" && !e.openedAt;
+                    if (recipientFilter === "opened") return !!e.openedAt;
+                    return true;
+                  });
+                  return (
+                    <div>
+                      {/* Filter tabs */}
+                      <div className="flex gap-1 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5">
+                        {(["all", "pending", "delivered", "opened"] as const).map((f) => {
+                          const count =
+                            f === "all" ? batchEmails.length
+                            : f === "pending" ? selectedGroup!.pendingCount
+                            : f === "delivered" ? selectedGroup!.deliveredCount
+                            : selectedGroup!.openedCount;
+                          return (
+                            <button
+                              key={f}
+                              onClick={() => setRecipientFilter(f)}
+                              className={`rounded px-2 py-0.5 text-[10px] font-medium capitalize transition-colors ${
+                                recipientFilter === f
+                                  ? "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300"
+                                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                              }`}
+                            >
+                              {f} ({count})
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {/* Recipient rows */}
+                      <div className="max-h-48 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-700/30 bg-white dark:bg-gray-800">
+                        {filteredEmails.length === 0 ? (
+                          <p className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">No recipients in this category.</p>
+                        ) : (
+                          filteredEmails.map((e) => (
+                            <div key={e._id} className="flex items-center justify-between px-4 py-1.5">
+                              <span className="truncate text-xs font-mono text-gray-700 dark:text-gray-300">
+                                {getRawEmail(e.to[0])}
+                              </span>
+                              <div className="ml-3 flex shrink-0 items-center gap-1.5">
+                                <DeliveryStatusIcon
+                                  deliveryStatus={e.deliveryStatus}
+                                  openedAt={e.openedAt}
+                                />
+                                {e.openedAt && (
+                                  <span className="text-[10px] text-gray-400 dark:text-gray-500">{timeAgo(e.openedAt)}</span>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
             <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300">
               {loadingBody ? (
                 <div className="space-y-2">
