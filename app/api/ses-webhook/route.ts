@@ -103,14 +103,20 @@ async function handleDeliveryNotification(
   const mail = message.mail as Record<string, unknown> | undefined;
   if (!mail) return NextResponse.json({ success: true });
 
-  // SES message IDs come as "<id@email.amazonses.com>" — strip angle brackets
-  const rawMessageId = (mail.messageId as string | undefined) ?? "";
-  // The custom messageId we embed is in the Message-ID header: <{messageId}@{domain}>
-  // Try to extract it from commonHeaders first
-  const headers = mail.commonHeaders as Record<string, string[]> | undefined;
-  const messageIdHeader = headers?.["message-id"]?.[0] ?? headers?.["Message-ID"]?.[0] ?? "";
-  // Strip angle brackets: <timestamp-random@domain>
-  const messageId = messageIdHeader.replace(/^<|>$/g, "").split("@")[0] || rawMessageId;
+  // In SES Configuration Set event notifications, mail.commonHeaders uses
+  // camelCase keys and scalar values (not arrays). "messageId" holds the
+  // Message-ID header we embedded in the raw MIME: <{ourId}@{domain}>.
+  // mail.messageId is the SES-assigned ID and won't match our DB records.
+  const commonHeaders = mail.commonHeaders as Record<string, unknown> | undefined;
+  const messageIdHeader =
+    (commonHeaders?.["messageId"] as string | undefined) ??
+    (commonHeaders?.["message-id"] as string | undefined) ??
+    // Fallback: scan the raw headers array for a Message-ID entry
+    (mail.headers as Array<{ name: string; value: string }> | undefined)
+      ?.find((h) => h.name.toLowerCase() === "message-id")?.value ??
+    "";
+  // Strip angle brackets then take the local part before '@'
+  const messageId = messageIdHeader.replace(/^<|>$/g, "").split("@")[0];
 
   if (!messageId) return NextResponse.json({ success: true });
 
