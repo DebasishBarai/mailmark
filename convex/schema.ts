@@ -40,6 +40,7 @@ export default defineSchema({
     address: v.string(),
     fullAddress: v.string(),
     displayName: v.optional(v.string()),
+    signature: v.optional(v.string()),
   })
     .index("by_domain_id", ["domainId"])
     .index("by_user_id", ["userId"])

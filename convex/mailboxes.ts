@@ -127,6 +127,33 @@ export const updateDisplayName = mutation({
   },
 });
 
+export const updateSignature = mutation({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    signature: v.string(),
+  },
+  handler: async (ctx, { mailboxId, signature }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const mailbox = await ctx.db.get(mailboxId);
+    if (!mailbox) throw new Error("Mailbox not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || mailbox.userId !== user._id) {
+      throw new Error("Not authorized");
+    }
+
+    await ctx.db.patch(mailboxId, {
+      signature: signature.trim() || undefined,
+    });
+  },
+});
+
 // Deletes all DB records for the mailbox and returns the s3Keys to clean up.
 export const removeRecords = internalMutation({
   args: { mailboxId: v.id("mailboxes") },

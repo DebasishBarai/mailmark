@@ -200,6 +200,7 @@ export default function MailboxPage() {
   const sendEmail = useAction(api.ses.sendEmail);
   const fetchEmailBody = useAction(api.ses.fetchEmailBody);
   const getAttachment = useAction(api.ses.getAttachment);
+  const updateSignature = useMutation(api.mailboxes.updateSignature);
 
   const [selectedEmailId, setSelectedEmailId] = useState<Id<"emails"> | null>(null);
   const [emailBody, setEmailBody] = useState<string | null>(null);
@@ -221,7 +222,10 @@ export default function MailboxPage() {
   const [composeToInput, setComposeToInput] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
+  const [composeSignature, setComposeSignature] = useState("");
   const [composeQuote, setComposeQuote] = useState("");
+  const [signatureText, setSignatureText] = useState("");
+  const [showSignatureEditor, setShowSignatureEditor] = useState(false);
   type AttachmentEntry = {
     id: number;
     filename: string;
@@ -533,7 +537,9 @@ export default function MailboxPage() {
     setIsSending(true);
     setSendError(null);
     try {
-      const fullBody = composeBody.replace(/\n/g, "<br>") + (composeQuote ? `<br><br>${composeQuote}` : "");
+      const fullBody = composeBody.replace(/\n/g, "<br>")
+        + (composeSignature ? `<br><br>-- <br>${composeSignature.replace(/\n/g, "<br>")}` : "")
+        + (composeQuote ? `<br><br>${composeQuote}` : "");
       const attachmentData = composeAttachments
         .filter((att) => att.status === "uploaded" && att.data)
         .map((att) => ({
@@ -571,6 +577,7 @@ export default function MailboxPage() {
       setComposeToInput("");
       setComposeSubject("");
       setComposeBody("");
+      setComposeSignature("");
       setComposeQuote("");
       setComposeAttachments([]);
     } catch (err) {
@@ -586,7 +593,9 @@ export default function MailboxPage() {
     setIsSending(true);
     setSendError(null);
     try {
-      const fullBody = composeBody.replace(/\n/g, "<br>") + (composeQuote ? `<br><br>${composeQuote}` : "");
+      const fullBody = composeBody.replace(/\n/g, "<br>")
+        + (composeSignature ? `<br><br>-- <br>${composeSignature.replace(/\n/g, "<br>")}` : "")
+        + (composeQuote ? `<br><br>${composeQuote}` : "");
       const attachmentData = composeAttachments
         .filter((att) => att.status === "uploaded" && att.data)
         .map((att) => ({ filename: att.filename, contentType: att.contentType, data: att.data! }));
@@ -606,6 +615,7 @@ export default function MailboxPage() {
       setComposeToInput("");
       setComposeSubject("");
       setComposeBody("");
+      setComposeSignature("");
       setComposeQuote("");
       setComposeAttachments([]);
     } catch (err) {
@@ -678,11 +688,12 @@ export default function MailboxPage() {
     setComposeToInput("");
     setComposeSubject("");
     setComposeBody("");
+    setComposeSignature(mailbox?.signature ?? "");
     setComposeQuote("");
     setComposeAttachments([]);
     setSendError(null);
     setShowCompose(true);
-  }, []);
+  }, [mailbox?.signature]);
 
   const { setFolderSection } = useSidebar();
 
@@ -774,6 +785,59 @@ export default function MailboxPage() {
               </div>
             </div>
           )}
+          {!collapsed && (
+            <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
+              <div className="mb-2 flex items-center justify-between px-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  Signature
+                </p>
+                <button
+                  onClick={() => {
+                    setSignatureText(mailbox?.signature ?? "");
+                    setShowSignatureEditor((v) => !v);
+                  }}
+                  className="flex h-4 w-4 items-center justify-center rounded text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-violet-600 dark:hover:text-violet-400"
+                  title={showSignatureEditor ? "Close editor" : "Edit signature"}
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                  </svg>
+                </button>
+              </div>
+              {showSignatureEditor ? (
+                <div className="px-1 space-y-2">
+                  <textarea
+                    rows={4}
+                    value={signatureText}
+                    onChange={(e) => setSignatureText(e.target.value)}
+                    className="w-full resize-none rounded-md border border-gray-200 dark:border-gray-600 dark:bg-gray-700 px-2 py-1.5 text-xs text-gray-700 dark:text-gray-300 outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-100 dark:focus:border-violet-500 placeholder-gray-400 dark:placeholder-gray-500"
+                    placeholder="Enter your signature..."
+                  />
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={async () => {
+                        await updateSignature({ mailboxId: mbId, signature: signatureText });
+                        setShowSignatureEditor(false);
+                      }}
+                      className="flex-1 rounded-md bg-violet-600 py-1 text-[10px] font-semibold text-white hover:bg-violet-700 transition-colors"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setShowSignatureEditor(false)}
+                      className="flex-1 rounded-md border border-gray-200 dark:border-gray-700 py-1 text-[10px] font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : mailbox?.signature ? (
+                <p className="line-clamp-2 px-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-pre-wrap">{mailbox.signature}</p>
+              ) : (
+                <p className="px-1 text-[10px] italic text-gray-400 dark:text-gray-500">No signature set</p>
+              )}
+            </div>
+          )}
           {!collapsed && domainMailboxes && domainMailboxes.length > 1 && (
             <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
               <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
@@ -800,7 +864,7 @@ export default function MailboxPage() {
       ),
     });
     return () => setFolderSection(null);
-  }, [activeFolder, unreadCount, domainMailboxes, senderGroups, mbId, handleOpenCompose, setFolderSection]);
+  }, [activeFolder, unreadCount, domainMailboxes, senderGroups, mbId, handleOpenCompose, setFolderSection, mailbox, showSignatureEditor, signatureText, updateSignature]);
 
   const handleReply = () => {
     if (!selectedEmail || !emailBody) return;
@@ -814,6 +878,7 @@ export default function MailboxPage() {
         : `Re: ${selectedEmail.subject}`
     );
     setComposeBody("");
+    setComposeSignature(mailbox?.signature ?? "");
     setComposeQuote(
       `<blockquote style="margin:0 0 0 .8ex;border-left:2px solid #ccc;padding-left:1ex;"><p><strong>On ${new Date(selectedEmail.date).toLocaleString()}, ${selectedEmail.from} wrote:</strong></p>${emailBody}</blockquote>`
     );
@@ -839,6 +904,7 @@ export default function MailboxPage() {
         : `Re: ${selectedEmail.subject}`
     );
     setComposeBody("");
+    setComposeSignature(mailbox?.signature ?? "");
     setComposeQuote(
       `<blockquote style="margin:0 0 0 .8ex;border-left:2px solid #ccc;padding-left:1ex;"><p><strong>On ${new Date(selectedEmail.date).toLocaleString()}, ${selectedEmail.from} wrote:</strong></p>${emailBody}</blockquote>`
     );
@@ -859,6 +925,7 @@ export default function MailboxPage() {
         : `Fwd: ${selectedEmail.subject}`
     );
     setComposeBody("");
+    setComposeSignature(mailbox?.signature ?? "");
     setComposeQuote(
       `<p>---------- Forwarded message ----------</p><p>From: ${selectedEmail.from}<br>Date: ${new Date(selectedEmail.date).toLocaleString()}<br>Subject: ${selectedEmail.subject}<br>To: ${selectedEmail.to.join(", ")}</p><br>${emailBody}`
     );
@@ -1281,7 +1348,7 @@ export default function MailboxPage() {
               {{ compose: "New Message", reply: "Reply", replyAll: "Reply All", forward: "Forward" }[composeMode]}
             </h3>
             <button
-              onClick={() => { setShowCompose(false); setSendError(null); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeQuote(""); setComposeAttachments([]); }}
+              onClick={() => { setShowCompose(false); setSendError(null); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeSignature(""); setComposeQuote(""); setComposeAttachments([]); }}
               className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -1490,6 +1557,26 @@ export default function MailboxPage() {
                   dangerouslySetInnerHTML={{ __html: composeQuote }}
                 />
               )}
+              {/* Signature */}
+              {composeSignature && (
+                <div className="border-t border-gray-100 dark:border-gray-700/50 pt-2">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Signature</span>
+                    <button
+                      type="button"
+                      onClick={() => setComposeSignature("")}
+                      className="text-[10px] text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 whitespace-pre-wrap">
+                    {"-- "}
+                    {"\n"}
+                    {composeSignature}
+                  </div>
+                </div>
+              )}
               {/* Selected attachments */}
               {composeAttachments.length > 0 && (
                 <div className="border-t border-gray-100 dark:border-gray-700/50 pt-2">
@@ -1637,7 +1724,7 @@ export default function MailboxPage() {
                 </button>
               </div>
               <button
-                onClick={() => { setShowCompose(false); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeQuote(""); setComposeAttachments([]); }}
+                onClick={() => { setShowCompose(false); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeSignature(""); setComposeQuote(""); setComposeAttachments([]); }}
                 className="rounded-md p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-500"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
