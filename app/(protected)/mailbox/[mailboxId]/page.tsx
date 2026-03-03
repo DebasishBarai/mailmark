@@ -8,6 +8,7 @@ import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { useSidebar } from "../../../components/SidebarContext";
 import { Users } from "lucide-react";
+import { marked } from "marked";
 
 const folderConfig: { key: string; label: string; navHidden?: boolean }[] = [
   { key: "inbox", label: "Inbox" },
@@ -221,6 +222,9 @@ export default function MailboxPage() {
   const [composeToInput, setComposeToInput] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
+  type ComposeContentType = "plain" | "markdown" | "html";
+  const [composeContentType, setComposeContentType] = useState<ComposeContentType>("plain");
+  const [showPreview, setShowPreview] = useState(false);
   const [composeSignature, setComposeSignature] = useState("");
   const [composeQuote, setComposeQuote] = useState("");
   const [signatureText, setSignatureText] = useState("");
@@ -530,15 +534,37 @@ export default function MailboxPage() {
     }
   };
 
+  const buildFullBody = () => {
+    let bodyHtml: string;
+    if (composeContentType === "markdown") {
+      bodyHtml = marked.parse(composeBody) as string;
+    } else if (composeContentType === "html") {
+      bodyHtml = composeBody;
+    } else {
+      bodyHtml = composeBody.replace(/\n/g, "<br>");
+    }
+    const signaturePart = composeSignature
+      ? `<br><br>-- <br>${composeSignature.replace(/\n/g, "<br>")}`
+      : "";
+    const quotePart = composeQuote ? `<br><br>${composeQuote}` : "";
+    return bodyHtml + signaturePart + quotePart;
+  };
+
+  const previewHtml = useMemo(() => {
+    if (!showPreview || composeContentType === "plain") return "";
+    if (composeContentType === "markdown") {
+      return marked.parse(composeBody) as string;
+    }
+    return composeBody;
+  }, [composeBody, composeContentType, showPreview]);
+
   const handleSend = async () => {
     const allRecipients = resolveAllRecipients();
     if (allRecipients.length === 0 || !composeSubject.trim()) return;
     setIsSending(true);
     setSendError(null);
     try {
-      const fullBody = composeBody.replace(/\n/g, "<br>")
-        + (composeSignature ? `<br><br>-- <br>${composeSignature.replace(/\n/g, "<br>")}` : "")
-        + (composeQuote ? `<br><br>${composeQuote}` : "");
+      const fullBody = buildFullBody();
       const attachmentData = composeAttachments
         .filter((att) => att.status === "uploaded" && att.data)
         .map((att) => ({
@@ -563,6 +589,8 @@ export default function MailboxPage() {
       setComposeSignature("");
       setComposeQuote("");
       setComposeAttachments([]);
+      setComposeContentType("plain");
+      setShowPreview(false);
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to send email. Please try again.");
     } finally {
@@ -576,9 +604,7 @@ export default function MailboxPage() {
     setIsSending(true);
     setSendError(null);
     try {
-      const fullBody = composeBody.replace(/\n/g, "<br>")
-        + (composeSignature ? `<br><br>-- <br>${composeSignature.replace(/\n/g, "<br>")}` : "")
-        + (composeQuote ? `<br><br>${composeQuote}` : "");
+      const fullBody = buildFullBody();
       const attachmentData = composeAttachments
         .filter((att) => att.status === "uploaded" && att.data)
         .map((att) => ({ filename: att.filename, contentType: att.contentType, data: att.data! }));
@@ -603,6 +629,8 @@ export default function MailboxPage() {
       setComposeSignature("");
       setComposeQuote("");
       setComposeAttachments([]);
+      setComposeContentType("plain");
+      setShowPreview(false);
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to send campaign. Please try again.");
     } finally {
@@ -1090,7 +1118,7 @@ export default function MailboxPage() {
         </div>
 
         {/* Email detail */}
-        {selectedEmailId && selectedEmail && (() => {
+        {!showCompose && selectedEmailId && selectedEmail && (() => {
           // Resolve batch context for the selected email
           const selectedGroup = emailGroups.find((g) => g.allEmails.some((e) => e._id === selectedEmailId));
           const batchEmails = selectedGroup?.allEmails ?? [selectedEmail];
@@ -1334,7 +1362,7 @@ export default function MailboxPage() {
         })()}
 
         {/* No email selected */}
-        {!selectedEmailId && (
+        {!showCompose && !selectedEmailId && (
           <div className="hidden flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900 md:flex">
             <div className="text-center">
               <svg className="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
@@ -1344,26 +1372,25 @@ export default function MailboxPage() {
             </div>
           </div>
         )}
-      </div>
 
-      {/* Compose modal */}
-      {showCompose && (
-        <div className="fixed bottom-0 right-8 z-50 w-full max-w-lg rounded-t-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl">
-          <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700/50 px-6 py-3">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-              {{ compose: "New Message", reply: "Reply", replyAll: "Reply All", forward: "Forward" }[composeMode]}
-            </h3>
-            <button
-              onClick={() => { setShowCompose(false); setSendError(null); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeSignature(""); setComposeQuote(""); setComposeAttachments([]); }}
-              className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <div className="p-4">
-            <div className="space-y-3">
+        {/* Compose panel — inline in the right pane */}
+        {showCompose && (
+          <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-800 p-8">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {{ compose: "New Message", reply: "Reply", replyAll: "Reply All", forward: "Forward" }[composeMode]}
+              </h2>
+              <button
+                onClick={() => { setShowCompose(false); setSendError(null); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeSignature(""); setComposeQuote(""); setComposeAttachments([]); setComposeContentType("plain"); setShowPreview(false); }}
+                className="rounded-md p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300"
+                title="Discard"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4">
               <div className="flex items-center gap-3 border-b border-gray-100 dark:border-gray-700/50 pb-2">
                 <span className="text-sm text-gray-500 dark:text-gray-400">From:</span>
                 <span className="text-sm text-gray-900 dark:text-white">{mailbox.fullAddress}</span>
@@ -1550,13 +1577,68 @@ export default function MailboxPage() {
                   placeholder="Email subject"
                 />
               </div>
+              {/* Content type selector */}
+              <div className="flex items-center gap-3 border-b border-gray-100 dark:border-gray-700/50 pb-2">
+                <span className="text-sm text-gray-500 dark:text-gray-400">Format:</span>
+                <div className="flex overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 text-xs font-medium">
+                  {(["plain", "markdown", "html"] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => {
+                        setComposeContentType(type);
+                        setShowPreview(type !== "plain");
+                      }}
+                      className={`px-3 py-1.5 transition-colors ${
+                        composeContentType === type
+                          ? "bg-violet-600 text-white"
+                          : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      {type === "plain" ? "Plain Text" : type === "markdown" ? "Markdown" : "HTML"}
+                    </button>
+                  ))}
+                </div>
+                {composeContentType !== "plain" && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPreview((v) => !v)}
+                    className="ml-auto text-xs text-violet-500 hover:text-violet-700 dark:hover:text-violet-300"
+                  >
+                    {showPreview ? "Hide preview" : "Show preview"}
+                  </button>
+                )}
+              </div>
               <textarea
-                rows={composeQuote ? 4 : 8}
+                rows={showPreview ? 8 : composeQuote ? 8 : 14}
                 value={composeBody}
                 onChange={(e) => setComposeBody(e.target.value)}
-                className="w-full resize-none text-sm text-gray-700 dark:text-gray-300 outline-none placeholder-gray-400 dark:placeholder-gray-500 bg-transparent"
-                placeholder="Write your message..."
+                className={`w-full resize-none rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-3 text-sm text-gray-700 dark:text-gray-300 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 placeholder-gray-400 dark:placeholder-gray-500 ${composeContentType !== "plain" ? "font-mono" : ""}`}
+                placeholder={
+                  composeContentType === "markdown"
+                    ? "Write **Markdown** here..."
+                    : composeContentType === "html"
+                    ? "<p>Write HTML here...</p>"
+                    : "Write your message..."
+                }
               />
+              {/* Markdown/HTML preview panel */}
+              {showPreview && composeContentType !== "plain" && (
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                  <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-3 py-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                      Preview
+                    </span>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                      {composeContentType === "markdown" ? "Rendered from Markdown" : "Raw HTML"}
+                    </span>
+                  </div>
+                  <div
+                    className="max-h-80 overflow-y-auto p-3 text-sm text-gray-700 dark:text-gray-300 [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mb-1 [&_strong]:font-semibold [&_em]:italic [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-violet-600 [&_a]:underline [&_code]:font-mono [&_code]:text-xs [&_code]:bg-gray-200 [&_code]:dark:bg-gray-700 [&_code]:rounded [&_code]:px-1 [&_pre]:bg-gray-200 [&_pre]:dark:bg-gray-700 [&_pre]:rounded [&_pre]:p-2 [&_pre]:overflow-x-auto [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-3 [&_blockquote]:italic [&_p]:mb-2"
+                    dangerouslySetInnerHTML={{ __html: previewHtml }}
+                  />
+                </div>
+              )}
               {composeQuote && (
                 <div
                   className="mt-2 max-h-40 overflow-y-auto border-t border-gray-100 dark:border-gray-700/50 pt-2 text-sm text-gray-400 dark:text-gray-500"
@@ -1730,8 +1812,9 @@ export default function MailboxPage() {
                 </button>
               </div>
               <button
-                onClick={() => { setShowCompose(false); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeSignature(""); setComposeQuote(""); setComposeAttachments([]); }}
+                onClick={() => { setShowCompose(false); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeSignature(""); setComposeQuote(""); setComposeAttachments([]); setComposeContentType("plain"); setShowPreview(false); }}
                 className="rounded-md p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-500"
+                title="Discard"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
@@ -1739,8 +1822,8 @@ export default function MailboxPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Sender Group modal */}
       {showGroupModal && (
