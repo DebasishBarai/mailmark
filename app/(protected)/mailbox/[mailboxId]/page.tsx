@@ -9,7 +9,7 @@ import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { useSidebar } from "../../../components/SidebarContext";
 import { Users } from "lucide-react";
 
-const folderConfig = [
+const folderConfig: { key: string; label: string; navHidden?: boolean }[] = [
   { key: "inbox", label: "Inbox" },
   { key: "sent", label: "Sent" },
   { key: "outbox", label: "Outbox" },

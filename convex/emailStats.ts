@@ -66,7 +66,7 @@ export const getForCurrentUser = query({
     }
 
     const now = new Date();
-    const last30Days = [];
+    const last30Days: { date: string; label: string; sent: number; received: number }[] = [];
     for (let i = 29; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);

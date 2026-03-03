@@ -205,7 +205,7 @@ export default function DashboardPage() {
                     outerRadius={100}
                     paddingAngle={3}
                     dataKey="value"
-                    label={({ name, percent }: { name: string; percent?: number }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                    label={(props: any) => `${props.name} ${((props.percent ?? 0) * 100).toFixed(0)}%`}
                     labelLine={{ stroke: "#9CA3AF" }}
                   >
                     {deliveryData.map((entry, index) => (
