@@ -284,11 +284,11 @@ export const insertSent = internalMutation({
       read: true,
       starred: false,
       hasAttachments: hasAttachments ?? false,
-      // Mark as delivered immediately — ses.send() already succeeded by the
-      // time this mutation runs. SES bounce notifications can still update the
-      // status to "failed"/"bounced" later if a configuration set is configured.
-      deliveryStatus: emailFolder === "sent" ? "delivered" : undefined,
-      deliveredAt: emailFolder === "sent" ? Date.now() : undefined,
+      // Start as "pending" — SES delivery/bounce SNS notifications will update
+      // this to "delivered", "bounced", or "failed" once the actual outcome is known.
+      // ses.send() succeeding only means SES accepted the message, not that it
+      // reached the recipient.
+      deliveryStatus: emailFolder === "sent" ? "pending" : undefined,
     });
   },
 });
