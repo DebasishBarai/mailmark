@@ -121,6 +121,7 @@ export const sendEmail = action({
         new SendEmailCommand({
           FromEmailAddress: fromAddress,
           Destination: { ToAddresses: to },
+          ConfigurationSetName: "devmail-sending",
           Content: { Raw: { Data: new TextEncoder().encode(rawEmail) } },
         })
       );
@@ -129,6 +130,7 @@ export const sendEmail = action({
         new SendEmailCommand({
           FromEmailAddress: fromAddress,
           Destination: { ToAddresses: to },
+          ConfigurationSetName: "devmail-sending",
           Content: {
             Simple: {
               Subject: { Data: subject },
@@ -136,6 +138,11 @@ export const sendEmail = action({
                 Html: { Data: bodyWithTracking },
                 Text: { Data: body.replace(/<[^>]*>/g, "") },
               },
+              // Embed our custom Message-ID so SES bounce/delivery notifications
+              // can be matched back to the email record in the database.
+              Headers: [
+                { Name: "Message-ID", Value: `<${messageId}@${mailbox.domain}>` },
+              ],
             },
           },
         })

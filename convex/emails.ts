@@ -284,8 +284,11 @@ export const insertSent = internalMutation({
       read: true,
       starred: false,
       hasAttachments: hasAttachments ?? false,
-      // Track delivery status for sent emails
-      deliveryStatus: emailFolder === "sent" ? "pending" : undefined,
+      // Mark as delivered immediately — ses.send() already succeeded by the
+      // time this mutation runs. SES bounce notifications can still update the
+      // status to "failed"/"bounced" later if a configuration set is configured.
+      deliveryStatus: emailFolder === "sent" ? "delivered" : undefined,
+      deliveredAt: emailFolder === "sent" ? Date.now() : undefined,
     });
   },
 });
