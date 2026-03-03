@@ -19,7 +19,6 @@ export default function DomainDetailPage() {
   const createMailbox = useMutation(api.mailboxes.create);
   const removeDomain = useAction(api.domainActions.remove);
   const verifyDns = useAction(api.domainActions.verifyDns);
-  const setupSendingNotifications = useAction(api.domainActions.setupSendingNotifications);
 
   const isLoading = domain === undefined || mailboxes === undefined;
 
@@ -29,10 +28,7 @@ export default function DomainDetailPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
-  const [isSettingUpTracking, setIsSettingUpTracking] = useState(false);
-  const [trackingSetupDone, setTrackingSetupDone] = useState(false);
-  const [trackingSetupError, setTrackingSetupError] = useState<string | null>(null);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const handleCopy = useCallback((text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -66,21 +62,7 @@ export default function DomainDetailPage() {
     }
   };
 
-  const handleSetupTracking = async () => {
-    setIsSettingUpTracking(true);
-    setTrackingSetupError(null);
-    setTrackingSetupDone(false);
-    try {
-      await setupSendingNotifications({});
-      setTrackingSetupDone(true);
-    } catch (err: unknown) {
-      setTrackingSetupError(err instanceof Error ? err.message : "Setup failed");
-    } finally {
-      setIsSettingUpTracking(false);
-    }
-  };
-
-  const handleRemoveDomain = async () => {
+const handleRemoveDomain = async () => {
     if (!confirm("Are you sure you want to remove this domain? This will also delete it from AWS SES and cannot be undone.")) return;
     setIsRemoving(true);
     try {
@@ -371,59 +353,6 @@ export default function DomainDetailPage() {
           </div>
         )}
       </div>
-
-      {/* Email Tracking Setup — only relevant once the domain is verified */}
-      {domain.verified && (
-        <div className="mb-8 rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-          <div className="border-b border-gray-100 px-6 py-4 dark:border-gray-700/50">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">Email Delivery Tracking</h2>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Creates an AWS SES Configuration Set and SNS topic so sent emails show delivery and bounce status.
-              Run this once — it is safe to run again if something changes.
-            </p>
-          </div>
-          <div className="flex items-center justify-between px-6 py-4">
-            <div className="flex items-center gap-3">
-              {trackingSetupDone ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                  Configuration set ready
-                </span>
-              ) : trackingSetupError ? (
-                <span className="text-xs text-red-500 dark:text-red-400">{trackingSetupError}</span>
-              ) : (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Sets up <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">devmail-sending</code> configuration set with SNS delivery notifications.
-                </span>
-              )}
-            </div>
-            <button
-              onClick={handleSetupTracking}
-              disabled={isSettingUpTracking}
-              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
-            >
-              {isSettingUpTracking ? (
-                <>
-                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Setting up...
-                </>
-              ) : (
-                <>
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {trackingSetupDone ? "Run Again" : "Setup Tracking"}
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Mailboxes */}
       <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
