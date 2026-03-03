@@ -52,6 +52,59 @@ function getDisplayName(emailStr: string, contactMap?: Map<string, string>): str
   return emailStr;
 }
 
+function DeliveryStatusIcon({
+  deliveryStatus,
+  openedAt,
+}: {
+  deliveryStatus?: string;
+  openedAt?: number;
+}) {
+  // Double tick (blue) = email was opened by recipient
+  if (openedAt) {
+    return (
+      <span title={`Opened ${timeAgo(openedAt)}`} className="inline-flex items-center text-blue-500">
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+        <svg className="h-3.5 w-3.5 -ml-1.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+      </span>
+    );
+  }
+  // Single tick (gray) = delivered to mailbox
+  if (deliveryStatus === "delivered") {
+    return (
+      <span title="Delivered" className="inline-flex items-center text-gray-400 dark:text-gray-500">
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+      </span>
+    );
+  }
+  // Failed delivery
+  if (deliveryStatus === "failed" || deliveryStatus === "bounced") {
+    return (
+      <span title={deliveryStatus === "failed" ? "Delivery failed" : "Bounced"} className="inline-flex items-center text-red-400">
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </span>
+    );
+  }
+  // Pending / sending (clock icon)
+  if (deliveryStatus === "pending") {
+    return (
+      <span title="Sending…" className="inline-flex items-center text-gray-300 dark:text-gray-600">
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+        </svg>
+      </span>
+    );
+  }
+  return null;
+}
+
 function getRawEmail(emailStr: string): string {
   const match = emailStr.match(/<([^>]+)>/);
   if (match) return match[1];
@@ -821,6 +874,12 @@ export default function MailboxPage() {
                         <svg className="h-3.5 w-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" />
                         </svg>
+                      )}
+                      {(activeFolder === "sent" || activeFolder === "outbox") && (
+                        <DeliveryStatusIcon
+                          deliveryStatus={email.deliveryStatus}
+                          openedAt={email.openedAt}
+                        />
                       )}
                       <span className="text-xs text-gray-400 dark:text-gray-500">{timeAgo(email.date)}</span>
                     </div>

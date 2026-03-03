@@ -45,8 +45,19 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
       const message = JSON.parse(body.Message);
       const notificationType = message.notificationType;
 
+      if (notificationType === "Delivery") {
+        return await handleDeliveryNotification(message, "delivered");
+      }
+
+      if (notificationType === "Bounce") {
+        const bounceType = message.bounce?.bounceType;
+        // Permanent bounces = failed, transient bounces = bounced (temporary)
+        const status = bounceType === "Permanent" ? "failed" : "bounced";
+        return await handleDeliveryNotification(message, status);
+      }
+
       if (notificationType !== "Received") {
-        // Ignore bounce/complaint/delivery notifications
+        // Ignore complaint/other notifications
         return NextResponse.json({ success: true });
       }
 
@@ -83,6 +94,49 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
       { status: 500 }
     );
   }
+}
+
+async function handleDeliveryNotification(
+  message: Record<string, unknown>,
+  status: "delivered" | "failed" | "bounced"
+) {
+  const mail = message.mail as Record<string, unknown> | undefined;
+  if (!mail) return NextResponse.json({ success: true });
+
+  // SES message IDs come as "<id@email.amazonses.com>" — strip angle brackets
+  const rawMessageId = (mail.messageId as string | undefined) ?? "";
+  // The custom messageId we embed is in the Message-ID header: <{messageId}@{domain}>
+  // Try to extract it from commonHeaders first
+  const headers = mail.commonHeaders as Record<string, string[]> | undefined;
+  const messageIdHeader = headers?.["message-id"]?.[0] ?? headers?.["Message-ID"]?.[0] ?? "";
+  // Strip angle brackets: <timestamp-random@domain>
+  const messageId = messageIdHeader.replace(/^<|>$/g, "").split("@")[0] || rawMessageId;
+
+  if (!messageId) return NextResponse.json({ success: true });
+
+  const deliveryTimestamp =
+    (message.delivery as Record<string, unknown> | undefined)?.timestamp ??
+    (message.bounce as Record<string, unknown> | undefined)?.timestamp ??
+    new Date().toISOString();
+
+  const timestamp =
+    typeof deliveryTimestamp === "number"
+      ? deliveryTimestamp
+      : new Date(deliveryTimestamp as string).getTime() || Date.now();
+
+  await fetch(
+    `${process.env.NEXT_PUBLIC_CONVEX_SITE_URL}/trackDelivery`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-webhook-secret": process.env.SES_WEBHOOK_SECRET!,
+      },
+      body: JSON.stringify({ messageId, status, timestamp }),
+    }
+  );
+
+  return NextResponse.json({ success: true });
 }
 
 async function ingestEmail(emailData: {

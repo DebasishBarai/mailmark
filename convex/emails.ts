@@ -229,6 +229,39 @@ export const updateS3Key = internalMutation({
   },
 });
 
+// Called when SES delivery notification is received via SNS
+export const updateDeliveryStatus = internalMutation({
+  args: {
+    messageId: v.string(),
+    status: v.union(v.literal("delivered"), v.literal("failed"), v.literal("bounced")),
+    timestamp: v.number(),
+  },
+  handler: async (ctx, { messageId, status, timestamp }) => {
+    const email = await ctx.db
+      .query("emails")
+      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
+      .unique();
+    if (!email) return;
+    await ctx.db.patch(email._id, {
+      deliveryStatus: status,
+      deliveredAt: status === "delivered" ? timestamp : undefined,
+    });
+  },
+});
+
+// Called when recipient loads the tracking pixel (email opened)
+export const markAsOpened = internalMutation({
+  args: { messageId: v.string() },
+  handler: async (ctx, { messageId }) => {
+    const email = await ctx.db
+      .query("emails")
+      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
+      .unique();
+    if (!email || email.openedAt) return; // Only record first open
+    await ctx.db.patch(email._id, { openedAt: Date.now() });
+  },
+});
+
 // Called after sending an email via SES
 export const insertSent = internalMutation({
   args: {
@@ -244,12 +277,15 @@ export const insertSent = internalMutation({
     folder: v.optional(v.string()),
   },
   handler: async (ctx, { hasAttachments, folder, ...rest }) => {
+    const emailFolder = folder ?? "sent";
     return await ctx.db.insert("emails", {
       ...rest,
-      folder: folder ?? "sent",
+      folder: emailFolder,
       read: true,
       starred: false,
       hasAttachments: hasAttachments ?? false,
+      // Track delivery status for sent emails
+      deliveryStatus: emailFolder === "sent" ? "pending" : undefined,
     });
   },
 });
