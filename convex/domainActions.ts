@@ -15,6 +15,8 @@ import {
   GetEmailIdentityCommand,
   DeleteEmailIdentityCommand,
   PutEmailIdentityMailFromAttributesCommand,
+  CreateConfigurationSetCommand,
+  CreateConfigurationSetEventDestinationCommand,
 } from "@aws-sdk/client-sesv2";
 import {
   SESClient,
@@ -262,6 +264,14 @@ export const verifyDns = action({
       } catch (error: unknown) {
         console.error("Failed to create receipt rule:", error);
       }
+
+      // Ensure the sending configuration set exists so that outgoing emails
+      // receive Delivery and Bounce notifications via SNS.
+      try {
+        await ensureSendingConfigurationSet();
+      } catch (error: unknown) {
+        console.error("Failed to create sending configuration set:", error);
+      }
     }
 
     return {
@@ -330,6 +340,62 @@ async function ensureSnsTopicForDomain(domain: string): Promise<string> {
   );
 
   return topicArn;
+}
+
+// Creates (idempotent) an SES v2 Configuration Set with an SNS event
+// destination for Delivery and Bounce notifications. All emails sent with
+// ConfigurationSetName="devmail-sending" will trigger these events.
+export async function ensureSendingConfigurationSet(): Promise<void> {
+  const sesv2 = getSESv2Client();
+  const sns = getSNSClient();
+  const configSetName = "devmail-sending";
+  const topicName = "devmail-sending-events";
+
+  // Create configuration set — idempotent (no-op if already exists)
+  try {
+    await sesv2.send(
+      new CreateConfigurationSetCommand({
+        ConfigurationSetName: configSetName,
+      })
+    );
+  } catch (error: unknown) {
+    const err = error as { name?: string };
+    if (err.name !== "AlreadyExistsException") throw error;
+  }
+
+  // Create (or get) SNS topic for sending events
+  const topicResult = await sns.send(
+    new CreateTopicCommand({ Name: topicName })
+  );
+  const topicArn = topicResult.TopicArn!;
+
+  // Subscribe the webhook endpoint to the topic (idempotent)
+  const webhookUrl = `${process.env.APP_URL}/api/ses-webhook`;
+  await sns.send(
+    new SubscribeCommand({
+      TopicArn: topicArn,
+      Protocol: "https",
+      Endpoint: webhookUrl,
+    })
+  );
+
+  // Add SNS event destination for Delivery and Bounce events (idempotent)
+  try {
+    await sesv2.send(
+      new CreateConfigurationSetEventDestinationCommand({
+        ConfigurationSetName: configSetName,
+        EventDestinationName: "devmail-sending-sns",
+        EventDestination: {
+          Enabled: true,
+          MatchingEventTypes: ["DELIVERY", "BOUNCE", "COMPLAINT"],
+          SnsDestination: { TopicArn: topicArn },
+        },
+      })
+    );
+  } catch (error: unknown) {
+    const err = error as { name?: string };
+    if (err.name !== "AlreadyExistsException") throw error;
+  }
 }
 
 // Ensures an SES receipt rule exists with both S3 and SNS actions.

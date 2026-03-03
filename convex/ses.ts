@@ -121,6 +121,7 @@ export const sendEmail = action({
         new SendEmailCommand({
           FromEmailAddress: fromAddress,
           Destination: { ToAddresses: to },
+          ConfigurationSetName: "devmail-sending",
           Content: { Raw: { Data: new TextEncoder().encode(rawEmail) } },
         })
       );
@@ -129,6 +130,7 @@ export const sendEmail = action({
         new SendEmailCommand({
           FromEmailAddress: fromAddress,
           Destination: { ToAddresses: to },
+          ConfigurationSetName: "devmail-sending",
           Content: {
             Simple: {
               Subject: { Data: subject },
