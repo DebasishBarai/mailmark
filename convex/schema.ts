@@ -69,6 +69,8 @@ export default defineSchema({
     deliveredAt: v.optional(v.number()),
     // Open tracking: set when recipient loads the tracking pixel
     openedAt: v.optional(v.number()),
+    // Batch ID: shared across all per-recipient emails sent in one compose action
+    batchId: v.optional(v.string()),
   })
     .index("by_mailbox_folder", ["mailboxId", "folder"])
     .index("by_message_id", ["messageId"])

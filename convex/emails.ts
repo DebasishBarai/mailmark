@@ -288,8 +288,9 @@ export const insertSent = internalMutation({
     s3Key: v.string(),
     hasAttachments: v.optional(v.boolean()),
     folder: v.optional(v.string()),
+    batchId: v.optional(v.string()),
   },
-  handler: async (ctx, { hasAttachments, folder, ...rest }) => {
+  handler: async (ctx, { hasAttachments, folder, batchId, ...rest }) => {
     const emailFolder = folder ?? "sent";
     return await ctx.db.insert("emails", {
       ...rest,
@@ -302,6 +303,7 @@ export const insertSent = internalMutation({
       // ses.send() succeeding only means SES accepted the message, not that it
       // reached the recipient.
       deliveryStatus: emailFolder === "sent" ? "pending" : undefined,
+      ...(batchId ? { batchId } : {}),
     });
   },
 });
