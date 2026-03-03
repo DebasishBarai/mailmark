@@ -342,13 +342,15 @@ async function ensureSnsTopicForDomain(domain: string): Promise<string> {
 
   // Subscribe the webhook endpoint (idempotent for same topic+protocol+endpoint)
   const webhookUrl = `${process.env.APP_URL}/api/ses-webhook`;
-  await sns.send(
+  console.log("[ensureSnsTopicForDomain] subscribing SNS topic to:", webhookUrl);
+  const subResult = await sns.send(
     new SubscribeCommand({
       TopicArn: topicArn,
       Protocol: "https",
       Endpoint: webhookUrl,
     })
   );
+  console.log("[ensureSnsTopicForDomain] subscription ARN:", subResult.SubscriptionArn);
 
   return topicArn;
 }
@@ -382,13 +384,15 @@ export async function ensureSendingConfigurationSet(): Promise<void> {
 
   // Subscribe the webhook endpoint to the topic (idempotent)
   const webhookUrl = `${process.env.APP_URL}/api/ses-webhook`;
-  await sns.send(
+  console.log("[ensureSendingConfigurationSet] subscribing SNS topic to:", webhookUrl);
+  const subResult = await sns.send(
     new SubscribeCommand({
       TopicArn: topicArn,
       Protocol: "https",
       Endpoint: webhookUrl,
     })
   );
+  console.log("[ensureSendingConfigurationSet] subscription ARN:", subResult.SubscriptionArn);
 
   // Add SNS event destination for Delivery and Bounce events (idempotent)
   try {

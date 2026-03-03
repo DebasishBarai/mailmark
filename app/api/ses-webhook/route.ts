@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   const snsMessageType = req.headers.get("x-amz-sns-message-type");
+  console.log("[WEBHOOK] POST received | x-amz-sns-message-type:", snsMessageType ?? "(none)");
 
   // Handle SNS messages (from SES receipt rule → SNS → HTTPS subscription)
   if (snsMessageType) {
@@ -33,9 +34,12 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
     // Auto-confirm SNS subscription
     if (messageType === "SubscriptionConfirmation") {
       const subscribeUrl = body.SubscribeURL;
+      console.log("[SNS] SubscriptionConfirmation received | TopicArn:", body.TopicArn, "| SubscribeURL:", subscribeUrl);
       if (subscribeUrl) {
-        await fetch(subscribeUrl);
-        console.log("SNS subscription confirmed");
+        const confirmRes = await fetch(subscribeUrl);
+        console.log("[SNS] confirmation fetch status:", confirmRes.status);
+      } else {
+        console.log("[SNS] SubscriptionConfirmation missing SubscribeURL");
       }
       return NextResponse.json({ success: true });
     }
