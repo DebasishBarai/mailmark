@@ -237,11 +237,17 @@ export const updateDeliveryStatus = internalMutation({
     timestamp: v.number(),
   },
   handler: async (ctx, { messageId, status, timestamp }) => {
-    console.log("[updateDeliveryStatus] looking up messageId:", messageId);
-    const email = await ctx.db
-      .query("emails")
-      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
-      .unique();
+    console.log("[updateDeliveryStatus] looking up sesMessageId:", messageId);
+    const email =
+      (await ctx.db
+        .query("emails")
+        .withIndex("by_ses_message_id", (q) => q.eq("sesMessageId", messageId))
+        .unique()) ??
+      // Fallback: try the legacy custom messageId index
+      (await ctx.db
+        .query("emails")
+        .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
+        .unique());
     if (!email) {
       console.log("[updateDeliveryStatus] no email found for messageId:", messageId);
       return;
@@ -273,6 +279,7 @@ export const insertSent = internalMutation({
   args: {
     mailboxId: v.id("mailboxes"),
     messageId: v.string(),
+    sesMessageId: v.optional(v.string()),
     from: v.string(),
     to: v.array(v.string()),
     subject: v.string(),

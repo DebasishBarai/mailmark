@@ -113,28 +113,9 @@ async function handleDeliveryNotification(
   console.log("[DELIVERY] status:", status, "| mail present:", !!mail);
   if (!mail) return NextResponse.json({ success: true });
 
-  // In SES Configuration Set event notifications, mail.commonHeaders uses
-  // camelCase keys and scalar values (not arrays). "messageId" holds the
-  // Message-ID header we embedded in the raw MIME: <{ourId}@{domain}>.
-  // mail.messageId is the SES-assigned ID and won't match our DB records.
-  const commonHeaders = mail.commonHeaders as Record<string, unknown> | undefined;
-  const rawHeadersArray = mail.headers as Array<{ name: string; value: string }> | undefined;
-
-  console.log("[DELIVERY] mail.messageId (SES-assigned):", mail.messageId);
-  console.log("[DELIVERY] commonHeaders:", JSON.stringify(commonHeaders));
-  console.log("[DELIVERY] headers array:", JSON.stringify(rawHeadersArray));
-
-  const messageIdHeader =
-    (commonHeaders?.["messageId"] as string | undefined) ??
-    (commonHeaders?.["message-id"] as string | undefined) ??
-    // Fallback: scan the raw headers array for a Message-ID entry
-    rawHeadersArray?.find((h) => h.name.toLowerCase() === "message-id")?.value ??
-    "";
-  console.log("[DELIVERY] messageIdHeader (raw):", messageIdHeader);
-
-  // Strip angle brackets then take the local part before '@'
-  const messageId = messageIdHeader.replace(/^<|>$/g, "").split("@")[0];
-  console.log("[DELIVERY] extracted messageId:", messageId || "(empty — will skip)");
+  // mail.messageId is the SES-assigned ID stored in emails.sesMessageId
+  const messageId = (mail.messageId as string | undefined) ?? "";
+  console.log("[DELIVERY] mail.messageId (SES-assigned):", messageId);
 
   if (!messageId) return NextResponse.json({ success: true });
 

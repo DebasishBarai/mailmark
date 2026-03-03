@@ -48,6 +48,7 @@ export default defineSchema({
   emails: defineTable({
     mailboxId: v.id("mailboxes"),
     messageId: v.string(),
+    sesMessageId: v.optional(v.string()),
     folder: v.string(),
     from: v.string(),
     to: v.array(v.string()),
@@ -70,7 +71,8 @@ export default defineSchema({
     openedAt: v.optional(v.number()),
   })
     .index("by_mailbox_folder", ["mailboxId", "folder"])
-    .index("by_message_id", ["messageId"]),
+    .index("by_message_id", ["messageId"])
+    .index("by_ses_message_id", ["sesMessageId"]),
 
   contacts: defineTable({
     userId: v.id("users"),
