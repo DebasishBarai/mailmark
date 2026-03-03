@@ -86,24 +86,24 @@ function DeliveryStatusIcon({
           </span>
         )}
         {delivered > 0 && (
-          <span title={`${delivered} delivered`} className="relative inline-flex items-center text-gray-400 dark:text-gray-500">
+          <span title={`${delivered} delivered`} className="relative inline-flex items-center text-green-500">
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
-            <span className="absolute -top-1.5 -right-1.5 flex min-w-[14px] h-3.5 items-center justify-center rounded-full bg-gray-400 dark:bg-gray-500 px-0.5 text-[8px] font-bold leading-none text-white">
+            <span className="absolute -top-1.5 -right-1.5 flex min-w-[14px] h-3.5 items-center justify-center rounded-full bg-green-500 px-0.5 text-[8px] font-bold leading-none text-white">
               {delivered > 99 ? "99+" : delivered}
             </span>
           </span>
         )}
         {opened > 0 && (
-          <span title={`${opened} opened`} className="relative inline-flex items-center text-blue-500">
+          <span title={`${opened} opened`} className="relative inline-flex items-center text-green-600">
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
             <svg className="h-3.5 w-3.5 -ml-1.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
-            <span className="absolute -top-1.5 -right-1.5 flex min-w-[14px] h-3.5 items-center justify-center rounded-full bg-blue-500 px-0.5 text-[8px] font-bold leading-none text-white">
+            <span className="absolute -top-1.5 -right-1.5 flex min-w-[14px] h-3.5 items-center justify-center rounded-full bg-green-600 px-0.5 text-[8px] font-bold leading-none text-white">
               {opened > 99 ? "99+" : opened}
             </span>
           </span>
@@ -116,7 +116,7 @@ function DeliveryStatusIcon({
   // Double tick (blue) = email was opened by recipient
   if (openedAt) {
     return (
-      <span title={`Opened ${timeAgo(openedAt)}`} className="inline-flex items-center text-blue-500">
+      <span title={`Opened ${timeAgo(openedAt)}`} className="inline-flex items-center text-green-600">
         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
         </svg>
@@ -129,7 +129,7 @@ function DeliveryStatusIcon({
   // Single tick (gray) = delivered to mailbox
   if (deliveryStatus === "delivered") {
     return (
-      <span title="Delivered" className="inline-flex items-center text-gray-400 dark:text-gray-500">
+      <span title="Delivered" className="inline-flex items-center text-green-500">
         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
         </svg>
