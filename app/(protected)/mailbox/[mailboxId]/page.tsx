@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useAction } from "convex/react";
@@ -55,10 +55,64 @@ function getDisplayName(emailStr: string, contactMap?: Map<string, string>): str
 function DeliveryStatusIcon({
   deliveryStatus,
   openedAt,
+  pendingCount,
+  deliveredCount,
+  openedCount,
+  isBatch = false,
 }: {
   deliveryStatus?: string;
   openedAt?: number;
+  pendingCount?: number;
+  deliveredCount?: number;
+  openedCount?: number;
+  isBatch?: boolean;
 }) {
+  // Batch mode: show aggregate counts with badges
+  if (isBatch) {
+    const pending = pendingCount ?? 0;
+    const delivered = deliveredCount ?? 0;
+    const opened = openedCount ?? 0;
+    if (pending === 0 && delivered === 0 && opened === 0) return null;
+    return (
+      <div className="flex items-center gap-2">
+        {pending > 0 && (
+          <span title={`${pending} pending`} className="relative inline-flex items-center text-gray-400 dark:text-gray-500">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+            </svg>
+            <span className="absolute -top-1.5 -right-1.5 flex min-w-[14px] h-3.5 items-center justify-center rounded-full bg-gray-400 dark:bg-gray-500 px-0.5 text-[8px] font-bold leading-none text-white">
+              {pending > 99 ? "99+" : pending}
+            </span>
+          </span>
+        )}
+        {delivered > 0 && (
+          <span title={`${delivered} delivered`} className="relative inline-flex items-center text-gray-400 dark:text-gray-500">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+            <span className="absolute -top-1.5 -right-1.5 flex min-w-[14px] h-3.5 items-center justify-center rounded-full bg-gray-400 dark:bg-gray-500 px-0.5 text-[8px] font-bold leading-none text-white">
+              {delivered > 99 ? "99+" : delivered}
+            </span>
+          </span>
+        )}
+        {opened > 0 && (
+          <span title={`${opened} opened`} className="relative inline-flex items-center text-blue-500">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+            <svg className="h-3.5 w-3.5 -ml-1.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+            <span className="absolute -top-1.5 -right-1.5 flex min-w-[14px] h-3.5 items-center justify-center rounded-full bg-blue-500 px-0.5 text-[8px] font-bold leading-none text-white">
+              {opened > 99 ? "99+" : opened}
+            </span>
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // Single email mode (original behaviour)
   // Double tick (blue) = email was opened by recipient
   if (openedAt) {
     return (
@@ -399,6 +453,47 @@ export default function MailboxPage() {
 
   const selectedEmail = emails?.find((e: Doc<"emails">) => e._id === selectedEmailId);
 
+  // Group sent/outbox emails by batchId so multi-recipient sends appear as one row
+  type EmailGroup = {
+    key: string;
+    representative: Doc<"emails">;
+    allEmails: Doc<"emails">[];
+    isBatch: boolean;
+    pendingCount: number;
+    deliveredCount: number;
+    openedCount: number;
+  };
+
+  const emailGroups: EmailGroup[] = useMemo(() => {
+    if (!emails) return [];
+    if (activeFolder !== "sent" && activeFolder !== "outbox") {
+      return emails.map((e: Doc<"emails">) => ({
+        key: e._id,
+        representative: e,
+        allEmails: [e],
+        isBatch: false,
+        pendingCount: 0,
+        deliveredCount: 0,
+        openedCount: 0,
+      }));
+    }
+    // Group by batchId; ungrouped emails are their own group
+    const groupMap = new Map<string, Doc<"emails">[]>();
+    for (const email of emails as Doc<"emails">[]) {
+      const key = email.batchId ?? `solo-${email._id}`;
+      if (!groupMap.has(key)) groupMap.set(key, []);
+      groupMap.get(key)!.push(email);
+    }
+    return [...groupMap.entries()].map(([key, groupEmails]) => {
+      const rep = groupEmails[0];
+      const isBatch = groupEmails.length > 1;
+      const pendingCount = groupEmails.filter((e) => e.deliveryStatus === "pending").length;
+      const openedCount = groupEmails.filter((e) => !!e.openedAt).length;
+      const deliveredCount = groupEmails.filter((e) => e.deliveryStatus === "delivered" && !e.openedAt).length;
+      return { key, representative: rep, allEmails: groupEmails, isBatch, pendingCount, deliveredCount, openedCount };
+    });
+  }, [emails, activeFolder]);
+
   const handleSelectEmail = async (emailId: Id<"emails">) => {
     setSelectedEmailId(emailId);
     setEmailBody(null);
@@ -444,13 +539,30 @@ export default function MailboxPage() {
           contentType: att.contentType,
           data: att.data!,
         }));
-      await sendEmail({
-        mailboxId: mbId,
-        to: allRecipients,
-        subject: composeSubject,
-        body: fullBody,
-        attachments: attachmentData.length > 0 ? attachmentData : undefined,
-      });
+      if (allRecipients.length === 1) {
+        // Single recipient: one SES call, no batchId needed
+        await sendEmail({
+          mailboxId: mbId,
+          to: allRecipients,
+          subject: composeSubject,
+          body: fullBody,
+          attachments: attachmentData.length > 0 ? attachmentData : undefined,
+        });
+      } else {
+        // Multiple recipients: send one email per recipient with a shared batchId
+        // so per-recipient delivery and open tracking can be aggregated in the UI.
+        const batchId = `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        for (const recipient of allRecipients) {
+          await sendEmail({
+            mailboxId: mbId,
+            to: [recipient],
+            subject: composeSubject,
+            body: fullBody,
+            attachments: attachmentData.length > 0 ? attachmentData : undefined,
+            batchId,
+          });
+        }
+      }
       setShowCompose(false);
       setComposeTo([]);
       setComposeGroupIds([]);
@@ -856,55 +968,76 @@ export default function MailboxPage() {
             </div>
           ) : (
             <div className="divide-y divide-gray-50 dark:divide-gray-700/30">
-              {emails.map((email: Doc<"emails">) => (
-                <button
-                  key={email._id}
-                  onClick={() => handleSelectEmail(email._id)}
-                  className={`w-full px-4 py-3 text-left transition-colors ${selectedEmailId === email._id
-                    ? "bg-violet-50 dark:bg-violet-900/20"
-                    : !email.read
-                      ? "bg-blue-50/30 dark:bg-blue-900/10 hover:bg-gray-50 dark:hover:bg-gray-700"
-                      : "hover:bg-gray-50 dark:hover:bg-gray-700"
-                    }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className={`truncate text-sm ${!email.read ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"}`}>
-                      {activeFolder === "sent" || activeFolder === "outbox"
-                        ? email.to.length > 1
-                          ? `${showEmailIds ? getRawEmail(email.to[0]) : getDisplayName(email.to[0], contactNameMap)} +${email.to.length - 1}`
-                          : showEmailIds ? getRawEmail(email.to[0]) : getDisplayName(email.to[0], contactNameMap)
-                        : showEmailIds ? getRawEmail(email.from) : getDisplayName(email.from, contactNameMap)}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      {email.starred && (
-                        <svg className="h-3.5 w-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" />
-                        </svg>
-                      )}
-                      {(activeFolder === "sent" || activeFolder === "outbox") && (
-                        <DeliveryStatusIcon
-                          deliveryStatus={email.deliveryStatus}
-                          openedAt={email.openedAt}
-                        />
-                      )}
-                      <span className="text-xs text-gray-400 dark:text-gray-500">{timeAgo(email.date)}</span>
+              {emailGroups.map((group) => {
+                const email = group.representative;
+                // All recipients across the batch (for multi-recipient sends)
+                const allRecipients = group.allEmails.flatMap((e) => e.to);
+                const isSelected = group.allEmails.some((e) => e._id === selectedEmailId);
+                return (
+                  <button
+                    key={group.key}
+                    onClick={() => handleSelectEmail(email._id)}
+                    className={`w-full px-4 py-3 text-left transition-colors ${isSelected
+                      ? "bg-violet-50 dark:bg-violet-900/20"
+                      : !email.read
+                        ? "bg-blue-50/30 dark:bg-blue-900/10 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        : "hover:bg-gray-50 dark:hover:bg-gray-700"
+                      }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`truncate text-sm ${!email.read ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"}`}>
+                        {activeFolder === "sent" || activeFolder === "outbox"
+                          ? allRecipients.length > 1
+                            ? `${showEmailIds ? getRawEmail(allRecipients[0]) : getDisplayName(allRecipients[0], contactNameMap)} +${allRecipients.length - 1}`
+                            : showEmailIds ? getRawEmail(allRecipients[0]) : getDisplayName(allRecipients[0], contactNameMap)
+                          : showEmailIds ? getRawEmail(email.from) : getDisplayName(email.from, contactNameMap)}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {email.starred && (
+                          <svg className="h-3.5 w-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" />
+                          </svg>
+                        )}
+                        {(activeFolder === "sent" || activeFolder === "outbox") && (
+                          group.isBatch ? (
+                            <DeliveryStatusIcon
+                              isBatch={true}
+                              pendingCount={group.pendingCount}
+                              deliveredCount={group.deliveredCount}
+                              openedCount={group.openedCount}
+                            />
+                          ) : (
+                            <DeliveryStatusIcon
+                              deliveryStatus={email.deliveryStatus}
+                              openedAt={email.openedAt}
+                            />
+                          )
+                        )}
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{timeAgo(email.date)}</span>
+                      </div>
                     </div>
-                  </div>
-                  <p className={`mt-0.5 text-sm ${!email.read ? "font-medium text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"}`}>
-                    {email.subject}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-gray-400 dark:text-gray-500">
-                    {email.snippet}
-                  </p>
-                </button>
-              ))}
+                    <p className={`mt-0.5 text-sm ${!email.read ? "font-medium text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"}`}>
+                      {email.subject}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-gray-400 dark:text-gray-500">
+                      {email.snippet}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
           )}
           </div>
         </div>
 
         {/* Email detail */}
-        {selectedEmailId && selectedEmail && (
+        {selectedEmailId && selectedEmail && (() => {
+          // Resolve batch context for the selected email
+          const selectedGroup = emailGroups.find((g) => g.allEmails.some((e) => e._id === selectedEmailId));
+          const batchEmails = selectedGroup?.allEmails ?? [selectedEmail];
+          const isBatchDetail = (selectedGroup?.isBatch) ?? false;
+          const batchAllRecipients = batchEmails.flatMap((e) => e.to);
+          return (
           <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-800 p-8">
             <div className="mb-6 flex items-start justify-between">
               <div>
@@ -924,12 +1057,23 @@ export default function MailboxPage() {
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       To:{" "}
-                      {selectedEmail.to.map((addr) =>
+                      {batchAllRecipients.map((addr) =>
                         showEmailIds
                           ? getRawEmail(addr)
                           : getDisplayName(addr, contactNameMap)
                       ).join(", ")}
                     </p>
+                    {isBatchDetail && (
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">Delivery:</span>
+                        <DeliveryStatusIcon
+                          isBatch={true}
+                          pendingCount={selectedGroup!.pendingCount}
+                          deliveredCount={selectedGroup!.deliveredCount}
+                          openedCount={selectedGroup!.openedCount}
+                        />
+                      </div>
+                    )}
                   </div>
                   <span className="text-xs text-gray-400 dark:text-gray-500">{timeAgo(selectedEmail.date)}</span>
                 </div>
@@ -1039,7 +1183,8 @@ export default function MailboxPage() {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* No email selected */}
         {!selectedEmailId && (

@@ -86,8 +86,9 @@ export const sendEmail = action({
       data: v.string(), // base64-encoded
     }))),
     folder: v.optional(v.string()),
+    batchId: v.optional(v.string()),
   },
-  handler: async (ctx, { mailboxId, to, subject, body, attachments, folder }) => {
+  handler: async (ctx, { mailboxId, to, subject, body, attachments, folder, batchId }) => {
     const emailFolder = folder ?? "sent";
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -165,6 +166,7 @@ export const sendEmail = action({
       s3Key,
       hasAttachments,
       folder: emailFolder,
+      batchId,
     });
 
     return { success: true, messageId };
