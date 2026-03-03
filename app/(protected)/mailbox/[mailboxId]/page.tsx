@@ -414,7 +414,13 @@ export default function MailboxPage() {
       setLoadingBody(true);
       try {
         const result = await fetchEmailBody({ s3Key: email.s3Key });
-        setEmailBody(result.body);
+        // Strip tracking pixels before rendering so viewing your own sent
+        // email doesn't falsely trigger the "opened" event.
+        const sanitized = result.body.replace(
+          /<img[^>]*src="[^"]*\/track\/open\/[^"]*"[^>]*\/?>/gi,
+          ""
+        );
+        setEmailBody(sanitized);
         setEmailAttachments(result.attachments);
       } catch {
         setEmailBody("Failed to load email body.");
