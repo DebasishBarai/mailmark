@@ -129,7 +129,7 @@ export const sendEmail = action({
           bodyWithTracking,
         ].join("\r\n");
 
-    await ses.send(
+    const sesResponse = await ses.send(
       new SendEmailCommand({
         FromEmailAddress: fromAddress,
         Destination: { ToAddresses: to },
@@ -137,6 +137,7 @@ export const sendEmail = action({
         Content: { Raw: { Data: new TextEncoder().encode(rawEmail) } },
       })
     );
+    const sesMessageId = sesResponse.MessageId;
 
     // Save raw email to S3
     const s3Key = `${mailbox.domain}/${mailbox.address}/${emailFolder}/${messageId}.eml`;
@@ -155,6 +156,7 @@ export const sendEmail = action({
     await ctx.runMutation(internal.emails.insertSent, {
       mailboxId,
       messageId,
+      sesMessageId,
       from: fromAddress,
       to,
       subject,
