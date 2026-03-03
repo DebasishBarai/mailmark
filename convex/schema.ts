@@ -58,6 +58,16 @@ export default defineSchema({
     starred: v.boolean(),
     hasAttachments: v.boolean(),
     s3Key: v.string(),
+    // Delivery tracking: set when SES delivery notification is received
+    deliveryStatus: v.optional(v.union(
+      v.literal("pending"),
+      v.literal("delivered"),
+      v.literal("failed"),
+      v.literal("bounced")
+    )),
+    deliveredAt: v.optional(v.number()),
+    // Open tracking: set when recipient loads the tracking pixel
+    openedAt: v.optional(v.number()),
   })
     .index("by_mailbox_folder", ["mailboxId", "folder"])
     .index("by_message_id", ["messageId"]),

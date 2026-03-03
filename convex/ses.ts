@@ -107,9 +107,16 @@ export const sendEmail = action({
     const messageId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const hasAttachments = (attachments ?? []).length > 0;
 
+    // Inject tracking pixel for open tracking (only for sent emails, not drafts/campaigns)
+    const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? "";
+    const trackingPixel = emailFolder === "sent"
+      ? `<img src="${convexSiteUrl}/track/open/${messageId}.gif" width="1" height="1" style="display:none" alt="" />`
+      : "";
+    const bodyWithTracking = body + trackingPixel;
+
     let rawEmail: string;
     if (hasAttachments) {
-      rawEmail = buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, body, attachments!);
+      rawEmail = buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, bodyWithTracking, attachments!);
       await ses.send(
         new SendEmailCommand({
           FromEmailAddress: fromAddress,
@@ -126,7 +133,7 @@ export const sendEmail = action({
             Simple: {
               Subject: { Data: subject },
               Body: {
-                Html: { Data: body },
+                Html: { Data: bodyWithTracking },
                 Text: { Data: body.replace(/<[^>]*>/g, "") },
               },
             },
@@ -141,7 +148,7 @@ export const sendEmail = action({
         `Message-ID: <${messageId}@${mailbox.domain}>`,
         `Content-Type: text/html; charset=UTF-8`,
         "",
-        body,
+        bodyWithTracking,
       ].join("\r\n");
     }
 
