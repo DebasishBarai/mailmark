@@ -136,6 +136,11 @@ export const sendEmail = action({
                 Html: { Data: bodyWithTracking },
                 Text: { Data: body.replace(/<[^>]*>/g, "") },
               },
+              // Embed our custom Message-ID so SES bounce/delivery notifications
+              // can be matched back to the email record in the database.
+              Headers: [
+                { Name: "Message-ID", Value: `<${messageId}@${mailbox.domain}>` },
+              ],
             },
           },
         })
