@@ -114,50 +114,29 @@ export const sendEmail = action({
       : "";
     const bodyWithTracking = body + trackingPixel;
 
-    let rawEmail: string;
-    if (hasAttachments) {
-      rawEmail = buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, bodyWithTracking, attachments!);
-      await ses.send(
-        new SendEmailCommand({
-          FromEmailAddress: fromAddress,
-          Destination: { ToAddresses: to },
-          ConfigurationSetName: "devmail-sending",
-          Content: { Raw: { Data: new TextEncoder().encode(rawEmail) } },
-        })
-      );
-    } else {
-      await ses.send(
-        new SendEmailCommand({
-          FromEmailAddress: fromAddress,
-          Destination: { ToAddresses: to },
-          ConfigurationSetName: "devmail-sending",
-          Content: {
-            Simple: {
-              Subject: { Data: subject },
-              Body: {
-                Html: { Data: bodyWithTracking },
-                Text: { Data: body.replace(/<[^>]*>/g, "") },
-              },
-              // Embed our custom Message-ID so SES bounce/delivery notifications
-              // can be matched back to the email record in the database.
-              Headers: [
-                { Name: "Message-ID", Value: `<${messageId}@${mailbox.domain}>` },
-              ],
-            },
-          },
-        })
-      );
-      rawEmail = [
-        `From: ${fromAddress}`,
-        `To: ${to.join(", ")}`,
-        `Subject: ${subject}`,
-        `Date: ${new Date().toUTCString()}`,
-        `Message-ID: <${messageId}@${mailbox.domain}>`,
-        `Content-Type: text/html; charset=UTF-8`,
-        "",
-        bodyWithTracking,
-      ].join("\r\n");
-    }
+    // Build raw MIME email for both paths — SES rejects Message-ID as a
+    // custom header in Simple content, so always send via Content.Raw.
+    const rawEmail = hasAttachments
+      ? buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, bodyWithTracking, attachments!)
+      : [
+          `From: ${fromAddress}`,
+          `To: ${to.join(", ")}`,
+          `Subject: ${subject}`,
+          `Date: ${new Date().toUTCString()}`,
+          `Message-ID: <${messageId}@${mailbox.domain}>`,
+          `Content-Type: text/html; charset=UTF-8`,
+          "",
+          bodyWithTracking,
+        ].join("\r\n");
+
+    await ses.send(
+      new SendEmailCommand({
+        FromEmailAddress: fromAddress,
+        Destination: { ToAddresses: to },
+        ConfigurationSetName: "devmail-sending",
+        Content: { Raw: { Data: new TextEncoder().encode(rawEmail) } },
+      })
+    );
 
     // Save raw email to S3
     const s3Key = `${mailbox.domain}/${mailbox.address}/${emailFolder}/${messageId}.eml`;
