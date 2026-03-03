@@ -37,14 +37,30 @@ export default function DomainsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newDomain, setNewDomain] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+  const [addError, setAddError] = useState("");
+
+  const domainRegex = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
 
   const handleAddDomain = async () => {
-    if (!newDomain.trim()) return;
+    const domain = newDomain.trim().toLowerCase();
+    if (!domain) return;
+    if (!domainRegex.test(domain)) {
+      setAddError("Please enter a valid domain (e.g. example.com).");
+      return;
+    }
     setIsAdding(true);
+    setAddError("");
     try {
       await addDomain({ domain: newDomain.trim().toLowerCase() });
       setShowAddModal(false);
       setNewDomain("");
+    } catch (error: any) {
+      const message = error?.message ?? "Failed to add domain";
+      if (message.includes("Domain already exists")) {
+        setAddError("This domain has already been added. Please use a different domain.");
+      } else {
+        setAddError(message);
+      }
     } finally {
       setIsAdding(false);
     }
@@ -161,17 +177,21 @@ export default function DomainsPage() {
                 id="domain"
                 type="text"
                 value={newDomain}
-                onChange={(e) => setNewDomain(e.target.value)}
+                onChange={(e) => { setNewDomain(e.target.value); setAddError(""); }}
                 onKeyDown={(e) => e.key === "Enter" && handleAddDomain()}
                 placeholder="yourcompany.com"
                 className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
               />
+              {addError && (
+                <p className="mt-2 text-sm text-red-600 dark:text-red-400">{addError}</p>
+              )}
             </div>
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => {
                   setShowAddModal(false);
                   setNewDomain("");
+                  setAddError("");
                 }}
                 className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               >
