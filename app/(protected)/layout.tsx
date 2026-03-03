@@ -28,15 +28,6 @@ const sidebarLinks = [
       </svg>
     ),
   },
-  {
-    label: "Campaigns",
-    href: "/campaigns",
-    icon: (
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-      </svg>
-    ),
-  },
 ];
 
 function LoadingSpinner() {
@@ -89,9 +80,8 @@ function AppShell({ children }: { children: ReactNode }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 z-40 flex h-full flex-col border-r border-gray-200 bg-white transition-all dark:border-gray-700 dark:bg-gray-800 ${
-          sidebarCollapsed ? "w-16" : "w-60"
-        } ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
+        className={`fixed left-0 top-0 z-40 flex h-full flex-col border-r border-gray-200 bg-white transition-all dark:border-gray-700 dark:bg-gray-800 ${sidebarCollapsed ? "w-16" : "w-60"
+          } ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
       >
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4 dark:border-gray-700/50">
@@ -124,8 +114,8 @@ function AppShell({ children }: { children: ReactNode }) {
                   href={link.href}
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive
-                      ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+                    ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
                     }`}
                   title={sidebarCollapsed ? link.label : undefined}
                 >
@@ -172,9 +162,8 @@ function AppShell({ children }: { children: ReactNode }) {
 
       {/* Main content */}
       <main
-        className={`flex-1 pt-14 transition-all md:pt-0 ${
-          sidebarCollapsed ? "md:ml-16" : "md:ml-60"
-        }`}
+        className={`flex-1 pt-14 transition-all md:pt-0 ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"
+          }`}
       >
         {children}
       </main>
