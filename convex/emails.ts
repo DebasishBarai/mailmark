@@ -237,15 +237,21 @@ export const updateDeliveryStatus = internalMutation({
     timestamp: v.number(),
   },
   handler: async (ctx, { messageId, status, timestamp }) => {
+    console.log("[updateDeliveryStatus] looking up messageId:", messageId);
     const email = await ctx.db
       .query("emails")
       .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
       .unique();
-    if (!email) return;
+    if (!email) {
+      console.log("[updateDeliveryStatus] no email found for messageId:", messageId);
+      return;
+    }
+    console.log("[updateDeliveryStatus] found email id:", email._id, "current status:", email.deliveryStatus, "→ updating to:", status);
     await ctx.db.patch(email._id, {
       deliveryStatus: status,
       deliveredAt: status === "delivered" ? timestamp : undefined,
     });
+    console.log("[updateDeliveryStatus] patch done");
   },
 });
 

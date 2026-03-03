@@ -45,6 +45,8 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
       const message = JSON.parse(body.Message);
       const notificationType = message.notificationType;
 
+      console.log("[SNS] notificationType:", notificationType);
+
       if (notificationType === "Delivery") {
         return await handleDeliveryNotification(message, "delivered");
       }
@@ -58,6 +60,7 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
 
       if (notificationType !== "Received") {
         // Ignore complaint/other notifications
+        console.log("[SNS] ignoring notificationType:", notificationType);
         return NextResponse.json({ success: true });
       }
 
@@ -101,6 +104,7 @@ async function handleDeliveryNotification(
   status: "delivered" | "failed" | "bounced"
 ) {
   const mail = message.mail as Record<string, unknown> | undefined;
+  console.log("[DELIVERY] status:", status, "| mail present:", !!mail);
   if (!mail) return NextResponse.json({ success: true });
 
   // In SES Configuration Set event notifications, mail.commonHeaders uses
@@ -108,15 +112,23 @@ async function handleDeliveryNotification(
   // Message-ID header we embedded in the raw MIME: <{ourId}@{domain}>.
   // mail.messageId is the SES-assigned ID and won't match our DB records.
   const commonHeaders = mail.commonHeaders as Record<string, unknown> | undefined;
+  const rawHeadersArray = mail.headers as Array<{ name: string; value: string }> | undefined;
+
+  console.log("[DELIVERY] mail.messageId (SES-assigned):", mail.messageId);
+  console.log("[DELIVERY] commonHeaders:", JSON.stringify(commonHeaders));
+  console.log("[DELIVERY] headers array:", JSON.stringify(rawHeadersArray));
+
   const messageIdHeader =
     (commonHeaders?.["messageId"] as string | undefined) ??
     (commonHeaders?.["message-id"] as string | undefined) ??
     // Fallback: scan the raw headers array for a Message-ID entry
-    (mail.headers as Array<{ name: string; value: string }> | undefined)
-      ?.find((h) => h.name.toLowerCase() === "message-id")?.value ??
+    rawHeadersArray?.find((h) => h.name.toLowerCase() === "message-id")?.value ??
     "";
+  console.log("[DELIVERY] messageIdHeader (raw):", messageIdHeader);
+
   // Strip angle brackets then take the local part before '@'
   const messageId = messageIdHeader.replace(/^<|>$/g, "").split("@")[0];
+  console.log("[DELIVERY] extracted messageId:", messageId || "(empty — will skip)");
 
   if (!messageId) return NextResponse.json({ success: true });
 
@@ -130,7 +142,8 @@ async function handleDeliveryNotification(
       ? deliveryTimestamp
       : new Date(deliveryTimestamp as string).getTime() || Date.now();
 
-  await fetch(
+  console.log("[DELIVERY] calling /trackDelivery with messageId:", messageId, "status:", status);
+  const trackRes = await fetch(
     `${process.env.NEXT_PUBLIC_CONVEX_SITE_URL}/trackDelivery`,
     {
       method: "POST",
@@ -141,6 +154,7 @@ async function handleDeliveryNotification(
       body: JSON.stringify({ messageId, status, timestamp }),
     }
   );
+  console.log("[DELIVERY] /trackDelivery response status:", trackRes.status, await trackRes.text());
 
   return NextResponse.json({ success: true });
 }

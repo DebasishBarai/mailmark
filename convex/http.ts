@@ -124,7 +124,10 @@ http.route({
     const body = await request.json();
     const { messageId, status, timestamp } = body;
 
+    console.log("[trackDelivery] received messageId:", messageId, "status:", status);
+
     if (!messageId || !status) {
+      console.log("[trackDelivery] missing messageId or status — body:", JSON.stringify(body));
       return new Response(JSON.stringify({ error: "Missing messageId or status" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
@@ -136,6 +139,7 @@ http.route({
       status,
       timestamp: timestamp ?? Date.now(),
     });
+    console.log("[trackDelivery] mutation done for messageId:", messageId);
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
