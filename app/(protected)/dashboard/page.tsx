@@ -5,11 +5,17 @@ import Link from "next/link";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Doc } from "../../../convex/_generated/dataModel";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  PieChart, Pie, Cell, ResponsiveContainer,
+} from "recharts";
 
 export default function DashboardPage() {
   const domains = useQuery(api.domains.listForCurrentUser);
+  const emailStats = useQuery(api.emailStats.getForCurrentUser);
   const addDomain = useAction(api.domainActions.add);
   const isLoading = domains === undefined;
+  const statsLoading = emailStats === undefined;
 
   const domainCount = domains?.length ?? 0;
 
@@ -28,6 +34,16 @@ export default function DashboardPage() {
       setIsAdding(false);
     }
   };
+
+  const deliveryData = emailStats
+    ? [
+        { name: "Delivered", value: emailStats.delivered, color: "#22C55E" },
+        { name: "Opened", value: emailStats.opened, color: "#16A34A" },
+        { name: "Pending", value: emailStats.pending, color: "#6B7280" },
+        { name: "Failed", value: emailStats.failed, color: "#EF4444" },
+        { name: "Bounced", value: emailStats.bounced, color: "#F59E0B" },
+      ].filter((d) => d.value > 0)
+    : [];
 
   return (
     <div className="p-8">
@@ -57,7 +73,144 @@ export default function DashboardPage() {
             View all
           </span>
         </Link>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Sent</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+            {statsLoading ? (
+              <span className="inline-block h-8 w-8 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+            ) : (
+              emailStats?.totalSent ?? 0
+            )}
+          </p>
+          <span className="mt-2 inline-block rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+            All time
+          </span>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Delivery Rate</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+            {statsLoading ? (
+              <span className="inline-block h-8 w-8 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+            ) : (
+              <>{emailStats?.deliveryRate ?? 0}%</>
+            )}
+          </p>
+          {!statsLoading && emailStats && (
+            <span className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+              emailStats.deliveryRate >= 90
+                ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                : emailStats.deliveryRate >= 70
+                  ? "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                  : "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+            }`}>
+              {emailStats.deliveryRate >= 90 ? "Good" : emailStats.deliveryRate >= 70 ? "Fair" : "Low"}
+            </span>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Open Rate</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+            {statsLoading ? (
+              <span className="inline-block h-8 w-8 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+            ) : (
+              <>{emailStats?.openRate ?? 0}%</>
+            )}
+          </p>
+          {!statsLoading && emailStats && (
+            <span className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+              emailStats.openRate >= 30
+                ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                : emailStats.openRate >= 15
+                  ? "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                  : "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+            }`}>
+              {emailStats.openRate >= 30 ? "Good" : emailStats.openRate >= 15 ? "Fair" : "Low"}
+            </span>
+          )}
+        </div>
       </div>
+
+      {/* Charts */}
+      {emailStats && emailStats.totalSent + emailStats.totalInbox > 0 && (
+        <div className="mb-8 grid gap-6 lg:grid-cols-2">
+          {/* Daily Volume Bar Chart */}
+          <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+            <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+              Email Volume (Last 30 Days)
+            </h3>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={emailStats.dailyVolume}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: "#9CA3AF" }}
+                  interval="preserveStartEnd"
+                  tickLine={false}
+                  axisLine={{ stroke: "#E5E7EB" }}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#9CA3AF" }}
+                  allowDecimals={false}
+                  tickLine={false}
+                  axisLine={{ stroke: "#E5E7EB" }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1F2937",
+                    border: "1px solid #374151",
+                    borderRadius: "8px",
+                    color: "#F9FAFB",
+                    fontSize: "12px",
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: "12px" }} />
+                <Bar dataKey="sent" name="Sent" fill="#7C3AED" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="received" name="Received" fill="#06B6D4" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Delivery Status Pie Chart */}
+          {emailStats.totalSent > 0 && (
+            <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+              <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                Delivery Status
+              </h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={deliveryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={3}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={{ stroke: "#9CA3AF" }}
+                  >
+                    {deliveryData.map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#1F2937",
+                      border: "1px solid #374151",
+                      borderRadius: "8px",
+                      color: "#F9FAFB",
+                      fontSize: "12px",
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Quick actions */}
       <div className="mb-8 flex flex-wrap gap-3">

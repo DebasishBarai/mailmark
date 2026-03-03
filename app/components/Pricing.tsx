@@ -87,11 +87,10 @@ export default function Pricing() {
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative flex flex-col rounded-2xl p-8 shadow-sm transition-shadow hover:shadow-md ${
-                plan.highlighted
+              className={`relative flex flex-col rounded-2xl p-8 shadow-sm transition-shadow hover:shadow-md ${plan.highlighted
                   ? "bg-violet-600 text-white ring-2 ring-violet-600"
                   : "border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
-              }`}
+                }`}
             >
               {plan.highlighted && (
                 <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-violet-900 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow">
@@ -162,10 +161,6 @@ export default function Pricing() {
             </div>
           ))}
         </div>
-
-        <p className="mt-10 text-center text-sm text-gray-500 dark:text-gray-400">
-          All plans include a 14-day free trial. No credit card required to get started.
-        </p>
       </div>
     </section>
   );

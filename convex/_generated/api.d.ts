@@ -11,6 +11,7 @@
 import type * as contacts from "../contacts.js";
 import type * as domainActions from "../domainActions.js";
 import type * as domains from "../domains.js";
+import type * as emailStats from "../emailStats.js";
 import type * as emails from "../emails.js";
 import type * as http from "../http.js";
 import type * as mailboxes from "../mailboxes.js";
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   contacts: typeof contacts;
   domainActions: typeof domainActions;
   domains: typeof domains;
+  emailStats: typeof emailStats;
   emails: typeof emails;
   http: typeof http;
   mailboxes: typeof mailboxes;
