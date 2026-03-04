@@ -2153,31 +2153,47 @@ export default function MailboxPage() {
                             <span className="text-xs text-gray-400 dark:text-gray-500">{fmtPreset(ts)}</span>
                           </button>
                         ))}
-                        <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-3">
-                          <p className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">Custom</p>
-                          <div className="flex gap-2">
-                            <input
-                              type="date"
-                              value={scheduleCustomDate}
-                              min={new Date().toISOString().split("T")[0]}
-                              onChange={(e) => setScheduleCustomDate(e.target.value)}
-                              className="flex-1 rounded-md border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-2 py-1 text-xs text-gray-900 dark:text-white outline-none focus:border-violet-500"
-                            />
-                            <input
-                              type="time"
-                              value={scheduleCustomTime}
-                              onChange={(e) => setScheduleCustomTime(e.target.value)}
-                              className="w-24 rounded-md border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-2 py-1 text-xs text-gray-900 dark:text-white outline-none focus:border-violet-500"
-                            />
+                        <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-3 bg-gray-50/60 dark:bg-gray-900/40">
+                          <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Custom date &amp; time</p>
+                          <div className="space-y-2">
+                            {/* Date field */}
+                            <div className="group relative flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-2.5 py-1.5 ring-0 transition-all focus-within:border-violet-400 dark:focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-400/20">
+                              <svg className="h-3.5 w-3.5 shrink-0 text-gray-400 dark:text-gray-500 group-focus-within:text-violet-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                              </svg>
+                              <input
+                                type="date"
+                                value={scheduleCustomDate}
+                                min={new Date().toISOString().split("T")[0]}
+                                onChange={(e) => setScheduleCustomDate(e.target.value)}
+                                className="w-full bg-transparent text-xs text-gray-800 dark:text-gray-100 placeholder-gray-400 outline-none [color-scheme:light] dark:[color-scheme:dark]"
+                              />
+                            </div>
+                            {/* Time field */}
+                            <div className="group relative flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-2.5 py-1.5 transition-all focus-within:border-violet-400 dark:focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-400/20">
+                              <svg className="h-3.5 w-3.5 shrink-0 text-gray-400 dark:text-gray-500 group-focus-within:text-violet-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <input
+                                type="time"
+                                value={scheduleCustomTime}
+                                onChange={(e) => setScheduleCustomTime(e.target.value)}
+                                className="w-full bg-transparent text-xs text-gray-800 dark:text-gray-100 outline-none [color-scheme:light] dark:[color-scheme:dark]"
+                              />
+                            </div>
                           </div>
                           {customIsInPast && (
-                            <p className="mt-1.5 text-xs text-red-500 dark:text-red-400">Please choose a future date and time.</p>
+                            <p className="mt-2 flex items-center gap-1 text-xs text-red-500 dark:text-red-400">
+                              <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                              Please choose a future date and time.
+                            </p>
                           )}
                           <button
                             onClick={() => { if (customHasValue && !customIsInPast) { setScheduledSendAt(customTs); setShowSchedulePicker(false); } }}
                             disabled={!customHasValue || customIsInPast}
-                            className="mt-2 w-full rounded-md bg-violet-600 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+                            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-violet-600 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-violet-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                           >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
                             Set custom time
                           </button>
                         </div>
