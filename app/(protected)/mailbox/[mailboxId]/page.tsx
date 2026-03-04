@@ -9,6 +9,11 @@ import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { useSidebar } from "../../../components/SidebarContext";
 import { Users } from "lucide-react";
 import { marked } from "marked";
+import { resolveMergeFields, extractMergeFields } from "@/lib/mergeFields";
+import { parseCSV, detectEmailColumn } from "@/lib/csvParser";
+import MergeFieldToolbar from "./components/MergeFieldToolbar";
+import MergePreview from "./components/MergePreview";
+import type { MergeRecipient } from "./components/MergeImport";
 
 const folderConfig: { key: string; label: string; navHidden?: boolean }[] = [
   { key: "inbox", label: "Inbox" },
@@ -216,6 +221,15 @@ export default function MailboxPage() {
   const [showSendDropdown, setShowSendDropdown] = useState(false);
   const sendDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Mail merge state
+  const [mergeRecipients, setMergeRecipients] = useState<MergeRecipient[]>([]);
+  const [mergeColumns, setMergeColumns] = useState<string[]>([]);
+  const [mergeEmailColumn, setMergeEmailColumn] = useState("");
+  const [mergePreviewIndex, setMergePreviewIndex] = useState(0);
+  const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const subjectInputRef = useRef<HTMLInputElement>(null);
+  const lastMergeTarget = useRef<"subject" | "body">("body");
+
   type ComposeMode = "compose" | "reply" | "replyAll" | "forward";
   const [showCompose, setShowCompose] = useState(false);
   const [composeMode, setComposeMode] = useState<ComposeMode>("compose");
@@ -325,20 +339,50 @@ export default function MailboxPage() {
     }
   };
 
+  const processImportedCSV = (text: string) => {
+    const parsed = parseCSV(text);
+    // If CSV has headers and multiple columns, use structured mail merge
+    if (parsed.headers.length > 1 && parsed.rows.length > 0) {
+      const emailCol = detectEmailColumn(parsed.headers, parsed.rows);
+      if (!emailCol) {
+        setImportError("No email column detected in the CSV.");
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const recipients: MergeRecipient[] = parsed.rows
+        .filter((row) => emailRegex.test(row[emailCol]?.trim() ?? ""))
+        .map((row) => ({ email: row[emailCol].trim(), fields: { ...row } }));
+      if (recipients.length === 0) {
+        setImportError("No valid email addresses found.");
+        return;
+      }
+      setMergeRecipients(recipients);
+      setMergeColumns(parsed.headers);
+      setMergeEmailColumn(emailCol);
+      setMergePreviewIndex(0);
+      setComposeTo([]);
+      setComposeToInput("");
+      setShowImportMenu(false);
+      setImportError(null);
+      return;
+    }
+    // Fallback: single-column or no headers — extract emails
+    const emails = parseEmailsFromCSV(text);
+    if (emails.length === 0) {
+      setImportError("No email addresses found in the CSV.");
+    } else {
+      setComposeTo((prev) => [...new Set([...prev, ...emails])]);
+      setShowImportMenu(false);
+      setImportError(null);
+    }
+  };
+
   const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const emails = parseEmailsFromCSV(text);
-      if (emails.length === 0) {
-        setImportError("No email addresses found in the CSV.");
-      } else {
-        setComposeTo((prev) => [...new Set([...prev, ...emails])]);
-        setShowImportMenu(false);
-        setImportError(null);
-      }
+      processImportedCSV(ev.target?.result as string);
     };
     reader.readAsText(file);
     e.target.value = "";
@@ -350,20 +394,16 @@ export default function MailboxPage() {
     setIsImporting(true);
     try {
       const res = await fetch(`/api/fetch-csv?url=${encodeURIComponent(gSheetsUrl.trim())}`);
-      if (!res.ok) throw new Error("Failed to fetch sheet");
-      const text = await res.text();
-      const emails = parseEmailsFromCSV(text);
-      if (emails.length === 0) {
-        setImportError("No email addresses found in the sheet.");
-      } else {
-        setComposeTo((prev) => [...new Set([...prev, ...emails])]);
-        setGSheetsUrl("");
-        setShowGSheetsInput(false);
-        setShowImportMenu(false);
-        setImportError(null);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to fetch sheet");
       }
-    } catch {
-      setImportError("Could not fetch the sheet. Make sure it is publicly accessible.");
+      const text = await res.text();
+      processImportedCSV(text);
+      setGSheetsUrl("");
+      setShowGSheetsInput(false);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Could not fetch the sheet. Make sure it is publicly accessible.");
     } finally {
       setIsImporting(false);
     }
@@ -470,6 +510,7 @@ export default function MailboxPage() {
   const [scheduleCustomTime, setScheduleCustomTime] = useState("08:00");
   const schedulePickerRef = useRef<HTMLDivElement>(null);
   const [recipientFilter, setRecipientFilter] = useState<"all" | "pending" | "delivered" | "opened">("all");
+  const [recipientSearch, setRecipientSearch] = useState("");
 
   const isLoading = mailbox === undefined || emails === undefined;
 
@@ -591,10 +632,32 @@ export default function MailboxPage() {
     setComposeAttachments([]);
     setComposeContentType("plain");
     setShowPreview(false);
+    setMergeRecipients([]);
+    setMergeColumns([]);
+    setMergeEmailColumn("");
+    setMergePreviewIndex(0);
   };
 
+  const hasMergeData = mergeRecipients.length > 0;
+
+  // Auto-switch to campaign when merge fields are used in subject/body
+  const usesMergeFields = useMemo(() => {
+    if (!hasMergeData) return false;
+    return extractMergeFields(composeSubject + composeBody).length > 0;
+  }, [hasMergeData, composeSubject, composeBody]);
+
+  useEffect(() => {
+    if (!hasMergeData) return;
+    if (usesMergeFields && sendMode === "send") {
+      setSendMode("campaign");
+    } else if (!usesMergeFields && sendMode === "campaign") {
+      setSendMode("send");
+    }
+  }, [usesMergeFields, hasMergeData]);
+
   const handleSend = async () => {
-    const allRecipients = resolveAllRecipients();
+    // Normal send: one email with all recipients in the To field
+    const allRecipients = hasMergeData ? mergeRecipients.map((r) => r.email) : resolveAllRecipients();
     if (allRecipients.length === 0 || !composeSubject.trim()) return;
     setIsSending(true);
     setSendError(null);
@@ -607,7 +670,6 @@ export default function MailboxPage() {
           contentType: att.contentType,
           data: att.data!,
         }));
-      // Regular send: one email with all recipients in the To field
       const ccRecipients = [...composeCc, ...(composeCcInput.trim() && isValidEmail(composeCcInput.trim()) ? [composeCcInput.trim()] : [])];
       const bccRecipients = [...composeBcc, ...(composeBccInput.trim() && isValidEmail(composeBccInput.trim()) ? [composeBccInput.trim()] : [])];
       await sendEmail({
@@ -628,8 +690,8 @@ export default function MailboxPage() {
   };
 
   const handleSendCampaign = async () => {
-    const allRecipients = resolveAllRecipients();
-    if (allRecipients.length === 0 || !composeSubject.trim()) return;
+    const recipients = hasMergeData ? mergeRecipients.map((r) => r.email) : resolveAllRecipients();
+    if (recipients.length === 0 || !composeSubject.trim()) return;
     setIsSending(true);
     setSendError(null);
     try {
@@ -638,16 +700,32 @@ export default function MailboxPage() {
         .filter((att) => att.status === "uploaded" && att.data)
         .map((att) => ({ filename: att.filename, contentType: att.contentType, data: att.data! }));
       const batchId = `campaign-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      for (const recipient of allRecipients) {
-        await sendEmail({
-          mailboxId: mbId,
-          to: [recipient],
-          subject: composeSubject,
-          body: fullBody,
-          attachments: attachmentData.length > 0 ? attachmentData : undefined,
-          folder: "sent",
-          batchId,
-        });
+      if (hasMergeData) {
+        for (const recipient of mergeRecipients) {
+          const personalizedSubject = resolveMergeFields(composeSubject, recipient.fields);
+          const personalizedBody = resolveMergeFields(fullBody, recipient.fields);
+          await sendEmail({
+            mailboxId: mbId,
+            to: [recipient.email],
+            subject: personalizedSubject,
+            body: personalizedBody,
+            attachments: attachmentData.length > 0 ? attachmentData : undefined,
+            folder: "sent",
+            batchId,
+          });
+        }
+      } else {
+        for (const recipient of recipients) {
+          await sendEmail({
+            mailboxId: mbId,
+            to: [recipient],
+            subject: composeSubject,
+            body: fullBody,
+            attachments: attachmentData.length > 0 ? attachmentData : undefined,
+            folder: "sent",
+            batchId,
+          });
+        }
       }
       resetComposeState();
     } catch (err) {
@@ -658,7 +736,7 @@ export default function MailboxPage() {
   };
 
   const handleScheduleSend = async (scheduledAt: number) => {
-    const allRecipients = resolveAllRecipients();
+    const allRecipients = hasMergeData ? mergeRecipients.map((r) => r.email) : resolveAllRecipients();
     if (allRecipients.length === 0 || !composeSubject.trim()) return;
     setIsSending(true);
     setSendError(null);
@@ -688,8 +766,8 @@ export default function MailboxPage() {
   };
 
   const handleScheduleCampaign = async (scheduledAt: number) => {
-    const allRecipients = resolveAllRecipients();
-    if (allRecipients.length === 0 || !composeSubject.trim()) return;
+    const recipients = hasMergeData ? mergeRecipients.map((r) => r.email) : resolveAllRecipients();
+    if (recipients.length === 0 || !composeSubject.trim()) return;
     setIsSending(true);
     setSendError(null);
     try {
@@ -698,22 +776,71 @@ export default function MailboxPage() {
         .filter((att) => att.status === "uploaded" && att.data)
         .map((att) => ({ filename: att.filename, contentType: att.contentType, data: att.data! }));
       const batchId = `campaign-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      for (const recipient of allRecipients) {
-        await scheduleEmailAction({
-          mailboxId: mbId,
-          to: [recipient],
-          subject: composeSubject,
-          body: fullBody,
-          attachments: attachmentData.length > 0 ? attachmentData : undefined,
-          scheduledAt,
-          batchId,
-        });
+      if (hasMergeData) {
+        for (const recipient of mergeRecipients) {
+          const personalizedSubject = resolveMergeFields(composeSubject, recipient.fields);
+          const personalizedBody = resolveMergeFields(fullBody, recipient.fields);
+          await scheduleEmailAction({
+            mailboxId: mbId,
+            to: [recipient.email],
+            subject: personalizedSubject,
+            body: personalizedBody,
+            attachments: attachmentData.length > 0 ? attachmentData : undefined,
+            scheduledAt,
+            batchId,
+          });
+        }
+      } else {
+        for (const recipient of recipients) {
+          await scheduleEmailAction({
+            mailboxId: mbId,
+            to: [recipient],
+            subject: composeSubject,
+            body: fullBody,
+            attachments: attachmentData.length > 0 ? attachmentData : undefined,
+            scheduledAt,
+            batchId,
+          });
+        }
       }
       resetComposeState();
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to schedule campaign. Please try again.");
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleInsertMergeField = (fieldName: string) => {
+    const tag = `{${fieldName}}`;
+    if (lastMergeTarget.current === "subject") {
+      const input = subjectInputRef.current;
+      if (input) {
+        const start = input.selectionStart ?? composeSubject.length;
+        const end = input.selectionEnd ?? composeSubject.length;
+        const newSubject = composeSubject.slice(0, start) + tag + composeSubject.slice(end);
+        setComposeSubject(newSubject);
+        requestAnimationFrame(() => {
+          input.focus();
+          input.setSelectionRange(start + tag.length, start + tag.length);
+        });
+      } else {
+        setComposeSubject((prev) => prev + tag);
+      }
+    } else {
+      const textarea = bodyTextareaRef.current;
+      if (textarea) {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const newBody = composeBody.slice(0, start) + tag + composeBody.slice(end);
+        setComposeBody(newBody);
+        requestAnimationFrame(() => {
+          textarea.focus();
+          textarea.setSelectionRange(start + tag.length, start + tag.length);
+        });
+      } else {
+        setComposeBody((prev) => prev + tag);
+      }
     }
   };
 
@@ -1271,21 +1398,40 @@ export default function MailboxPage() {
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       To:{" "}
-                      {batchAllRecipients.map((addr) =>
+                      {selectedEmail.to.map((addr) =>
                         showEmailIds
                           ? getRawEmail(addr)
                           : getDisplayName(addr, contactNameMap)
                       ).join(", ")}
+                      {isBatchDetail && selectedEmail.to.length === 1 && (
+                        <span className="ml-1 text-gray-400 dark:text-gray-500">
+                          (and {batchEmails.length - 1} other{batchEmails.length - 1 !== 1 ? "s" : ""} in batch)
+                        </span>
+                      )}
                     </p>
                     {isBatchDetail && (
                       <div className="mt-1.5 flex items-center gap-1.5">
                         <span className="text-xs text-gray-400 dark:text-gray-500">Delivery:</span>
-                        <DeliveryStatusIcon
-                          isBatch={true}
-                          pendingCount={selectedGroup!.pendingCount}
-                          deliveredCount={selectedGroup!.deliveredCount}
-                          openedCount={selectedGroup!.openedCount}
-                        />
+                        {selectedEmail._id === selectedGroup?.representative._id ? (
+                          <DeliveryStatusIcon
+                            isBatch={true}
+                            pendingCount={selectedGroup!.pendingCount}
+                            deliveredCount={selectedGroup!.deliveredCount}
+                            openedCount={selectedGroup!.openedCount}
+                          />
+                        ) : (
+                          <>
+                            <DeliveryStatusIcon
+                              deliveryStatus={selectedEmail.deliveryStatus}
+                              openedAt={selectedEmail.openedAt}
+                            />
+                            {selectedEmail.openedAt ? (
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500">Opened {timeAgo(selectedEmail.openedAt)}</span>
+                            ) : selectedEmail.deliveredAt ? (
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500">Delivered {timeAgo(selectedEmail.deliveredAt)}</span>
+                            ) : null}
+                          </>
+                        )}
                       </div>
                     )}
                     {!isBatchDetail && selectedEmail.deliveryStatus !== undefined && (
@@ -1406,16 +1552,20 @@ export default function MailboxPage() {
                   </svg>
                 </button>
                 {showRecipientBreakdown && (() => {
+                  const searchTerm = recipientSearch.toLowerCase().trim();
                   const filteredEmails = batchEmails.filter((e) => {
-                    if (recipientFilter === "pending") return e.deliveryStatus === "pending";
-                    if (recipientFilter === "delivered") return e.deliveryStatus === "delivered" && !e.openedAt;
-                    if (recipientFilter === "opened") return !!e.openedAt;
-                    return true;
+                    const matchesFilter =
+                      recipientFilter === "all" ? true
+                      : recipientFilter === "pending" ? e.deliveryStatus === "pending"
+                      : recipientFilter === "delivered" ? e.deliveryStatus === "delivered" && !e.openedAt
+                      : !!e.openedAt;
+                    const matchesSearch = !searchTerm || getRawEmail(e.to[0]).toLowerCase().includes(searchTerm);
+                    return matchesFilter && matchesSearch;
                   });
                   return (
                     <div>
-                      {/* Filter tabs */}
-                      <div className="flex gap-1 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5">
+                      {/* Search + Filter tabs */}
+                      <div className="flex items-center gap-2 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5">
                         {(["all", "pending", "delivered", "opened"] as const).map((f) => {
                           const count =
                             f === "all" ? batchEmails.length
@@ -1436,17 +1586,38 @@ export default function MailboxPage() {
                             </button>
                           );
                         })}
+                        <div className="relative ml-auto">
+                          <input
+                            type="text"
+                            value={recipientSearch}
+                            onChange={(e) => setRecipientSearch(e.target.value)}
+                            placeholder="Search recipients..."
+                            className="w-36 rounded-md border border-gray-200 bg-white py-0.5 pl-6 pr-2 text-[10px] text-gray-700 outline-none placeholder-gray-400 focus:border-violet-400 focus:ring-1 focus:ring-violet-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:placeholder-gray-500"
+                          />
+                          <svg className="absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                          </svg>
+                        </div>
                       </div>
                       {/* Recipient rows */}
                       <div className="max-h-48 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-700/30 bg-white dark:bg-gray-800">
                         {filteredEmails.length === 0 ? (
-                          <p className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">No recipients in this category.</p>
+                          <p className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">{searchTerm ? "No matching recipients." : "No recipients in this category."}</p>
                         ) : (
                           filteredEmails.map((e) => (
-                            <div key={e._id} className="flex items-center justify-between px-4 py-1.5">
-                              <span className="truncate text-xs font-mono text-gray-700 dark:text-gray-300">
-                                {getRawEmail(e.to[0])}
-                              </span>
+                            <button
+                              key={e._id}
+                              onClick={() => handleSelectEmail(e._id)}
+                              className={`flex w-full items-center justify-between px-4 py-1.5 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${e._id === selectedEmailId ? "bg-violet-50 dark:bg-violet-900/20" : ""}`}
+                            >
+                              <div className="flex flex-col truncate">
+                                <span className="truncate text-xs font-mono text-gray-700 dark:text-gray-300">
+                                  {getRawEmail(e.to[0])}
+                                </span>
+                                {e.subject !== selectedGroup?.representative.subject && (
+                                  <span className="truncate text-[10px] text-gray-400 dark:text-gray-500">{e.subject}</span>
+                                )}
+                              </div>
                               <div className="ml-3 flex shrink-0 items-center gap-1.5">
                                 <DeliveryStatusIcon
                                   deliveryStatus={e.deliveryStatus}
@@ -1458,7 +1629,7 @@ export default function MailboxPage() {
                                   <span className="text-[10px] text-gray-400 dark:text-gray-500">{timeAgo(e.deliveredAt)}</span>
                                 ) : null}
                               </div>
-                            </div>
+                            </button>
                           ))
                         )}
                       </div>
@@ -1547,6 +1718,24 @@ export default function MailboxPage() {
                 <span className="text-sm text-gray-900 dark:text-white">{mailbox.fullAddress}</span>
               </div>
               <div className="border-b border-gray-100 dark:border-gray-700/50 pb-2">
+                {hasMergeData ? (
+                  <div className="flex min-h-[2rem] flex-wrap items-center gap-1.5">
+                    <span className="shrink-0 text-sm text-gray-500 dark:text-gray-400">To:</span>
+                    <span className="rounded-full bg-violet-100 dark:bg-violet-900/40 px-3 py-1 text-xs font-medium text-violet-800 dark:text-violet-200">
+                      {mergeRecipients.length} recipient{mergeRecipients.length !== 1 ? "s" : ""} (mail merge)
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      Fields: {mergeColumns.filter((c) => c !== mergeEmailColumn).join(", ")}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { setMergeRecipients([]); setMergeColumns([]); setMergeEmailColumn(""); setMergePreviewIndex(0); }}
+                      className="ml-auto text-xs text-gray-400 hover:text-red-500"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                ) : (
                 <div className="flex min-h-[2rem] flex-wrap items-center gap-1.5">
                   <span className="shrink-0 text-sm text-gray-500 dark:text-gray-400">To:</span>
                   {composeGroupIds.map((gId) => {
@@ -1717,6 +1906,7 @@ export default function MailboxPage() {
                     )}
                   </div>
                 </div>
+                )}
               </div>
               {/* CC field */}
               {showCc && (
@@ -1820,14 +2010,23 @@ export default function MailboxPage() {
                   </div>
                 </div>
               )}
+              {hasMergeData && mergeColumns.length > 0 && (
+                <MergeFieldToolbar
+                  columns={mergeColumns}
+                  emailColumn={mergeEmailColumn}
+                  onInsertField={handleInsertMergeField}
+                />
+              )}
               <div className="flex items-center gap-3 border-b border-gray-100 dark:border-gray-700/50 pb-2">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Subject:</span>
                 <input
+                  ref={subjectInputRef}
                   type="text"
                   value={composeSubject}
                   onChange={(e) => setComposeSubject(e.target.value)}
+                  onFocus={() => { lastMergeTarget.current = "subject"; }}
                   className="flex-1 text-sm text-gray-900 dark:text-white outline-none placeholder-gray-400 dark:placeholder-gray-500 bg-transparent"
-                  placeholder="Email subject"
+                  placeholder={hasMergeData ? "Hello {FirstName}, ..." : "Email subject"}
                 />
                 {/* Cc/Bcc toggle buttons */}
                 <div className="flex shrink-0 items-center gap-1">
@@ -1884,18 +2083,32 @@ export default function MailboxPage() {
                 )}
               </div>
               <textarea
-                rows={showPreview ? 8 : composeQuote ? 8 : 14}
+                ref={bodyTextareaRef}
+                rows={showPreview || hasMergeData ? 8 : composeQuote ? 8 : 14}
                 value={composeBody}
                 onChange={(e) => setComposeBody(e.target.value)}
+                onFocus={() => { lastMergeTarget.current = "body"; }}
                 className={`w-full resize-none rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-3 text-sm text-gray-700 dark:text-gray-300 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 placeholder-gray-400 dark:placeholder-gray-500 ${composeContentType !== "plain" ? "font-mono" : ""}`}
                 placeholder={
-                  composeContentType === "markdown"
+                  hasMergeData
+                    ? "Hi {FirstName}, use {FieldName} for personalization..."
+                    : composeContentType === "markdown"
                     ? "Write **Markdown** here..."
                     : composeContentType === "html"
                     ? "<p>Write HTML here...</p>"
                     : "Write your message..."
                 }
               />
+              {/* Merge preview */}
+              {hasMergeData && (composeSubject || composeBody) && (
+                <MergePreview
+                  recipients={mergeRecipients}
+                  previewIndex={mergePreviewIndex}
+                  onChangeIndex={setMergePreviewIndex}
+                  subject={composeSubject}
+                  body={composeBody}
+                />
+              )}
               {/* Markdown/HTML preview panel */}
               {showPreview && composeContentType !== "plain" && (
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
@@ -2029,7 +2242,7 @@ export default function MailboxPage() {
                           ? handleSendCampaign
                           : handleSend
                     }
-                    disabled={(composeTo.length === 0 && composeGroupIds.length === 0 && !composeToInput.trim()) || !composeSubject.trim() || isSending || isAnyUploading}
+                    disabled={(hasMergeData ? mergeRecipients.length === 0 : (composeTo.length === 0 && composeGroupIds.length === 0 && !composeToInput.trim())) || !composeSubject.trim() || isSending || isAnyUploading}
                     className="bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
                   >
                     {isAnyUploading
@@ -2064,13 +2277,14 @@ export default function MailboxPage() {
                   {showSendDropdown && (
                     <div className="absolute bottom-full left-0 z-20 mb-1 w-60 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
                       <button
-                        onClick={() => { setSendMode("send"); setShowSendDropdown(false); }}
-                        className={`flex w-full items-start gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 ${sendMode === "send" ? "bg-violet-50 dark:bg-violet-900/20" : ""}`}
+                        onClick={() => { if (!usesMergeFields) { setSendMode("send"); setShowSendDropdown(false); } }}
+                        disabled={usesMergeFields}
+                        className={`flex w-full items-start gap-3 px-4 py-3 text-left text-sm transition-colors ${usesMergeFields ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50 dark:hover:bg-gray-700"} ${sendMode === "send" ? "bg-violet-50 dark:bg-violet-900/20" : ""}`}
                       >
                         <div className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 ${sendMode === "send" ? "border-violet-600 bg-violet-600" : "border-gray-300 dark:border-gray-600"}`} />
                         <div>
                           <p className={`font-medium ${sendMode === "send" ? "text-violet-700 dark:text-violet-300" : "text-gray-800 dark:text-gray-200"}`}>Send</p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">One email to all recipients</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">{usesMergeFields ? "Disabled — merge fields require Campaign" : "One email to all recipients"}</p>
                         </div>
                       </button>
                       <button
