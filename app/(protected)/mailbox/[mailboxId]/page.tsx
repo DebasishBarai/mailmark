@@ -220,6 +220,12 @@ export default function MailboxPage() {
   const [composeTo, setComposeTo] = useState<string[]>([]);
   const [composeGroupIds, setComposeGroupIds] = useState<Id<"senderGroups">[]>([]);
   const [composeToInput, setComposeToInput] = useState("");
+  const [composeCc, setComposeCc] = useState<string[]>([]);
+  const [composeCcInput, setComposeCcInput] = useState("");
+  const [composeBcc, setComposeBcc] = useState<string[]>([]);
+  const [composeBccInput, setComposeBccInput] = useState("");
+  const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   type ComposeContentType = "plain" | "markdown" | "html";
@@ -573,9 +579,13 @@ export default function MailboxPage() {
           data: att.data!,
         }));
       // Regular send: one email with all recipients in the To field
+      const ccRecipients = [...composeCc, ...(composeCcInput.trim() && isValidEmail(composeCcInput.trim()) ? [composeCcInput.trim()] : [])];
+      const bccRecipients = [...composeBcc, ...(composeBccInput.trim() && isValidEmail(composeBccInput.trim()) ? [composeBccInput.trim()] : [])];
       await sendEmail({
         mailboxId: mbId,
         to: allRecipients,
+        cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+        bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
         subject: composeSubject,
         body: fullBody,
         attachments: attachmentData.length > 0 ? attachmentData : undefined,
@@ -584,6 +594,12 @@ export default function MailboxPage() {
       setComposeTo([]);
       setComposeGroupIds([]);
       setComposeToInput("");
+      setComposeCc([]);
+      setComposeCcInput("");
+      setComposeBcc([]);
+      setComposeBccInput("");
+      setShowCc(false);
+      setShowBcc(false);
       setComposeSubject("");
       setComposeBody("");
       setComposeSignature("");
@@ -624,6 +640,12 @@ export default function MailboxPage() {
       setComposeTo([]);
       setComposeGroupIds([]);
       setComposeToInput("");
+      setComposeCc([]);
+      setComposeCcInput("");
+      setComposeBcc([]);
+      setComposeBccInput("");
+      setShowCc(false);
+      setShowBcc(false);
       setComposeSubject("");
       setComposeBody("");
       setComposeSignature("");
@@ -699,6 +721,12 @@ export default function MailboxPage() {
     setComposeTo([]);
     setComposeGroupIds([]);
     setComposeToInput("");
+    setComposeCc([]);
+    setComposeCcInput("");
+    setComposeBcc([]);
+    setComposeBccInput("");
+    setShowCc(false);
+    setShowBcc(false);
     setComposeSubject("");
     setComposeBody("");
     setComposeSignature(mailbox?.signature ?? "");
@@ -885,6 +913,12 @@ export default function MailboxPage() {
     setComposeTo([selectedEmail.from]);
     setComposeGroupIds([]);
     setComposeToInput("");
+    setComposeCc([]);
+    setComposeCcInput("");
+    setComposeBcc([]);
+    setComposeBccInput("");
+    setShowCc(false);
+    setShowBcc(false);
     setComposeSubject(
       selectedEmail.subject.startsWith("Re:")
         ? selectedEmail.subject
@@ -911,6 +945,12 @@ export default function MailboxPage() {
     setComposeTo(recipients);
     setComposeGroupIds([]);
     setComposeToInput("");
+    setComposeCc([]);
+    setComposeCcInput("");
+    setComposeBcc([]);
+    setComposeBccInput("");
+    setShowCc(false);
+    setShowBcc(false);
     setComposeSubject(
       selectedEmail.subject.startsWith("Re:")
         ? selectedEmail.subject
@@ -932,6 +972,12 @@ export default function MailboxPage() {
     setComposeTo([]);
     setComposeGroupIds([]);
     setComposeToInput("");
+    setComposeCc([]);
+    setComposeCcInput("");
+    setComposeBcc([]);
+    setComposeBccInput("");
+    setShowCc(false);
+    setShowBcc(false);
     setComposeSubject(
       selectedEmail.subject.startsWith("Fwd:")
         ? selectedEmail.subject
@@ -1381,7 +1427,7 @@ export default function MailboxPage() {
                 {{ compose: "New Message", reply: "Reply", replyAll: "Reply All", forward: "Forward" }[composeMode]}
               </h2>
               <button
-                onClick={() => { setShowCompose(false); setSendError(null); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeSignature(""); setComposeQuote(""); setComposeAttachments([]); setComposeContentType("plain"); setShowPreview(false); }}
+                onClick={() => { setShowCompose(false); setSendError(null); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeCc([]); setComposeCcInput(""); setComposeBcc([]); setComposeBccInput(""); setShowCc(false); setShowBcc(false); setComposeSignature(""); setComposeQuote(""); setComposeAttachments([]); setComposeContentType("plain"); setShowPreview(false); }}
                 className="rounded-md p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300"
                 title="Discard"
               >
@@ -1567,6 +1613,108 @@ export default function MailboxPage() {
                   </div>
                 </div>
               </div>
+              {/* CC field */}
+              {showCc && (
+                <div className="border-b border-gray-100 dark:border-gray-700/50 pb-2">
+                  <div className="flex min-h-[2rem] flex-wrap items-center gap-1.5">
+                    <span className="shrink-0 text-sm text-gray-500 dark:text-gray-400">Cc:</span>
+                    {composeCc.map((email, i) => (
+                      <span key={i} className="flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-900/40 py-0.5 pl-2.5 pr-1 text-xs font-medium text-violet-800 dark:text-violet-200">
+                        {email}
+                        <button
+                          type="button"
+                          onClick={() => setComposeCc((prev) => prev.filter((_, j) => j !== i))}
+                          className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-violet-500 dark:text-violet-400 hover:bg-violet-200 dark:hover:bg-violet-800 hover:text-violet-700"
+                          title="Remove"
+                        >
+                          <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      type="text"
+                      value={composeCcInput}
+                      onChange={(e) => setComposeCcInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === "," || e.key === "Tab") {
+                          e.preventDefault();
+                          const val = composeCcInput.trim().replace(/,+$/, "");
+                          if (val && isValidEmail(val)) { setComposeCc((prev) => [...prev, val]); setComposeCcInput(""); }
+                        } else if (e.key === "Backspace" && !composeCcInput && composeCc.length > 0) {
+                          setComposeCc((prev) => prev.slice(0, -1));
+                        }
+                      }}
+                      onBlur={() => {
+                        const val = composeCcInput.trim().replace(/,+$/, "");
+                        if (val && isValidEmail(val)) { setComposeCc((prev) => [...prev, val]); setComposeCcInput(""); }
+                      }}
+                      className="min-w-[140px] flex-1 text-sm text-gray-900 dark:text-white outline-none placeholder-gray-400 dark:placeholder-gray-500 bg-transparent"
+                      placeholder={composeCc.length === 0 ? "cc@example.com" : "Add cc..."}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setShowCc(false); setComposeCc([]); setComposeCcInput(""); }}
+                      className="ml-auto shrink-0 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                      title="Remove Cc"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/* BCC field */}
+              {showBcc && (
+                <div className="border-b border-gray-100 dark:border-gray-700/50 pb-2">
+                  <div className="flex min-h-[2rem] flex-wrap items-center gap-1.5">
+                    <span className="shrink-0 text-sm text-gray-500 dark:text-gray-400">Bcc:</span>
+                    {composeBcc.map((email, i) => (
+                      <span key={i} className="flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-900/40 py-0.5 pl-2.5 pr-1 text-xs font-medium text-violet-800 dark:text-violet-200">
+                        {email}
+                        <button
+                          type="button"
+                          onClick={() => setComposeBcc((prev) => prev.filter((_, j) => j !== i))}
+                          className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-violet-500 dark:text-violet-400 hover:bg-violet-200 dark:hover:bg-violet-800 hover:text-violet-700"
+                          title="Remove"
+                        >
+                          <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      type="text"
+                      value={composeBccInput}
+                      onChange={(e) => setComposeBccInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === "," || e.key === "Tab") {
+                          e.preventDefault();
+                          const val = composeBccInput.trim().replace(/,+$/, "");
+                          if (val && isValidEmail(val)) { setComposeBcc((prev) => [...prev, val]); setComposeBccInput(""); }
+                        } else if (e.key === "Backspace" && !composeBccInput && composeBcc.length > 0) {
+                          setComposeBcc((prev) => prev.slice(0, -1));
+                        }
+                      }}
+                      onBlur={() => {
+                        const val = composeBccInput.trim().replace(/,+$/, "");
+                        if (val && isValidEmail(val)) { setComposeBcc((prev) => [...prev, val]); setComposeBccInput(""); }
+                      }}
+                      className="min-w-[140px] flex-1 text-sm text-gray-900 dark:text-white outline-none placeholder-gray-400 dark:placeholder-gray-500 bg-transparent"
+                      placeholder={composeBcc.length === 0 ? "bcc@example.com" : "Add bcc..."}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setShowBcc(false); setComposeBcc([]); setComposeBccInput(""); }}
+                      className="ml-auto shrink-0 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                      title="Remove Bcc"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-3 border-b border-gray-100 dark:border-gray-700/50 pb-2">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Subject:</span>
                 <input
@@ -1576,6 +1724,27 @@ export default function MailboxPage() {
                   className="flex-1 text-sm text-gray-900 dark:text-white outline-none placeholder-gray-400 dark:placeholder-gray-500 bg-transparent"
                   placeholder="Email subject"
                 />
+                {/* Cc/Bcc toggle buttons */}
+                <div className="flex shrink-0 items-center gap-1">
+                  {!showCc && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCc(true)}
+                      className="rounded px-1.5 py-0.5 text-xs text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-violet-600 dark:hover:text-violet-400"
+                    >
+                      Cc
+                    </button>
+                  )}
+                  {!showBcc && (
+                    <button
+                      type="button"
+                      onClick={() => setShowBcc(true)}
+                      className="rounded px-1.5 py-0.5 text-xs text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-violet-600 dark:hover:text-violet-400"
+                    >
+                      Bcc
+                    </button>
+                  )}
+                </div>
               </div>
               {/* Content type selector */}
               <div className="flex items-center gap-3 border-b border-gray-100 dark:border-gray-700/50 pb-2">

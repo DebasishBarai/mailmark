@@ -32,13 +32,17 @@ function buildRawMimeEmail(
   messageId: string,
   domain: string,
   body: string,
-  attachments: Array<{ filename: string; contentType: string; data: string }>
+  attachments: Array<{ filename: string; contentType: string; data: string }>,
+  cc?: string[],
+  bcc?: string[]
 ): string {
   const boundary = `----=_Part_${messageId}`;
   const lines: string[] = [
     `MIME-Version: 1.0`,
     `From: ${from}`,
     `To: ${to.join(", ")}`,
+    ...(cc && cc.length > 0 ? [`Cc: ${cc.join(", ")}`] : []),
+    ...(bcc && bcc.length > 0 ? [`Bcc: ${bcc.join(", ")}`] : []),
     `Subject: ${subject}`,
     `Date: ${new Date().toUTCString()}`,
     `Message-ID: <${messageId}@${domain}>`,
@@ -78,6 +82,8 @@ export const sendEmail = action({
   args: {
     mailboxId: v.id("mailboxes"),
     to: v.array(v.string()),
+    cc: v.optional(v.array(v.string())),
+    bcc: v.optional(v.array(v.string())),
     subject: v.string(),
     body: v.string(),
     attachments: v.optional(v.array(v.object({
@@ -88,7 +94,7 @@ export const sendEmail = action({
     folder: v.optional(v.string()),
     batchId: v.optional(v.string()),
   },
-  handler: async (ctx, { mailboxId, to, subject, body, attachments, folder, batchId }) => {
+  handler: async (ctx, { mailboxId, to, cc, bcc, subject, body, attachments, folder, batchId }) => {
     const emailFolder = folder ?? "sent";
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -118,10 +124,12 @@ export const sendEmail = action({
     // Build raw MIME email for both paths — SES rejects Message-ID as a
     // custom header in Simple content, so always send via Content.Raw.
     const rawEmail = hasAttachments
-      ? buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, bodyWithTracking, attachments!)
+      ? buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, bodyWithTracking, attachments!, cc, bcc)
       : [
           `From: ${fromAddress}`,
           `To: ${to.join(", ")}`,
+          ...(cc && cc.length > 0 ? [`Cc: ${cc.join(", ")}`] : []),
+          ...(bcc && bcc.length > 0 ? [`Bcc: ${bcc.join(", ")}`] : []),
           `Subject: ${subject}`,
           `Date: ${new Date().toUTCString()}`,
           `Message-ID: <${messageId}@${mailbox.domain}>`,
@@ -133,7 +141,11 @@ export const sendEmail = action({
     const sesResponse = await ses.send(
       new SendEmailCommand({
         FromEmailAddress: fromAddress,
-        Destination: { ToAddresses: to },
+        Destination: {
+          ToAddresses: to,
+          CcAddresses: cc && cc.length > 0 ? cc : undefined,
+          BccAddresses: bcc && bcc.length > 0 ? bcc : undefined,
+        },
         ConfigurationSetName: "devmail-sending",
         Content: { Raw: { Data: new TextEncoder().encode(rawEmail) } },
       })
@@ -160,6 +172,8 @@ export const sendEmail = action({
       sesMessageId,
       from: fromAddress,
       to,
+      cc: cc && cc.length > 0 ? cc : undefined,
+      bcc: bcc && bcc.length > 0 ? bcc : undefined,
       subject,
       snippet,
       date: Date.now(),
