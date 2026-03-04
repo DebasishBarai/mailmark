@@ -53,6 +53,8 @@ export default defineSchema({
     folder: v.string(),
     from: v.string(),
     to: v.array(v.string()),
+    cc: v.optional(v.array(v.string())),
+    bcc: v.optional(v.array(v.string())),
     subject: v.string(),
     snippet: v.string(),
     date: v.number(),
