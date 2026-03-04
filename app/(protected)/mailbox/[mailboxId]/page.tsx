@@ -571,6 +571,28 @@ export default function MailboxPage() {
     return composeBody;
   }, [composeBody, composeContentType, showPreview]);
 
+  const resetComposeState = () => {
+    setShowCompose(false);
+    setShowSchedulePicker(false);
+    setScheduledSendAt(null);
+    setComposeTo([]);
+    setComposeGroupIds([]);
+    setComposeToInput("");
+    setComposeCc([]);
+    setComposeCcInput("");
+    setComposeBcc([]);
+    setComposeBccInput("");
+    setShowCc(false);
+    setShowBcc(false);
+    setComposeSubject("");
+    setComposeBody("");
+    setComposeSignature("");
+    setComposeQuote("");
+    setComposeAttachments([]);
+    setComposeContentType("plain");
+    setShowPreview(false);
+  };
+
   const handleSend = async () => {
     const allRecipients = resolveAllRecipients();
     if (allRecipients.length === 0 || !composeSubject.trim()) return;
@@ -597,23 +619,7 @@ export default function MailboxPage() {
         body: fullBody,
         attachments: attachmentData.length > 0 ? attachmentData : undefined,
       });
-      setShowCompose(false);
-      setComposeTo([]);
-      setComposeGroupIds([]);
-      setComposeToInput("");
-      setComposeCc([]);
-      setComposeCcInput("");
-      setComposeBcc([]);
-      setComposeBccInput("");
-      setShowCc(false);
-      setShowBcc(false);
-      setComposeSubject("");
-      setComposeBody("");
-      setComposeSignature("");
-      setComposeQuote("");
-      setComposeAttachments([]);
-      setComposeContentType("plain");
-      setShowPreview(false);
+      resetComposeState();
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to send email. Please try again.");
     } finally {
@@ -643,23 +649,7 @@ export default function MailboxPage() {
           batchId,
         });
       }
-      setShowCompose(false);
-      setComposeTo([]);
-      setComposeGroupIds([]);
-      setComposeToInput("");
-      setComposeCc([]);
-      setComposeCcInput("");
-      setComposeBcc([]);
-      setComposeBccInput("");
-      setShowCc(false);
-      setShowBcc(false);
-      setComposeSubject("");
-      setComposeBody("");
-      setComposeSignature("");
-      setComposeQuote("");
-      setComposeAttachments([]);
-      setComposeContentType("plain");
-      setShowPreview(false);
+      resetComposeState();
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to send campaign. Please try again.");
     } finally {
@@ -689,26 +679,39 @@ export default function MailboxPage() {
         attachments: attachmentData.length > 0 ? attachmentData : undefined,
         scheduledAt,
       });
-      setShowCompose(false);
-      setShowSchedulePicker(false);
-      setComposeTo([]);
-      setComposeGroupIds([]);
-      setComposeToInput("");
-      setComposeCc([]);
-      setComposeCcInput("");
-      setComposeBcc([]);
-      setComposeBccInput("");
-      setShowCc(false);
-      setShowBcc(false);
-      setComposeSubject("");
-      setComposeBody("");
-      setComposeSignature("");
-      setComposeQuote("");
-      setComposeAttachments([]);
-      setComposeContentType("plain");
-      setShowPreview(false);
+      resetComposeState();
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to schedule email. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleScheduleCampaign = async (scheduledAt: number) => {
+    const allRecipients = resolveAllRecipients();
+    if (allRecipients.length === 0 || !composeSubject.trim()) return;
+    setIsSending(true);
+    setSendError(null);
+    try {
+      const fullBody = buildFullBody();
+      const attachmentData = composeAttachments
+        .filter((att) => att.status === "uploaded" && att.data)
+        .map((att) => ({ filename: att.filename, contentType: att.contentType, data: att.data! }));
+      const batchId = `campaign-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      for (const recipient of allRecipients) {
+        await scheduleEmailAction({
+          mailboxId: mbId,
+          to: [recipient],
+          subject: composeSubject,
+          body: fullBody,
+          attachments: attachmentData.length > 0 ? attachmentData : undefined,
+          scheduledAt,
+          batchId,
+        });
+      }
+      resetComposeState();
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Failed to schedule campaign. Please try again.");
     } finally {
       setIsSending(false);
     }
@@ -2014,7 +2017,15 @@ export default function MailboxPage() {
                 <div ref={sendDropdownRef} className="relative">
                   <div className="inline-flex overflow-hidden rounded-lg">
                   <button
-                    onClick={scheduledSendAt ? () => handleScheduleSend(scheduledSendAt) : sendMode === "campaign" ? handleSendCampaign : handleSend}
+                    onClick={
+                      scheduledSendAt
+                        ? sendMode === "campaign"
+                          ? () => handleScheduleCampaign(scheduledSendAt)
+                          : () => handleScheduleSend(scheduledSendAt)
+                        : sendMode === "campaign"
+                          ? handleSendCampaign
+                          : handleSend
+                    }
                     disabled={(composeTo.length === 0 && composeGroupIds.length === 0 && !composeToInput.trim()) || !composeSubject.trim() || isSending || isAnyUploading}
                     className="bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
                   >
@@ -2022,14 +2033,14 @@ export default function MailboxPage() {
                       ? "Processing attachments..."
                       : isSending
                         ? scheduledSendAt
-                          ? "Scheduling..."
+                          ? sendMode === "campaign" ? "Scheduling campaign..." : "Scheduling..."
                           : sendMode === "campaign"
                             ? "Sending campaign..."
                             : composeAttachments.length > 0
                               ? `Sending with ${composeAttachments.length} attachment${composeAttachments.length > 1 ? "s" : ""}...`
                               : "Sending..."
                         : scheduledSendAt
-                          ? "Schedule"
+                          ? sendMode === "campaign" ? "Schedule Campaign" : "Schedule"
                           : sendMode === "campaign"
                             ? "Send as Campaign"
                             : "Send"}
