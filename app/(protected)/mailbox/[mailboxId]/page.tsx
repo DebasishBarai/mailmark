@@ -690,7 +690,7 @@ export default function MailboxPage() {
         scheduledAt,
       });
       setShowCompose(false);
-      setShowScheduleModal(false);
+      setShowSchedulePicker(false);
       setComposeTo([]);
       setComposeGroupIds([]);
       setComposeToInput("");
