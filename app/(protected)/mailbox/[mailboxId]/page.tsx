@@ -731,7 +731,10 @@ export default function MailboxPage() {
   useEffect(() => {
     if (!showSchedulePicker) return;
     const handler = (e: MouseEvent) => {
-      if (schedulePickerRef.current && !schedulePickerRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement;
+      // Don't close when interacting with native date/time picker chrome
+      if (target.tagName === "INPUT" && (target.getAttribute("type") === "date" || target.getAttribute("type") === "time")) return;
+      if (schedulePickerRef.current && !schedulePickerRef.current.contains(target)) {
         setShowSchedulePicker(false);
       }
     };
@@ -2120,7 +2123,8 @@ export default function MailboxPage() {
                     const customTs = scheduleCustomDate && scheduleCustomTime
                       ? new Date(`${scheduleCustomDate}T${scheduleCustomTime}`).getTime()
                       : NaN;
-                    const customIsValid = !isNaN(customTs) && customTs > Date.now();
+                    const customHasValue = scheduleCustomDate !== "" && !isNaN(customTs);
+                    const customIsInPast = customHasValue && customTs <= Date.now();
                     return (
                       <div className="absolute bottom-full left-0 z-20 mb-1 w-72 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
                         <div className="border-b border-gray-100 dark:border-gray-700/50 px-3 py-2">
@@ -2166,9 +2170,12 @@ export default function MailboxPage() {
                               className="w-24 rounded-md border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-2 py-1 text-xs text-gray-900 dark:text-white outline-none focus:border-violet-500"
                             />
                           </div>
+                          {customIsInPast && (
+                            <p className="mt-1.5 text-xs text-red-500 dark:text-red-400">Please choose a future date and time.</p>
+                          )}
                           <button
-                            onClick={() => { if (customIsValid) { setScheduledSendAt(customTs); setShowSchedulePicker(false); } }}
-                            disabled={!customIsValid}
+                            onClick={() => { if (customHasValue && !customIsInPast) { setScheduledSendAt(customTs); setShowSchedulePicker(false); } }}
+                            disabled={!customHasValue || customIsInPast}
                             className="mt-2 w-full rounded-md bg-violet-600 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
                           >
                             Set custom time
