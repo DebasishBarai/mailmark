@@ -9,8 +9,9 @@ if (typeof globalThis.DOMParser === "undefined") {
 }
 
 import { v } from "convex/values";
-import { action, internalAction } from "./_generated/server";
+import { action, internalAction, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { simpleParser } from "mailparser";
@@ -245,6 +246,156 @@ export const getAttachment = action({
       contentType: att.contentType ?? "application/octet-stream",
       data: att.content.toString("base64"),
     };
+  },
+});
+
+// Schedule an email to be sent at a future time.
+// Builds the raw MIME, saves it to S3 in the outbox folder, creates an email
+// record in "outbox", and registers a Convex scheduled function to send it.
+export const scheduleEmail = action({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    to: v.array(v.string()),
+    cc: v.optional(v.array(v.string())),
+    bcc: v.optional(v.array(v.string())),
+    subject: v.string(),
+    body: v.string(),
+    attachments: v.optional(v.array(v.object({
+      filename: v.string(),
+      contentType: v.string(),
+      data: v.string(),
+    }))),
+    scheduledAt: v.number(), // unix ms timestamp
+    batchId: v.optional(v.string()),
+  },
+  handler: async (ctx, { mailboxId, to, cc, bcc, subject, body, attachments, scheduledAt, batchId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    if (scheduledAt <= Date.now()) throw new Error("Scheduled time must be in the future");
+
+    const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
+    if (!mailbox) throw new Error("Mailbox not found");
+
+    const fromAddress = mailbox.displayName
+      ? `${mailbox.displayName} <${mailbox.fullAddress}>`
+      : mailbox.fullAddress;
+
+    const messageId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const hasAttachments = (attachments ?? []).length > 0;
+
+    // Inject tracking pixel now so the messageId is baked into the raw email
+    const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? "";
+    const trackingPixel = `<img src="${convexSiteUrl}/track/open/${messageId}.gif" width="1" height="1" style="display:none" alt="" />`;
+    const bodyWithTracking = body + trackingPixel;
+
+    const rawEmail = hasAttachments
+      ? buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, bodyWithTracking, attachments!, cc, bcc)
+      : [
+          `From: ${fromAddress}`,
+          `To: ${to.join(", ")}`,
+          ...(cc && cc.length > 0 ? [`Cc: ${cc.join(", ")}`] : []),
+          ...(bcc && bcc.length > 0 ? [`Bcc: ${bcc.join(", ")}`] : []),
+          `Subject: ${subject}`,
+          `Date: ${new Date(scheduledAt).toUTCString()}`,
+          `Message-ID: <${messageId}@${mailbox.domain}>`,
+          `Content-Type: text/html; charset=UTF-8`,
+          "",
+          bodyWithTracking,
+        ].join("\r\n");
+
+    // Save raw email to S3 under the outbox path
+    const s3Key = `${mailbox.domain}/${mailbox.address}/outbox/${messageId}.eml`;
+    const s3 = getS3Client();
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET!,
+        Key: s3Key,
+        Body: rawEmail,
+        ContentType: "message/rfc822",
+      })
+    );
+
+    // Schedule the actual send
+    const jobId = await ctx.scheduler.runAt(
+      scheduledAt,
+      internal.ses.sendScheduledEmail,
+      { s3Key, messageId, mailboxId, to, cc, bcc, fromAddress, batchId }
+    );
+
+    const snippet = body.replace(/<[^>]*>/g, "").slice(0, 100);
+    await ctx.runMutation(internal.emails.insertScheduled, {
+      mailboxId,
+      messageId,
+      from: fromAddress,
+      to,
+      cc: cc && cc.length > 0 ? cc : undefined,
+      bcc: bcc && bcc.length > 0 ? bcc : undefined,
+      subject,
+      snippet,
+      date: scheduledAt,
+      s3Key,
+      hasAttachments,
+      scheduledAt,
+      scheduledJobId: jobId as string,
+      batchId,
+    });
+
+    return { success: true, messageId };
+  },
+});
+
+// Internal action invoked by the Convex scheduler at the scheduled send time.
+export const sendScheduledEmail = internalAction({
+  args: {
+    s3Key: v.string(),
+    messageId: v.string(),
+    mailboxId: v.id("mailboxes"),
+    to: v.array(v.string()),
+    cc: v.optional(v.array(v.string())),
+    bcc: v.optional(v.array(v.string())),
+    fromAddress: v.string(),
+    batchId: v.optional(v.string()),
+  },
+  handler: async (ctx, { s3Key, messageId, mailboxId, to, cc, bcc, fromAddress, batchId }) => {
+    // Look up the outbox email record to verify it still exists
+    const emails = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
+    if (!emails) {
+      console.log("[sendScheduledEmail] mailbox not found, skipping", mailboxId);
+      return;
+    }
+
+    // Read the pre-built raw MIME from S3
+    const s3 = getS3Client();
+    const response = await s3.send(
+      new GetObjectCommand({ Bucket: process.env.AWS_S3_BUCKET!, Key: s3Key })
+    );
+    const rawEmail = await response.Body?.transformToString("utf-8");
+    if (!rawEmail) {
+      console.error("[sendScheduledEmail] S3 object not found:", s3Key);
+      return;
+    }
+
+    // Send via SES
+    const ses = getSESClient();
+    const sesResponse = await ses.send(
+      new SendEmailCommand({
+        FromEmailAddress: fromAddress,
+        Destination: {
+          ToAddresses: to,
+          CcAddresses: cc && cc.length > 0 ? cc : undefined,
+          BccAddresses: bcc && bcc.length > 0 ? bcc : undefined,
+        },
+        ConfigurationSetName: "devmail-sending",
+        Content: { Raw: { Data: new TextEncoder().encode(rawEmail) } },
+      })
+    );
+
+    // Find the outbox email record by messageId and move it to sent
+    await ctx.runMutation(internal.emails.markScheduledEmailAsSentByMessageId, {
+      messageId,
+      sesMessageId: sesResponse.MessageId,
+    });
   },
 });
 

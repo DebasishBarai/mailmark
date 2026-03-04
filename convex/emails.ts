@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
 
 export const getMailboxWithDomain = internalQuery({
   args: { mailboxId: v.id("mailboxes") },
@@ -258,6 +259,118 @@ export const updateDeliveryStatus = internalMutation({
       deliveredAt: status === "delivered" ? timestamp : undefined,
     });
     console.log("[updateDeliveryStatus] patch done");
+  },
+});
+
+// Called by sendScheduledEmail to move the outbox record to sent after SES accepts it
+export const markScheduledEmailAsSentByMessageId = internalMutation({
+  args: {
+    messageId: v.string(),
+    sesMessageId: v.optional(v.string()),
+  },
+  handler: async (ctx, { messageId, sesMessageId }) => {
+    const email = await ctx.db
+      .query("emails")
+      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
+      .unique();
+    if (!email) {
+      console.log("[markScheduledEmailAsSentByMessageId] email not found:", messageId);
+      return;
+    }
+    await ctx.db.patch(email._id, {
+      folder: "sent",
+      sesMessageId,
+      deliveryStatus: "pending",
+      scheduledAt: undefined,
+      scheduledJobId: undefined,
+      date: Date.now(),
+    });
+  },
+});
+
+// Called to save a scheduled email to the outbox folder
+export const insertScheduled = internalMutation({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    messageId: v.string(),
+    from: v.string(),
+    to: v.array(v.string()),
+    cc: v.optional(v.array(v.string())),
+    bcc: v.optional(v.array(v.string())),
+    subject: v.string(),
+    snippet: v.string(),
+    date: v.number(),
+    s3Key: v.string(),
+    hasAttachments: v.boolean(),
+    scheduledAt: v.number(),
+    scheduledJobId: v.string(),
+    batchId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("emails", {
+      ...args,
+      folder: "outbox",
+      read: true,
+      starred: false,
+    });
+  },
+});
+
+// Fetches a scheduled email for the scheduler to send
+export const getScheduledEmail = internalQuery({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, { emailId }) => {
+    return await ctx.db.get(emailId);
+  },
+});
+
+// Called after a scheduled email is sent — moves it to sent folder
+export const markScheduledAsSent = internalMutation({
+  args: {
+    emailId: v.id("emails"),
+    sesMessageId: v.optional(v.string()),
+  },
+  handler: async (ctx, { emailId, sesMessageId }) => {
+    await ctx.db.patch(emailId, {
+      folder: "sent",
+      sesMessageId,
+      deliveryStatus: "pending",
+      scheduledAt: undefined,
+      scheduledJobId: undefined,
+      date: Date.now(),
+    });
+  },
+});
+
+// Public mutation — user cancels a scheduled send
+export const cancelScheduledEmail = mutation({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, { emailId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const email = await ctx.db.get(emailId);
+    if (!email || email.folder !== "outbox") throw new Error("Email not found");
+
+    const mailbox = await ctx.db.get(email.mailboxId);
+    if (!mailbox) throw new Error("Mailbox not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || mailbox.userId !== user._id) throw new Error("Not authorized");
+
+    if (email.scheduledJobId) {
+      try {
+        await ctx.scheduler.cancel(email.scheduledJobId as Id<"_scheduled_functions">);
+      } catch {
+        // Job may have already run; proceed to delete the record
+      }
+    }
+
+    await ctx.db.delete(emailId);
   },
 });
 
