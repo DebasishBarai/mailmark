@@ -198,6 +198,8 @@ export default function MailboxPage() {
   const toggleStar = useMutation(api.emails.toggleStar);
   const moveToFolder = useMutation(api.emails.moveToFolder);
   const sendEmail = useAction(api.ses.sendEmail);
+  const scheduleEmailAction = useAction(api.ses.scheduleEmail);
+  const cancelScheduledEmailMutation = useMutation(api.emails.cancelScheduledEmail);
   const fetchEmailBody = useAction(api.ses.fetchEmailBody);
   const getAttachment = useAction(api.ses.getAttachment);
   const updateSignature = useMutation(api.mailboxes.updateSignature);
@@ -462,6 +464,11 @@ export default function MailboxPage() {
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [showRecipientBreakdown, setShowRecipientBreakdown] = useState(false);
+  const [scheduledSendAt, setScheduledSendAt] = useState<number | null>(null);
+  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+  const [scheduleCustomDate, setScheduleCustomDate] = useState("");
+  const [scheduleCustomTime, setScheduleCustomTime] = useState("08:00");
+  const schedulePickerRef = useRef<HTMLDivElement>(null);
   const [recipientFilter, setRecipientFilter] = useState<"all" | "pending" | "delivered" | "opened">("all");
 
   const isLoading = mailbox === undefined || emails === undefined;
@@ -660,6 +667,53 @@ export default function MailboxPage() {
     }
   };
 
+  const handleScheduleSend = async (scheduledAt: number) => {
+    const allRecipients = resolveAllRecipients();
+    if (allRecipients.length === 0 || !composeSubject.trim()) return;
+    setIsSending(true);
+    setSendError(null);
+    try {
+      const fullBody = buildFullBody();
+      const attachmentData = composeAttachments
+        .filter((att) => att.status === "uploaded" && att.data)
+        .map((att) => ({ filename: att.filename, contentType: att.contentType, data: att.data! }));
+      const ccRecipients = [...composeCc, ...(composeCcInput.trim() && isValidEmail(composeCcInput.trim()) ? [composeCcInput.trim()] : [])];
+      const bccRecipients = [...composeBcc, ...(composeBccInput.trim() && isValidEmail(composeBccInput.trim()) ? [composeBccInput.trim()] : [])];
+      await scheduleEmailAction({
+        mailboxId: mbId,
+        to: allRecipients,
+        cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+        bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
+        subject: composeSubject,
+        body: fullBody,
+        attachments: attachmentData.length > 0 ? attachmentData : undefined,
+        scheduledAt,
+      });
+      setShowCompose(false);
+      setShowScheduleModal(false);
+      setComposeTo([]);
+      setComposeGroupIds([]);
+      setComposeToInput("");
+      setComposeCc([]);
+      setComposeCcInput("");
+      setComposeBcc([]);
+      setComposeBccInput("");
+      setShowCc(false);
+      setShowBcc(false);
+      setComposeSubject("");
+      setComposeBody("");
+      setComposeSignature("");
+      setComposeQuote("");
+      setComposeAttachments([]);
+      setComposeContentType("plain");
+      setShowPreview(false);
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Failed to schedule email. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   useEffect(() => {
     if (!showSendDropdown) return;
     const handler = (e: MouseEvent) => {
@@ -670,6 +724,17 @@ export default function MailboxPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showSendDropdown]);
+
+  useEffect(() => {
+    if (!showSchedulePicker) return;
+    const handler = (e: MouseEvent) => {
+      if (schedulePickerRef.current && !schedulePickerRef.current.contains(e.target as Node)) {
+        setShowSchedulePicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showSchedulePicker]);
 
   useEffect(() => {
     if (!showImportMenu) return;
@@ -733,6 +798,8 @@ export default function MailboxPage() {
     setComposeQuote("");
     setComposeAttachments([]);
     setSendError(null);
+    setScheduledSendAt(null);
+    setShowSchedulePicker(false);
     setShowCompose(true);
   }, [mailbox?.signature]);
 
@@ -1155,6 +1222,14 @@ export default function MailboxPage() {
                     <p className="mt-0.5 truncate text-xs text-gray-400 dark:text-gray-500">
                       {email.snippet}
                     </p>
+                    {activeFolder === "outbox" && email.scheduledAt && (
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                        <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                        </svg>
+                        Scheduled for {new Date(email.scheduledAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      </p>
+                    )}
                   </button>
                 );
               })}
@@ -1219,6 +1294,30 @@ export default function MailboxPage() {
                         ) : selectedEmail.deliveredAt ? (
                           <span className="text-[10px] text-gray-400 dark:text-gray-500">Delivered {timeAgo(selectedEmail.deliveredAt)}</span>
                         ) : null}
+                      </div>
+                    )}
+                    {selectedEmail.scheduledAt && selectedEmail.folder === "outbox" && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 px-2.5 py-1">
+                          <svg className="h-3 w-3 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                          </svg>
+                          <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                            Scheduled for {new Date(selectedEmail.scheduledAt).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            await cancelScheduledEmailMutation({ emailId: selectedEmail._id });
+                            setSelectedEmailId(null);
+                          }}
+                          className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-700/50 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        >
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Cancel send
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1427,7 +1526,7 @@ export default function MailboxPage() {
                 {{ compose: "New Message", reply: "Reply", replyAll: "Reply All", forward: "Forward" }[composeMode]}
               </h2>
               <button
-                onClick={() => { setShowCompose(false); setSendError(null); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeCc([]); setComposeCcInput(""); setComposeBcc([]); setComposeBccInput(""); setShowCc(false); setShowBcc(false); setComposeSignature(""); setComposeQuote(""); setComposeAttachments([]); setComposeContentType("plain"); setShowPreview(false); }}
+                onClick={() => { setShowCompose(false); setSendError(null); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeCc([]); setComposeCcInput(""); setComposeBcc([]); setComposeBccInput(""); setShowCc(false); setShowBcc(false); setComposeSignature(""); setComposeQuote(""); setComposeAttachments([]); setComposeContentType("plain"); setShowPreview(false); setScheduledSendAt(null); setShowSchedulePicker(false); }}
                 className="rounded-md p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300"
                 title="Discard"
               >
@@ -1915,21 +2014,25 @@ export default function MailboxPage() {
                 <div ref={sendDropdownRef} className="relative">
                   <div className="inline-flex overflow-hidden rounded-lg">
                   <button
-                    onClick={sendMode === "campaign" ? handleSendCampaign : handleSend}
+                    onClick={scheduledSendAt ? () => handleScheduleSend(scheduledSendAt) : sendMode === "campaign" ? handleSendCampaign : handleSend}
                     disabled={(composeTo.length === 0 && composeGroupIds.length === 0 && !composeToInput.trim()) || !composeSubject.trim() || isSending || isAnyUploading}
                     className="bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
                   >
                     {isAnyUploading
                       ? "Processing attachments..."
                       : isSending
-                        ? sendMode === "campaign"
-                          ? "Sending campaign..."
-                          : composeAttachments.length > 0
-                            ? `Sending with ${composeAttachments.length} attachment${composeAttachments.length > 1 ? "s" : ""}...`
-                            : "Sending..."
-                        : sendMode === "campaign"
-                          ? "Send as Campaign"
-                          : "Send"}
+                        ? scheduledSendAt
+                          ? "Scheduling..."
+                          : sendMode === "campaign"
+                            ? "Sending campaign..."
+                            : composeAttachments.length > 0
+                              ? `Sending with ${composeAttachments.length} attachment${composeAttachments.length > 1 ? "s" : ""}...`
+                              : "Sending..."
+                        : scheduledSendAt
+                          ? "Schedule"
+                          : sendMode === "campaign"
+                            ? "Send as Campaign"
+                            : "Send"}
                   </button>
                   <div className="w-px self-stretch bg-violet-500" />
                   <button
@@ -1969,6 +2072,101 @@ export default function MailboxPage() {
                     </div>
                   )}
                 </div>
+                {/* Schedule tab — shows "Now" or the selected scheduled time */}
+                <div ref={schedulePickerRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowSchedulePicker((v) => !v)}
+                    disabled={isSending || isAnyUploading}
+                    className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${
+                      scheduledSendAt
+                        ? "border-violet-400 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 hover:border-violet-500"
+                        : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-violet-300 hover:text-violet-600 dark:hover:text-violet-400"
+                    }`}
+                    title="Schedule send"
+                  >
+                    <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                    </svg>
+                    {scheduledSendAt
+                      ? new Date(scheduledSendAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+                      : "Now"}
+                    <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </button>
+                  {showSchedulePicker && (() => {
+                    const now = new Date();
+                    const tomorrow = new Date(now);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const tomorrowMorning = new Date(tomorrow); tomorrowMorning.setHours(8, 0, 0, 0);
+                    const tomorrowAfternoon = new Date(tomorrow); tomorrowAfternoon.setHours(13, 0, 0, 0);
+                    const nextMonday = new Date(now);
+                    nextMonday.setDate(now.getDate() + ((8 - now.getDay()) % 7 || 7));
+                    nextMonday.setHours(8, 0, 0, 0);
+                    const fmtPreset = (d: Date) =>
+                      d.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+                    const customTs = scheduleCustomDate && scheduleCustomTime
+                      ? new Date(`${scheduleCustomDate}T${scheduleCustomTime}`).getTime()
+                      : NaN;
+                    const customIsValid = !isNaN(customTs) && customTs > Date.now();
+                    return (
+                      <div className="absolute bottom-full left-0 z-20 mb-1 w-72 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+                        <div className="border-b border-gray-100 dark:border-gray-700/50 px-3 py-2">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Schedule send</p>
+                        </div>
+                        {/* "Send now" option to reset */}
+                        <button
+                          onClick={() => { setScheduledSendAt(null); setShowSchedulePicker(false); }}
+                          className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 ${!scheduledSendAt ? "bg-violet-50 dark:bg-violet-900/20" : ""}`}
+                        >
+                          <span className={`font-medium ${!scheduledSendAt ? "text-violet-700 dark:text-violet-300" : "text-gray-800 dark:text-gray-200"}`}>Send now</span>
+                          {!scheduledSendAt && <svg className="h-3.5 w-3.5 text-violet-600" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>}
+                        </button>
+                        <div className="border-t border-gray-100 dark:border-gray-700/50" />
+                        {[
+                          { label: "Tomorrow morning", ts: tomorrowMorning },
+                          { label: "Tomorrow afternoon", ts: tomorrowAfternoon },
+                          { label: "Next Monday morning", ts: nextMonday },
+                        ].map(({ label, ts }) => (
+                          <button
+                            key={label}
+                            onClick={() => { setScheduledSendAt(ts.getTime()); setShowSchedulePicker(false); }}
+                            className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 ${scheduledSendAt === ts.getTime() ? "bg-violet-50 dark:bg-violet-900/20" : ""}`}
+                          >
+                            <span className={`font-medium ${scheduledSendAt === ts.getTime() ? "text-violet-700 dark:text-violet-300" : "text-gray-800 dark:text-gray-200"}`}>{label}</span>
+                            <span className="text-xs text-gray-400 dark:text-gray-500">{fmtPreset(ts)}</span>
+                          </button>
+                        ))}
+                        <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-3">
+                          <p className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">Custom</p>
+                          <div className="flex gap-2">
+                            <input
+                              type="date"
+                              value={scheduleCustomDate}
+                              min={new Date().toISOString().split("T")[0]}
+                              onChange={(e) => setScheduleCustomDate(e.target.value)}
+                              className="flex-1 rounded-md border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-2 py-1 text-xs text-gray-900 dark:text-white outline-none focus:border-violet-500"
+                            />
+                            <input
+                              type="time"
+                              value={scheduleCustomTime}
+                              onChange={(e) => setScheduleCustomTime(e.target.value)}
+                              className="w-24 rounded-md border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-2 py-1 text-xs text-gray-900 dark:text-white outline-none focus:border-violet-500"
+                            />
+                          </div>
+                          <button
+                            onClick={() => { if (customIsValid) { setScheduledSendAt(customTs); setShowSchedulePicker(false); } }}
+                            disabled={!customIsValid}
+                            className="mt-2 w-full rounded-md bg-violet-600 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+                          >
+                            Set custom time
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -1981,7 +2179,7 @@ export default function MailboxPage() {
                 </button>
               </div>
               <button
-                onClick={() => { setShowCompose(false); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeSignature(""); setComposeQuote(""); setComposeAttachments([]); setComposeContentType("plain"); setShowPreview(false); }}
+                onClick={() => { setShowCompose(false); setComposeTo([]); setComposeGroupIds([]); setComposeToInput(""); setComposeSignature(""); setComposeQuote(""); setComposeAttachments([]); setComposeContentType("plain"); setShowPreview(false); setScheduledSendAt(null); setShowSchedulePicker(false); }}
                 className="rounded-md p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-500"
                 title="Discard"
               >

@@ -74,6 +74,9 @@ export default defineSchema({
     openedAt: v.optional(v.number()),
     // Batch ID: shared across all per-recipient emails sent in one compose action
     batchId: v.optional(v.string()),
+    // Scheduled send: set when the user schedules the email for later delivery
+    scheduledAt: v.optional(v.number()),
+    scheduledJobId: v.optional(v.string()),
   })
     .index("by_mailbox_folder", ["mailboxId", "folder"])
     .index("by_message_id", ["messageId"])
