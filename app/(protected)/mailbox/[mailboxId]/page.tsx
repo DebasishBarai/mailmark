@@ -180,7 +180,16 @@ export default function MailboxPage() {
     mailbox?.domainId ? { domainId: mailbox.domainId } : "skip"
   );
   const [activeFolder, setActiveFolder] = useState("inbox");
-  const emails = useQuery(api.emails.listByFolder, {
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageCursors, setPageCursors] = useState<(string | null)[]>([null]);
+
+  const paginatedResult = useQuery(api.emails.listByFolderPaginated, {
+    mailboxId: mbId,
+    folder: activeFolder,
+    paginationOpts: { numItems: 50, cursor: pageCursors[currentPage] ?? null },
+  });
+  const emails = paginatedResult?.page ?? [];
+  const totalCount = useQuery(api.emails.countByFolder, {
     mailboxId: mbId,
     folder: activeFolder,
   });
@@ -512,9 +521,28 @@ export default function MailboxPage() {
   const [recipientFilter, setRecipientFilter] = useState<"all" | "pending" | "delivered" | "opened">("all");
   const [recipientSearch, setRecipientSearch] = useState("");
 
-  const isLoading = mailbox === undefined || emails === undefined;
+  const isLoading = mailbox === undefined || paginatedResult === undefined;
 
-  const selectedEmail = emails?.find((e: Doc<"emails">) => e._id === selectedEmailId);
+  const selectedEmail = emails.find((e: Doc<"emails">) => e._id === selectedEmailId);
+
+  // Store the next page cursor when results arrive
+  useEffect(() => {
+    if (paginatedResult && !paginatedResult.isDone && paginatedResult.continueCursor) {
+      setPageCursors((prev) => {
+        if (prev[currentPage + 1]) return prev;
+        const next = [...prev];
+        next[currentPage + 1] = paginatedResult.continueCursor;
+        return next;
+      });
+    }
+  }, [paginatedResult, currentPage]);
+
+  // Reset pagination when the active folder changes
+  useEffect(() => {
+    setCurrentPage(0);
+    setPageCursors([null]);
+    setSelectedEmailId(null);
+  }, [activeFolder]);
 
   // Group sent/outbox emails by batchId so multi-recipient sends appear as one row
   type EmailGroup = {
@@ -528,7 +556,7 @@ export default function MailboxPage() {
   };
 
   const emailGroups: EmailGroup[] = useMemo(() => {
-    if (!emails) return [];
+    if (emails.length === 0) return [];
     if (activeFolder !== "sent" && activeFolder !== "outbox") {
       return emails.map((e: Doc<"emails">) => ({
         key: e._id,
@@ -562,7 +590,7 @@ export default function MailboxPage() {
     setEmailBody(null);
     setEmailAttachments([]);
 
-    const email = emails?.find((e: Doc<"emails">) => e._id === emailId);
+    const email = emails.find((e: Doc<"emails">) => e._id === emailId);
     if (email && !email.read) {
       await markAsRead({ emailId });
     }
@@ -1272,17 +1300,46 @@ export default function MailboxPage() {
         <div className={`flex shrink-0 flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${selectedEmailId ? "w-80" : "flex-1"}`}>
           {/* List header */}
           <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700/50 px-4 py-2">
-            <span className="text-xs font-medium capitalize text-gray-500 dark:text-gray-400">{activeFolder}</span>
-            <button
-              onClick={() => setShowEmailIds((v) => !v)}
-              title={showEmailIds ? "Show names" : "Show email addresses"}
-              className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] transition-colors ${showEmailIds ? "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-medium" : "text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300"}`}
-            >
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 10-2.636 6.364M16.5 12V8.25" />
-              </svg>
-              {showEmailIds ? "Email IDs" : "Names"}
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium capitalize text-gray-500 dark:text-gray-400">{activeFolder}</span>
+              {totalCount !== undefined && totalCount > 0 && (
+                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                  {currentPage * 50 + 1}–{Math.min((currentPage + 1) * 50, totalCount)} of {totalCount}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage((p) => p - 1)}
+                disabled={currentPage === 0}
+                title="Previous page"
+                className="rounded p-1 text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setCurrentPage((p) => p + 1)}
+                disabled={paginatedResult?.isDone !== false}
+                title="Next page"
+                className="rounded p-1 text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setShowEmailIds((v) => !v)}
+                title={showEmailIds ? "Show names" : "Show email addresses"}
+                className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] transition-colors ${showEmailIds ? "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-medium" : "text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300"}`}
+              >
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 10-2.636 6.364M16.5 12V8.25" />
+                </svg>
+                {showEmailIds ? "Email IDs" : "Names"}
+              </button>
+            </div>
           </div>
           <div className="overflow-y-auto flex-1">
           {emails.length === 0 ? (

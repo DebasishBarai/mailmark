@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
@@ -45,6 +46,66 @@ export const listByFolder = query({
       )
       .order("desc")
       .collect();
+  },
+});
+
+export const listByFolderPaginated = query({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    folder: v.string(),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, { mailboxId, folder, paginationOpts }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { page: [], isDone: true, continueCursor: "" };
+
+    const mailbox = await ctx.db.get(mailboxId);
+    if (!mailbox) return { page: [], isDone: true, continueCursor: "" };
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || mailbox.userId !== user._id) return { page: [], isDone: true, continueCursor: "" };
+
+    return await ctx.db
+      .query("emails")
+      .withIndex("by_mailbox_folder", (q) =>
+        q.eq("mailboxId", mailboxId).eq("folder", folder)
+      )
+      .order("desc")
+      .paginate(paginationOpts);
+  },
+});
+
+export const countByFolder = query({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    folder: v.string(),
+  },
+  handler: async (ctx, { mailboxId, folder }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return 0;
+
+    const mailbox = await ctx.db.get(mailboxId);
+    if (!mailbox) return 0;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || mailbox.userId !== user._id) return 0;
+
+    const results = await ctx.db
+      .query("emails")
+      .withIndex("by_mailbox_folder", (q) =>
+        q.eq("mailboxId", mailboxId).eq("folder", folder)
+      )
+      .collect();
+
+    return results.length;
   },
 });
 
