@@ -444,25 +444,36 @@ const handleRemoveDomain = async () => {
       <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-700/50 md:px-6 md:py-4">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">Mailboxes</h2>
-          <button
-            onClick={() => setShowCreateMailbox(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            Create Mailbox
-          </button>
+          <div className="group relative">
+            <button
+              onClick={() => setShowCreateMailbox(true)}
+              disabled={!domain.verified}
+              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Create Mailbox
+            </button>
+            {!domain.verified && (
+              <div className="pointer-events-none absolute right-0 top-full z-10 mt-1 w-56 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 opacity-0 shadow-md transition-opacity group-hover:opacity-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                Complete domain verification before creating mailboxes.
+              </div>
+            )}
+          </div>
         </div>
         {mailboxes.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <p className="text-sm font-medium text-gray-900 dark:text-white">No mailboxes yet</p>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Create your first mailbox for {domain.domain}.
+              {domain.verified
+                ? `Create your first mailbox for ${domain.domain}.`
+                : "Verify your domain DNS records before creating mailboxes."}
             </p>
             <button
               onClick={() => setShowCreateMailbox(true)}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
+              disabled={!domain.verified}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
