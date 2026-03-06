@@ -1371,7 +1371,7 @@ export default function MailboxPage() {
                       }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className={`min-w-0 truncate text-sm ${!email.read ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"}`}>
+                      <span className={`min-w-0 flex-1 truncate text-sm ${!email.read ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"}`}>
                         {activeFolder === "sent" || activeFolder === "outbox"
                           ? allRecipients.length > 1
                             ? `${showEmailIds ? getRawEmail(allRecipients[0]) : getDisplayName(allRecipients[0], contactNameMap)} +${allRecipients.length - 1}`
