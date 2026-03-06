@@ -75,7 +75,7 @@ const handleRemoveDomain = async () => {
 
   if (isLoading) {
     return (
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         <div className="mb-6 h-4 w-48 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
         <div className="mb-8 h-8 w-64 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
         <div className="mb-8 h-64 animate-pulse rounded-xl border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-700" />
@@ -164,7 +164,7 @@ const handleRemoveDomain = async () => {
   ];
 
   return (
-    <div className="p-8">
+    <div className="p-4 pb-6 md:p-8">
       {/* Breadcrumb */}
       <div className="mb-6 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
         <Link href="/domains" className="hover:text-violet-600">Domains</Link>
@@ -175,10 +175,10 @@ const handleRemoveDomain = async () => {
       </div>
 
       {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-4 md:mb-8 md:flex-row md:items-center md:justify-between">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{domain.domain}</h1>
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white md:text-2xl">{domain.domain}</h1>
             {domain.verified ? (
               <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
                 Verified
@@ -193,11 +193,11 @@ const handleRemoveDomain = async () => {
             {mailboxes.length} mailbox{mailboxes.length !== 1 ? "es" : ""} configured
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <button
             onClick={handleVerifyDns}
             disabled={isVerifying}
-            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50 md:px-4 md:py-2.5 md:text-sm"
           >
             {isVerifying ? (
               <>
@@ -219,7 +219,7 @@ const handleRemoveDomain = async () => {
           <button
             onClick={handleRemoveDomain}
             disabled={isRemoving}
-            className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+            className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20 md:px-4 md:py-2.5 md:text-sm"
           >
             {isRemoving ? "Removing..." : "Remove Domain"}
           </button>
@@ -227,8 +227,8 @@ const handleRemoveDomain = async () => {
       </div>
 
       {/* DNS Records */}
-      <div className="mb-8 rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-        <div className="border-b border-gray-100 px-6 py-4 dark:border-gray-700/50">
+      <div className="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 md:mb-8">
+        <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-700/50 md:px-6 md:py-4">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">DNS Records</h2>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Add these records to your domain&apos;s DNS settings. DKIM verification can take up to 72 hours.
@@ -236,42 +236,48 @@ const handleRemoveDomain = async () => {
         </div>
 
         {dkimTokens.length === 0 ? (
-          <div className="px-6 py-8 text-center">
+          <div className="px-4 py-8 text-center md:px-6">
             <p className="text-sm text-gray-500 dark:text-gray-400">
               No DKIM tokens found. This domain may not have been registered with SES properly.
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-left dark:border-gray-700/50 dark:bg-gray-700">
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Purpose</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Type</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Name</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Priority</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Value</th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-700/30">
-                {dnsRecords.map((record, i) => (
-                  <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="whitespace-nowrap px-6 py-3 text-xs font-medium text-gray-900 dark:text-white">
-                      {record.purpose}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-3 font-mono text-xs font-medium text-violet-600">
-                      {record.type}
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-2">
-                        <code className="max-w-[200px] truncate rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+          <>
+            {/* Mobile card layout */}
+            <div className="divide-y divide-gray-100 dark:divide-gray-700/30 md:hidden">
+              {dnsRecords.map((record, i) => (
+                <div key={i} className="overflow-hidden px-4 py-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-900 dark:text-white">{record.purpose}</span>
+                      <span className="font-mono text-xs font-medium text-violet-600">{record.type}</span>
+                      {"priority" in record && (
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500">Pri: {record.priority}</span>
+                      )}
+                    </div>
+                    {record.verified ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                        Verified
+                      </span>
+                    ) : (
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                        Pending
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="mb-0.5 block text-[10px] font-medium uppercase text-gray-400 dark:text-gray-500">Name</span>
+                      <div className="flex items-center gap-1.5">
+                        <code className="block min-w-0 break-all rounded bg-gray-100 px-1.5 py-1 text-[11px] leading-relaxed text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                           {record.name}
                         </code>
                         <button
                           onClick={() => handleCopy(record.name, `name-${i}`)}
-                          className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                          title="Copy"
+                          className="shrink-0 self-start rounded p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                         >
                           {copiedKey === `name-${i}` ? (
                             <svg className="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -284,22 +290,75 @@ const handleRemoveDomain = async () => {
                           )}
                         </button>
                       </div>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-3 font-mono text-xs text-gray-700 dark:text-gray-300">
-                      {"priority" in record ? record.priority : <span className="text-gray-300 dark:text-gray-600">—</span>}
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="flex flex-col gap-1">
+                    </div>
+                    <div>
+                      <span className="mb-0.5 block text-[10px] font-medium uppercase text-gray-400 dark:text-gray-500">Value</span>
+                      <div className="flex items-start gap-1.5">
+                        <code className="block min-w-0 break-all rounded bg-gray-100 px-1.5 py-1 text-[11px] leading-relaxed text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                          {record.value}
+                        </code>
+                        <button
+                          onClick={() => handleCopy(record.verified ? record.value : record.recommendedValue, `value-${i}`)}
+                          className="shrink-0 self-start rounded p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                        >
+                          {copiedKey === `value-${i}` ? (
+                            <svg className="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                          ) : (
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                      {record.verified && record.value !== record.recommendedValue && (
+                        <div className="mt-1 flex items-start gap-1 text-[10px] text-amber-600 dark:text-amber-400">
+                          <svg className="mt-0.5 h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                          </svg>
+                          <span className="break-all">Recommended: <code className="rounded bg-amber-50 px-1 dark:bg-amber-900/30">{record.recommendedValue}</code></span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table layout */}
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50 text-left dark:border-gray-700/50 dark:bg-gray-700">
+                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Purpose</th>
+                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Type</th>
+                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Name</th>
+                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Priority</th>
+                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Value</th>
+                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50 dark:divide-gray-700/30">
+                  {dnsRecords.map((record, i) => (
+                    <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <td className="whitespace-nowrap px-6 py-3 text-xs font-medium text-gray-900 dark:text-white">
+                        {record.purpose}
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-3 font-mono text-xs font-medium text-violet-600">
+                        {record.type}
+                      </td>
+                      <td className="px-6 py-3">
                         <div className="flex items-center gap-2">
-                          <code className="max-w-[250px] truncate rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-                            {record.value}
+                          <code className="max-w-[200px] truncate rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                            {record.name}
                           </code>
                           <button
-                            onClick={() => handleCopy(record.verified ? record.value : record.recommendedValue, `value-${i}`)}
+                            onClick={() => handleCopy(record.name, `name-${i}`)}
                             className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                             title="Copy"
                           >
-                            {copiedKey === `value-${i}` ? (
+                            {copiedKey === `name-${i}` ? (
                               <svg className="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                               </svg>
@@ -310,39 +369,66 @@ const handleRemoveDomain = async () => {
                             )}
                           </button>
                         </div>
-                        {record.verified && record.value !== record.recommendedValue && (
-                          <div className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
-                            <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                            </svg>
-                            <span>Recommended: <code className="rounded bg-amber-50 px-1 dark:bg-amber-900/30">{record.recommendedValue}</code></span>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-3 font-mono text-xs text-gray-700 dark:text-gray-300">
+                        {"priority" in record ? record.priority : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                      </td>
+                      <td className="px-6 py-3">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <code className="max-w-[250px] truncate rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                              {record.value}
+                            </code>
+                            <button
+                              onClick={() => handleCopy(record.verified ? record.value : record.recommendedValue, `value-${i}`)}
+                              className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                              title="Copy"
+                            >
+                              {copiedKey === `value-${i}` ? (
+                                <svg className="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                              ) : (
+                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                                </svg>
+                              )}
+                            </button>
                           </div>
+                          {record.verified && record.value !== record.recommendedValue && (
+                            <div className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
+                              <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                              </svg>
+                              <span>Recommended: <code className="rounded bg-amber-50 px-1 dark:bg-amber-900/30">{record.recommendedValue}</code></span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-3">
+                        {record.verified ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                            Verified
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                            Pending
+                          </span>
                         )}
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-3">
-                      {record.verified ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                          </svg>
-                          Verified
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
-                          Pending
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {!domain.verified && (
-          <div className="border-t border-gray-100 px-6 py-3 dark:border-gray-700/50">
+          <div className="border-t border-gray-100 px-4 py-3 dark:border-gray-700/50 md:px-6">
             <button
               onClick={handleVerifyDns}
               disabled={isVerifying}
@@ -356,7 +442,7 @@ const handleRemoveDomain = async () => {
 
       {/* Mailboxes */}
       <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-700/50">
+        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-700/50 md:px-6 md:py-4">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">Mailboxes</h2>
           <button
             onClick={() => setShowCreateMailbox(true)}
@@ -414,8 +500,8 @@ const handleRemoveDomain = async () => {
 
       {/* Create mailbox modal */}
       {showCreateMailbox && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-gray-800">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 md:items-center">
+          <div className="w-full max-w-md rounded-t-2xl bg-white p-6 shadow-2xl dark:bg-gray-800 md:rounded-2xl md:p-8">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Create Mailbox</h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Create a new email address for {domain.domain}.

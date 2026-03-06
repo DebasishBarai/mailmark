@@ -964,7 +964,7 @@ export default function MailboxPage() {
     setShowCompose(true);
   }, [mailbox?.signature]);
 
-  const { setFolderSection } = useSidebar();
+  const { setFolderSection, closeMobile } = useSidebar();
 
   useEffect(() => {
     setFolderSection({
@@ -977,7 +977,7 @@ export default function MailboxPage() {
             </p>
           )}
           <button
-            onClick={handleOpenCompose}
+            onClick={() => { handleOpenCompose(); closeMobile(); }}
             title={collapsed ? "New email" : undefined}
             className={`mb-2 flex w-full items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700 ${collapsed ? "px-0" : ""}`}
           >
@@ -995,6 +995,7 @@ export default function MailboxPage() {
                   setActiveFolder(folder.key);
                   setSelectedEmailId(null);
                   setEmailBody(null);
+                  closeMobile();
                 }}
                 title={collapsed ? folder.label : undefined}
                 className={`flex w-full items-center ${collapsed ? "justify-center" : "justify-between"} rounded-md px-3 py-1.5 text-xs transition-colors ${
@@ -1133,7 +1134,7 @@ export default function MailboxPage() {
       ),
     });
     return () => setFolderSection(null);
-  }, [activeFolder, unreadCount, domainMailboxes, senderGroups, mbId, handleOpenCompose, setFolderSection, mailbox, showSignatureEditor, signatureText, updateSignature]);
+  }, [activeFolder, unreadCount, domainMailboxes, senderGroups, mbId, handleOpenCompose, setFolderSection, closeMobile, mailbox, showSignatureEditor, signatureText, updateSignature]);
 
   const handleReply = () => {
     if (!selectedEmail || !emailBody) return;
@@ -1248,7 +1249,7 @@ export default function MailboxPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-[calc(100vh)] flex-col">
+      <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden md:h-dvh">
         <div className="flex items-center border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-6 py-3">
           <div className="h-6 w-48 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
         </div>
@@ -1282,11 +1283,11 @@ export default function MailboxPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh)] flex-col">
+    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden md:h-dvh">
       {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-6 py-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">{mailbox.fullAddress}</h1>
+      <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 md:px-6">
+        <div className="flex min-w-0 items-center gap-2 md:gap-3">
+          <h1 className="truncate text-base font-semibold text-gray-900 dark:text-white md:text-lg">{mailbox.fullAddress}</h1>
           {mailbox.displayName && (
             <span className="rounded-full bg-violet-100 dark:bg-violet-900/40 px-2 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-300">
               {mailbox.displayName}
@@ -1297,7 +1298,7 @@ export default function MailboxPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Email list */}
-        <div className={`flex shrink-0 flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${selectedEmailId ? "w-80" : "flex-1"}`}>
+        <div className={`flex min-w-0 flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 md:shrink-0 ${selectedEmailId || showCompose ? "hidden md:flex md:w-80" : "flex-1"}`}>
           {/* List header */}
           <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700/50 px-4 py-2">
             <div className="flex items-center gap-2">
@@ -1341,7 +1342,7 @@ export default function MailboxPage() {
               </button>
             </div>
           </div>
-          <div className="overflow-y-auto flex-1">
+          <div className="flex-1 overflow-x-hidden overflow-y-auto">
           {emails.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <div className="text-center">
@@ -1362,22 +1363,22 @@ export default function MailboxPage() {
                   <button
                     key={group.key}
                     onClick={() => handleSelectEmail(email._id)}
-                    className={`w-full px-4 py-3 text-left transition-colors ${isSelected
+                    className={`w-full overflow-hidden px-4 py-3 text-left transition-colors ${isSelected
                       ? "bg-violet-50 dark:bg-violet-900/20"
                       : !email.read
                         ? "bg-blue-50/30 dark:bg-blue-900/10 hover:bg-gray-50 dark:hover:bg-gray-700"
                         : "hover:bg-gray-50 dark:hover:bg-gray-700"
                       }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className={`truncate text-sm ${!email.read ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`min-w-0 truncate text-sm ${!email.read ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"}`}>
                         {activeFolder === "sent" || activeFolder === "outbox"
                           ? allRecipients.length > 1
                             ? `${showEmailIds ? getRawEmail(allRecipients[0]) : getDisplayName(allRecipients[0], contactNameMap)} +${allRecipients.length - 1}`
                             : showEmailIds ? getRawEmail(allRecipients[0]) : getDisplayName(allRecipients[0], contactNameMap)
                           : showEmailIds ? getRawEmail(email.from) : getDisplayName(email.from, contactNameMap)}
                       </span>
-                      <div className="flex items-center gap-1">
+                      <div className="flex shrink-0 items-center gap-1">
                         {email.starred && (
                           <svg className="h-3.5 w-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" />
@@ -1398,13 +1399,13 @@ export default function MailboxPage() {
                             />
                           )
                         )}
-                        <span className="text-xs text-gray-400 dark:text-gray-500">{timeAgo(email.date)}</span>
+                        <span className="whitespace-nowrap text-xs text-gray-400 dark:text-gray-500">{timeAgo(email.date)}</span>
                       </div>
                     </div>
-                    <p className={`mt-0.5 flex items-center gap-1.5 text-sm ${!email.read ? "font-medium text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"}`}>
+                    <p className={`mt-0.5 truncate text-sm ${!email.read ? "font-medium text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"}`}>
                       {email.subject}
                       {group.isBatch && (
-                        <span className="inline-flex shrink-0 items-center rounded-full bg-violet-100 dark:bg-violet-900/40 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-300">
+                        <span className="ml-1.5 inline-flex shrink-0 items-center rounded-full bg-violet-100 dark:bg-violet-900/40 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-300">
                           Campaign
                         </span>
                       )}
@@ -1413,8 +1414,8 @@ export default function MailboxPage() {
                       {email.snippet}
                     </p>
                     {activeFolder === "outbox" && email.scheduledAt && (
-                      <p className="mt-0.5 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-                        <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <p className="mt-0.5 truncate text-xs text-amber-600 dark:text-amber-400">
+                        <svg className="mr-1 inline h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
                         </svg>
                         Scheduled for {new Date(email.scheduledAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
@@ -1436,24 +1437,24 @@ export default function MailboxPage() {
           const isBatchDetail = (selectedGroup?.isBatch) ?? false;
           const batchAllRecipients = batchEmails.flatMap((e) => e.to);
           return (
-          <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-800 p-8">
-            <div className="mb-6 flex items-start justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+          <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-white dark:bg-gray-800 p-4 md:p-8">
+            <div className="mb-6 flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <h2 className="break-words text-lg font-semibold text-gray-900 dark:text-white md:text-xl">
                   {selectedEmail.subject}
                 </h2>
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
+                <div className="mt-2 flex items-center gap-3 overflow-hidden">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
                     {getDisplayName(selectedEmail.from, contactNameMap)[0].toUpperCase()}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
                       {getDisplayName(selectedEmail.from, contactNameMap)}
                       {showEmailIds && (
                         <span className="ml-1.5 font-normal text-gray-500 dark:text-gray-400">&lt;{getRawEmail(selectedEmail.from)}&gt;</span>
                       )}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="truncate text-xs text-gray-500 dark:text-gray-400">
                       To:{" "}
                       {selectedEmail.to.map((addr) =>
                         showEmailIds
@@ -1533,7 +1534,7 @@ export default function MailboxPage() {
                   <span className="text-xs text-gray-400 dark:text-gray-500">{timeAgo(selectedEmail.date)}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
                 {emailBody && (
                   <>
                     <button
@@ -1544,12 +1545,12 @@ export default function MailboxPage() {
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
                       </svg>
-                      Reply
+                      <span className="hidden sm:inline">Reply</span>
                     </button>
                     <button
                       onClick={handleReplyAll}
                       title="Reply All"
-                      className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      className="hidden items-center gap-1 rounded-md px-2 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 sm:flex"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.25L9 3m0 0l6 5.25M9 3v13.5m6-10.5L21 9m0 0l-6 5.25M21 9v7.5" />
@@ -1564,7 +1565,7 @@ export default function MailboxPage() {
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
                       </svg>
-                      Forward
+                      <span className="hidden sm:inline">Forward</span>
                     </button>
                     <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
                   </>
@@ -1592,6 +1593,16 @@ export default function MailboxPage() {
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
+                </button>
+                <div className="mx-0.5 h-4 w-px bg-gray-200 dark:bg-gray-700" />
+                <button
+                  onClick={() => setSelectedEmailId(null)}
+                  className="rounded-md p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300"
+                  title="Close"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
@@ -1622,7 +1633,7 @@ export default function MailboxPage() {
                   return (
                     <div>
                       {/* Search + Filter tabs */}
-                      <div className="flex items-center gap-2 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 md:gap-2">
                         {(["all", "pending", "delivered", "opened"] as const).map((f) => {
                           const count =
                             f === "all" ? batchEmails.length
@@ -1649,7 +1660,7 @@ export default function MailboxPage() {
                             value={recipientSearch}
                             onChange={(e) => setRecipientSearch(e.target.value)}
                             placeholder="Search recipients..."
-                            className="w-36 rounded-md border border-gray-200 bg-white py-0.5 pl-6 pr-2 text-[10px] text-gray-700 outline-none placeholder-gray-400 focus:border-violet-400 focus:ring-1 focus:ring-violet-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:placeholder-gray-500"
+                            className="w-28 rounded-md border border-gray-200 bg-white py-0.5 pl-6 pr-2 text-[10px] text-gray-700 outline-none placeholder-gray-400 focus:border-violet-400 focus:ring-1 focus:ring-violet-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:placeholder-gray-500 md:w-36"
                           />
                           <svg className="absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -1695,7 +1706,7 @@ export default function MailboxPage() {
                 })()}
               </div>
             )}
-            <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300">
+            <div className="prose prose-sm max-w-none overflow-x-auto break-words text-gray-700 dark:text-gray-300 [&_*]:max-w-full">
               {loadingBody ? (
                 <div className="space-y-2">
                   <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
@@ -1754,9 +1765,9 @@ export default function MailboxPage() {
 
         {/* Compose panel — inline in the right pane */}
         {showCompose && (
-          <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-800 p-8">
+          <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-800 p-4 md:p-8">
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white md:text-xl">
                 {{ compose: "New Message", reply: "Reply", replyAll: "Reply All", forward: "Forward" }[composeMode]}
               </h2>
               <button

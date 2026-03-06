@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
@@ -66,7 +66,12 @@ function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { folderSection } = useSidebar();
+  const { folderSection, setCloseMobile } = useSidebar();
+
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
+  useEffect(() => {
+    setCloseMobile(closeMobile);
+  }, [closeMobile, setCloseMobile]);
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
