@@ -9,6 +9,7 @@
  */
 
 import type * as contacts from "../contacts.js";
+import type * as crons from "../crons.js";
 import type * as domainActions from "../domainActions.js";
 import type * as domains from "../domains.js";
 import type * as emailStats from "../emailStats.js";
@@ -27,6 +28,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   contacts: typeof contacts;
+  crons: typeof crons;
   domainActions: typeof domainActions;
   domains: typeof domains;
   emailStats: typeof emailStats;

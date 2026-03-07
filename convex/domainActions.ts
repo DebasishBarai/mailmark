@@ -450,13 +450,10 @@ export const cleanupUnverifiedDomainsInternal = internalAction({
   },
 });
 
-// Public action so authenticated users can manually trigger cleanup from the UI.
+// Admin action — call from the Convex dashboard to manually trigger cleanup.
 export const cleanupUnverifiedDomains = action({
   args: { olderThanDays: v.number() },
   handler: async (ctx, { olderThanDays }): Promise<{ deleted: number }> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
     return await ctx.runAction(
       internal.domainActions.cleanupUnverifiedDomainsInternal,
       { olderThanDays }
