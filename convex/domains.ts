@@ -146,3 +146,18 @@ export const deleteDomainCascade = internalMutation({
     await ctx.db.delete(domainId);
   },
 });
+
+export const listUnverifiedOlderThan = internalQuery({
+  args: { cutoffTime: v.number() },
+  handler: async (ctx, { cutoffTime }) => {
+    return await ctx.db
+      .query("domains")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("verified"), false),
+          q.lt(q.field("_creationTime"), cutoffTime)
+        )
+      )
+      .collect();
+  },
+});

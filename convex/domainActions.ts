@@ -7,7 +7,7 @@ if (typeof globalThis.DOMParser === "undefined") {
 }
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
   SESv2Client,
@@ -412,6 +412,57 @@ export async function ensureSendingConfigurationSet(): Promise<void> {
     if (err.name !== "AlreadyExistsException") throw error;
   }
 }
+
+// Deletes all unverified domains older than `olderThanDays` days from both
+// Convex and AWS SES. Called by the daily cron job and by the manual trigger.
+export const cleanupUnverifiedDomainsInternal = internalAction({
+  args: { olderThanDays: v.number() },
+  handler: async (ctx, { olderThanDays }): Promise<{ deleted: number }> => {
+    const cutoffTime = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
+
+    const domains = await ctx.runQuery(internal.domains.listUnverifiedOlderThan, {
+      cutoffTime,
+    });
+
+    let deleted = 0;
+    for (const domain of domains) {
+      try {
+        const sesv2 = getSESv2Client();
+        await sesv2.send(
+          new DeleteEmailIdentityCommand({ EmailIdentity: domain.domain })
+        );
+      } catch (error: unknown) {
+        console.error(
+          `[cleanup] Failed to delete SES identity for ${domain.domain}:`,
+          error
+        );
+      }
+      await ctx.runMutation(internal.domains.deleteDomainCascade, {
+        domainId: domain._id,
+      });
+      deleted++;
+    }
+
+    console.log(
+      `[cleanup] Deleted ${deleted} unverified domain(s) older than ${olderThanDays} day(s)`
+    );
+    return { deleted };
+  },
+});
+
+// Public action so authenticated users can manually trigger cleanup from the UI.
+export const cleanupUnverifiedDomains = action({
+  args: { olderThanDays: v.number() },
+  handler: async (ctx, { olderThanDays }): Promise<{ deleted: number }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    return await ctx.runAction(
+      internal.domainActions.cleanupUnverifiedDomainsInternal,
+      { olderThanDays }
+    );
+  },
+});
 
 // Ensures an SES receipt rule exists with both S3 and SNS actions.
 // Deletes and recreates the rule to update existing rules that lack SNS.

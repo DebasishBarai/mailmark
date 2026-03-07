@@ -9,11 +9,10 @@ import { Doc } from "../../../convex/_generated/dataModel";
 function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-        ok
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${ok
           ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
           : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
-      }`}
+        }`}
     >
       {ok ? (
         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
