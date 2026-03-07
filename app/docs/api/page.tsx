@@ -783,7 +783,7 @@ export default function ApiDocsPage() {
                     <p className="mt-4 mb-1 text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
                       {item.label}
                     </p>
-                    {item.children.map((child) => (
+                    {item.children!.map((child) => (
                       <a
                         key={child.id}
                         href={`#${child.id}`}
