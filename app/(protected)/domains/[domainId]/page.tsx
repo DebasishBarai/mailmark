@@ -118,10 +118,9 @@ const handleRemoveDomain = async () => {
       type: "MX",
       name: "@",
       priority: "10",
-      value: domain.actualMxValue
-        ? domain.actualMxValue.replace(/^\d+\s+/, "")
-        : `inbound-smtp.${region}.amazonaws.com`,
+      value: `inbound-smtp.${region}.amazonaws.com`,
       recommendedValue: `inbound-smtp.${region}.amazonaws.com`,
+      currentDnsValue: domain.mxVerified ? undefined : (domain.actualMxValue ? domain.actualMxValue.replace(/^\d+\s+/, "") : undefined),
       purpose: "Receiving",
       verified: domain.mxVerified,
     },
@@ -129,8 +128,9 @@ const handleRemoveDomain = async () => {
     {
       type: "TXT",
       name: "@",
-      value: domain.actualSpfValue ?? `v=spf1 include:amazonses.com ~all`,
+      value: `v=spf1 include:amazonses.com ~all`,
       recommendedValue: `v=spf1 include:amazonses.com ~all`,
+      currentDnsValue: domain.spfVerified ? undefined : domain.actualSpfValue,
       purpose: "SPF",
       verified: domain.spfVerified,
     },
@@ -138,8 +138,9 @@ const handleRemoveDomain = async () => {
     {
       type: "TXT",
       name: `_dmarc`,
-      value: domain.actualDmarcValue ?? `v=DMARC1; p=quarantine; rua=mailto:dmarc@${domain.domain}`,
+      value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${domain.domain}`,
       recommendedValue: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${domain.domain}`,
+      currentDnsValue: domain.dmarcVerified ? undefined : domain.actualDmarcValue,
       purpose: "DMARC",
       verified: domain.dmarcVerified,
     },
@@ -298,7 +299,7 @@ const handleRemoveDomain = async () => {
                           {record.value}
                         </code>
                         <button
-                          onClick={() => handleCopy(record.verified ? record.value : record.recommendedValue, `value-${i}`)}
+                          onClick={() => handleCopy(record.recommendedValue, `value-${i}`)}
                           className="shrink-0 self-start rounded p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                         >
                           {copiedKey === `value-${i}` ? (
@@ -312,12 +313,12 @@ const handleRemoveDomain = async () => {
                           )}
                         </button>
                       </div>
-                      {record.verified && record.value !== record.recommendedValue && (
+                      {"currentDnsValue" in record && record.currentDnsValue && record.currentDnsValue !== record.recommendedValue && (
                         <div className="mt-1 flex items-start gap-1 text-[10px] text-amber-600 dark:text-amber-400">
                           <svg className="mt-0.5 h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                           </svg>
-                          <span className="break-all">Recommended: <code className="rounded bg-amber-50 px-1 dark:bg-amber-900/30">{record.recommendedValue}</code></span>
+                          <span className="break-all">Currently in DNS: <code className="rounded bg-amber-50 px-1 dark:bg-amber-900/30">{record.currentDnsValue}</code></span>
                         </div>
                       )}
                     </div>
@@ -380,7 +381,7 @@ const handleRemoveDomain = async () => {
                               {record.value}
                             </code>
                             <button
-                              onClick={() => handleCopy(record.verified ? record.value : record.recommendedValue, `value-${i}`)}
+                              onClick={() => handleCopy(record.recommendedValue, `value-${i}`)}
                               className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                               title="Copy"
                             >
@@ -395,12 +396,12 @@ const handleRemoveDomain = async () => {
                               )}
                             </button>
                           </div>
-                          {record.verified && record.value !== record.recommendedValue && (
+                          {"currentDnsValue" in record && record.currentDnsValue && record.currentDnsValue !== record.recommendedValue && (
                             <div className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
                               <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                               </svg>
-                              <span>Recommended: <code className="rounded bg-amber-50 px-1 dark:bg-amber-900/30">{record.recommendedValue}</code></span>
+                              <span>Currently in DNS: <code className="rounded bg-amber-50 px-1 dark:bg-amber-900/30">{record.currentDnsValue}</code></span>
                             </div>
                           )}
                         </div>
