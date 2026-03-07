@@ -96,4 +96,17 @@ export default defineSchema({
     name: v.string(),
     emails: v.array(v.string()),
   }).index("by_domain_id", ["domainId"]),
+
+  api_keys: defineTable({
+    userId: v.id("users"),
+    domainId: v.id("domains"),
+    name: v.string(),
+    keyHash: v.string(),
+    keyPrefix: v.string(),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_key_hash", ["keyHash"]),
 });

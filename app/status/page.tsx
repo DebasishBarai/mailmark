@@ -3,8 +3,8 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "System Status - DevMail",
-  description: "Real-time status of all DevMail services and infrastructure components.",
+  title: "System Status - Mailmark",
+  description: "Real-time status of all Mailmark services and infrastructure components.",
 };
 
 type Status = "operational" | "degraded" | "outage";
@@ -12,8 +12,8 @@ type Status = "operational" | "degraded" | "outage";
 const components: { name: string; description: string; status: Status }[] = [
   { name: "Email Sending (Outbound)", description: "SMTP and API-based email delivery via AWS SES", status: "operational" },
   { name: "Email Receiving (Inbound)", description: "Inbound MX routing and mailbox delivery", status: "operational" },
-  { name: "Web Dashboard", description: "Dashboard UI at app.devmail.app", status: "operational" },
-  { name: "API", description: "REST API at api.devmail.app", status: "operational" },
+  { name: "Web Dashboard", description: "Dashboard UI at app.mailmark.app", status: "operational" },
+  { name: "API", description: "REST API at api.mailmark.app", status: "operational" },
   { name: "DNS Verification", description: "Domain verification and DNS record checking", status: "operational" },
   { name: "Campaign Engine", description: "Bulk email sending and scheduling", status: "operational" },
   { name: "Authentication (Clerk)", description: "Sign-in, sign-up, and session management", status: "operational" },

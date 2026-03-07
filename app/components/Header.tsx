@@ -23,12 +23,12 @@ export default function Header() {
         <Link href="/" className="flex items-center gap-2.5">
           <Image
             src="/logo.svg"
-            alt="DevMail logo"
+            alt="Mailmark logo"
             width={36}
             height={36}
             priority
           />
-          <span className="text-2xl font-bold text-violet-600">DevMail</span>
+          <span className="text-2xl font-bold text-violet-600">Mailmark</span>
         </Link>
 
         {/* Desktop nav */}

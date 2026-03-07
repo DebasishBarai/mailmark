@@ -3,9 +3,9 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "About - DevMail",
+  title: "About - Mailmark",
   description:
-    "Learn about DevMail's mission to make professional email hosting and campaigns accessible to every business.",
+    "Learn about Mailmark's mission to make professional email hosting and campaigns accessible to every business.",
 };
 
 const values = [
@@ -42,7 +42,7 @@ const values = [
   {
     title: "Built for teams",
     description:
-      "Whether you're a solo founder or a 50-person team, DevMail scales with you. Shared inboxes, permissions, and collaboration baked in from day one.",
+      "Whether you're a solo founder or a 50-person team, Mailmark scales with you. Shared inboxes, permissions, and collaboration baked in from day one.",
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
@@ -67,13 +67,13 @@ export default function AboutPage() {
       <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-24 dark:from-violet-950/30 dark:to-gray-900">
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
-            About DevMail
+            About Mailmark
           </span>
           <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl dark:text-white">
             Email that&apos;s truly yours
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-gray-600 dark:text-gray-300">
-            We built DevMail because we were tired of paying three different
+            We built Mailmark because we were tired of paying three different
             services to host email, send campaigns, and manage our team&apos;s
             inboxes. There had to be a better way.
           </p>
@@ -100,7 +100,7 @@ export default function AboutPage() {
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Our story</h2>
           <div className="mt-6 space-y-5 text-gray-600 leading-relaxed dark:text-gray-300">
             <p>
-              DevMail started in 2024 when our founders — a team of engineers
+              Mailmark started in 2024 when our founders — a team of engineers
               frustrated by fragmented email tooling — decided to build the
               platform they always wanted. They had used Google Workspace,
               Postmark, Mailchimp, and half a dozen other tools, patching them
@@ -115,8 +115,8 @@ export default function AboutPage() {
               three support teams.
             </p>
             <p>
-              We launched DevMail&apos;s public beta in late 2025. Today,
-              thousands of startups, agencies, and small teams use DevMail to
+              We launched Mailmark&apos;s public beta in late 2025. Today,
+              thousands of startups, agencies, and small teams use Mailmark to
               run their entire email operation from a single dashboard. We&apos;re
               just getting started.
             </p>

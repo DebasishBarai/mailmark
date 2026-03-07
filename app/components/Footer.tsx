@@ -36,8 +36,8 @@ export default function Footer() {
           {/* Brand */}
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
-              <Image src="/logo.svg" alt="DevMail logo" width={32} height={32} />
-              <span className="text-2xl font-bold text-violet-600">DevMail</span>
+              <Image src="/logo.svg" alt="Mailmark logo" width={32} height={32} />
+              <span className="text-2xl font-bold text-violet-600">Mailmark</span>
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
               Your domain. Your mailboxes. Your campaigns. All in one platform.
@@ -68,7 +68,7 @@ export default function Footer() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-gray-100 pt-8 dark:border-gray-700 md:flex-row">
           <p className="text-sm text-gray-400 dark:text-gray-500">
-            &copy; {new Date().getFullYear()} DevMail. All rights reserved.
+            &copy; {new Date().getFullYear()} Mailmark. All rights reserved.
           </p>
           <div className="flex gap-6">
             <a href="#" className="text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300" aria-label="Twitter">

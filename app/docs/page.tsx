@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Documentation - DevMail",
+  title: "Documentation - Mailmark",
   description:
-    "Everything you need to set up and use DevMail — from adding your first domain to running advanced email campaigns.",
+    "Everything you need to set up and use Mailmark — from adding your first domain to running advanced email campaigns.",
 };
 
 const sections = [
@@ -16,12 +17,13 @@ const sections = [
       </svg>
     ),
     title: "Getting Started",
+    href: "/docs/getting-started",
     color: "violet",
     articles: [
-      "Quick-start guide",
-      "Creating your account",
-      "Adding your first domain",
-      "Sending your first email",
+      { label: "Quick-start guide", href: "/docs/getting-started#quick-start" },
+      { label: "Creating your account", href: "/docs/getting-started#creating-account" },
+      { label: "Adding your first domain", href: "/docs/getting-started#adding-domain" },
+      { label: "Sending your first email", href: "/docs/getting-started#sending-email" },
     ],
   },
   {
@@ -31,12 +33,13 @@ const sections = [
       </svg>
     ),
     title: "Domain Setup",
+    href: "/docs/domain-setup",
     color: "blue",
     articles: [
-      "Verifying your domain",
-      "Configuring MX records",
-      "Setting up SPF & DKIM",
-      "DMARC configuration",
+      { label: "Verifying your domain", href: "/docs/domain-setup#verifying-domain" },
+      { label: "Configuring MX records", href: "/docs/domain-setup#mx-records" },
+      { label: "Setting up SPF & DKIM", href: "/docs/domain-setup#spf-dkim" },
+      { label: "DMARC configuration", href: "/docs/domain-setup#dmarc" },
     ],
   },
   {
@@ -46,12 +49,13 @@ const sections = [
       </svg>
     ),
     title: "Mailboxes",
+    href: "/docs/mailboxes",
     color: "emerald",
     articles: [
-      "Creating mailboxes",
-      "Managing aliases",
-      "Team mailbox permissions",
-      "Connecting an email client (IMAP)",
+      { label: "Creating mailboxes", href: "/docs/mailboxes#creating-mailboxes" },
+      { label: "Managing aliases", href: "/docs/mailboxes#managing-aliases" },
+      { label: "Team mailbox permissions", href: "/docs/mailboxes#permissions" },
+      { label: "Connecting an email client (IMAP)", href: "/docs/mailboxes#imap" },
     ],
   },
   {
@@ -61,12 +65,13 @@ const sections = [
       </svg>
     ),
     title: "Email Campaigns",
+    href: "/docs/email-campaigns",
     color: "amber",
     articles: [
-      "Creating a campaign",
-      "Mail merge & personalization",
-      "Scheduling & auto follow-ups",
-      "Campaign analytics",
+      { label: "Creating a campaign", href: "/docs/email-campaigns#creating-campaign" },
+      { label: "Mail merge & personalization", href: "/docs/email-campaigns#mail-merge" },
+      { label: "Scheduling & auto follow-ups", href: "/docs/email-campaigns#scheduling" },
+      { label: "Campaign analytics", href: "/docs/email-campaigns#analytics" },
     ],
   },
   {
@@ -76,11 +81,12 @@ const sections = [
       </svg>
     ),
     title: "API Reference",
+    href: "/docs/api",
     color: "pink",
     articles: [
-      "Authentication & API keys",
-      "Send emails via API",
-      "Manage domains & mailboxes",
+      { label: "Authentication & API keys", href: "/docs/api#authentication" },
+      { label: "Send emails via API", href: "/docs/api#send-email" },
+      { label: "Manage mailboxes via API", href: "/docs/api#list-mailboxes" },
     ],
   },
   {
@@ -90,11 +96,12 @@ const sections = [
       </svg>
     ),
     title: "Troubleshooting",
+    href: "/docs/troubleshooting",
     color: "gray",
     articles: [
-      "Emails not sending",
-      "Domain verification issues",
-      "Bounces & rejections",
+      { label: "Emails not sending", href: "/docs/troubleshooting#emails-not-sending" },
+      { label: "Domain verification issues", href: "/docs/troubleshooting#domain-verification" },
+      { label: "Bounces & rejections", href: "/docs/troubleshooting#bounces" },
     ],
   },
 ];
@@ -133,7 +140,7 @@ export default function DocsPage() {
           </h1>
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
             Everything you need to set up domains, create mailboxes, and run
-            email campaigns with DevMail.
+            email campaigns with Mailmark.
           </p>
           {/* Static search bar */}
           <div className="relative mx-auto mt-8 max-w-xl">
@@ -172,25 +179,25 @@ export default function DocsPage() {
                 </h2>
                 <ul className="mt-3 space-y-2">
                   {section.articles.map((article) => (
-                    <li key={article}>
-                      <a
-                        href="#"
+                    <li key={article.href}>
+                      <Link
+                        href={article.href}
                         className="flex items-center text-sm text-gray-600 transition-colors hover:text-violet-600 dark:text-gray-300 dark:hover:text-violet-400"
                       >
                         <svg className="mr-2 h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                         </svg>
-                        {article}
-                      </a>
+                        {article.label}
+                      </Link>
                     </li>
                   ))}
                 </ul>
-                <a
-                  href="#"
+                <Link
+                  href={section.href}
                   className="mt-5 inline-flex items-center text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
                 >
                   View all articles →
-                </a>
+                </Link>
               </div>
             ))}
           </div>

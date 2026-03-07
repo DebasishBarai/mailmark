@@ -3,8 +3,8 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - DevMail",
-  description: "DevMail Privacy Policy — how we collect, use, and protect your data.",
+  title: "Privacy Policy - Mailmark",
+  description: "Mailmark Privacy Policy — how we collect, use, and protect your data.",
 };
 
 const sections = [
@@ -16,7 +16,7 @@ const sections = [
 
 **Usage data:** log data including IP addresses, browser type, pages visited, features used, timestamps, and crash reports.
 
-**Email data:** metadata and content of emails sent through or received by DevMail (subject lines, sender/recipient addresses, timestamps). We process email content only to deliver the service and do not use it for advertising.
+**Email data:** metadata and content of emails sent through or received by Mailmark (subject lines, sender/recipient addresses, timestamps). We process email content only to deliver the service and do not use it for advertising.
 
 **Domain and DNS data:** domain names you add, DNS records we generate, and verification status.
 
@@ -26,7 +26,7 @@ const sections = [
     title: "2. How we use your information",
     content: `We use collected information to:
 
-- Provide, operate, and improve the DevMail platform.
+- Provide, operate, and improve the Mailmark platform.
 - Process transactions and send transactional emails (receipts, invoices, alerts).
 - Respond to your support requests.
 - Monitor for abuse, fraud, and violations of our Terms of Service.
@@ -41,9 +41,9 @@ We do not sell your personal data to third parties. We do not use your email con
 
 **Service providers:** We share data with vendors who help us operate the service (e.g., AWS for cloud infrastructure, Stripe for payments, Clerk for authentication). These vendors are contractually obligated to protect your data.
 
-**Legal compliance:** We may disclose data when required by law, court order, or governmental authority, or to protect the rights, property, and safety of DevMail, our users, and the public.
+**Legal compliance:** We may disclose data when required by law, court order, or governmental authority, or to protect the rights, property, and safety of Mailmark, our users, and the public.
 
-**Business transfers:** If DevMail is acquired or merges with another company, your data may be transferred as part of that transaction. We will notify you before your data is subject to a different Privacy Policy.
+**Business transfers:** If Mailmark is acquired or merges with another company, your data may be transferred as part of that transaction. We will notify you before your data is subject to a different Privacy Policy.
 
 We do not share your email content with advertisers or analytics companies.`,
   },
@@ -65,7 +65,7 @@ You can control cookie settings through your browser. Disabling cookies may affe
 - Email data is deleted within 60 days (some may persist in backups for up to 90 days).
 - Billing records are retained for 7 years as required by financial regulations.
 
-You can request earlier deletion of specific data by contacting privacy@devmail.app.`,
+You can request earlier deletion of specific data by contacting privacy@mailmark.app.`,
   },
   {
     title: "6. Security",
@@ -77,7 +77,7 @@ You can request earlier deletion of specific data by contacting privacy@devmail.
 - Regular security audits and penetration testing.
 - Automatic backups with point-in-time recovery.
 
-No method of transmission or storage is 100% secure. If you discover a security vulnerability, please report it to security@devmail.app.`,
+No method of transmission or storage is 100% secure. If you discover a security vulnerability, please report it to security@mailmark.app.`,
   },
   {
     title: "7. Your rights",
@@ -90,15 +90,15 @@ No method of transmission or storage is 100% secure. If you discover a security 
 - **Objection:** Object to certain processing activities.
 - **Withdrawal of consent:** Where processing is based on consent, you may withdraw it at any time.
 
-To exercise any of these rights, email privacy@devmail.app. We will respond within 30 days.
+To exercise any of these rights, email privacy@mailmark.app. We will respond within 30 days.
 
-**EEA/UK residents:** DevMail processes data under GDPR. Our legal bases include contract performance, legitimate interests, and consent.
+**EEA/UK residents:** Mailmark processes data under GDPR. Our legal bases include contract performance, legitimate interests, and consent.
 
 **California residents:** Under CCPA, you have additional rights including the right to know what data is sold or shared (we do not sell personal data).`,
   },
   {
     title: "8. Children's privacy",
-    content: `DevMail is not directed at children under 16. We do not knowingly collect personal data from anyone under 16. If you believe a child has provided us with personal information, contact us at privacy@devmail.app and we will delete it promptly.`,
+    content: `Mailmark is not directed at children under 16. We do not knowingly collect personal data from anyone under 16. If you believe a child has provided us with personal information, contact us at privacy@mailmark.app and we will delete it promptly.`,
   },
   {
     title: "9. Changes to this policy",
@@ -108,8 +108,8 @@ To exercise any of these rights, email privacy@devmail.app. We will respond with
     title: "10. Contact us",
     content: `For privacy-related questions or to exercise your rights, contact:
 
-**DevMail Privacy Team**
-privacy@devmail.app
+**Mailmark Privacy Team**
+privacy@mailmark.app
 
 We aim to respond to all privacy inquiries within 30 days.`,
   },
@@ -133,7 +133,7 @@ export default function PrivacyPage() {
             Last updated: <strong>January 15, 2026</strong>
           </p>
           <p className="mt-4 text-gray-600 dark:text-gray-300">
-            DevMail (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) is committed to protecting your privacy.
+            Mailmark (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) is committed to protecting your privacy.
             This policy explains what information we collect, how we use it, and
             the choices you have.
           </p>

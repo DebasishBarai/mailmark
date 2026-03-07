@@ -399,6 +399,154 @@ export const sendScheduledEmail = internalAction({
   },
 });
 
+// Schedule an email to be sent at a future time via API key (no Clerk auth)
+export const scheduleEmailViaApi = internalAction({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    to: v.array(v.string()),
+    subject: v.string(),
+    html: v.string(),
+    scheduledAt: v.number(),
+    batchId: v.optional(v.string()),
+  },
+  handler: async (ctx, { mailboxId, to, subject, html, scheduledAt, batchId }) => {
+    if (scheduledAt <= Date.now()) throw new Error("scheduledAt must be in the future");
+
+    const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
+    if (!mailbox) throw new Error("Mailbox not found");
+
+    const fromAddress = mailbox.displayName
+      ? `${mailbox.displayName} <${mailbox.fullAddress}>`
+      : mailbox.fullAddress;
+
+    const messageId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? "";
+    const trackingPixel = `<img src="${convexSiteUrl}/track/open/${messageId}.gif" width="1" height="1" style="display:none" alt="" />`;
+    const bodyWithTracking = html + trackingPixel;
+
+    const rawEmail = [
+      `From: ${fromAddress}`,
+      `To: ${to.join(", ")}`,
+      `Subject: ${subject}`,
+      `Date: ${new Date(scheduledAt).toUTCString()}`,
+      `Message-ID: <${messageId}@${mailbox.domain}>`,
+      `Content-Type: text/html; charset=UTF-8`,
+      "",
+      bodyWithTracking,
+    ].join("\r\n");
+
+    const s3Key = `${mailbox.domain}/${mailbox.address}/outbox/${messageId}.eml`;
+    const s3 = getS3Client();
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET!,
+        Key: s3Key,
+        Body: rawEmail,
+        ContentType: "message/rfc822",
+      })
+    );
+
+    const jobId = await ctx.scheduler.runAt(
+      scheduledAt,
+      internal.ses.sendScheduledEmail,
+      { s3Key, messageId, mailboxId, to, fromAddress, batchId }
+    );
+
+    const snippet = html.replace(/<[^>]*>/g, "").slice(0, 100);
+    await ctx.runMutation(internal.emails.insertScheduled, {
+      mailboxId,
+      messageId,
+      from: fromAddress,
+      to,
+      subject,
+      snippet,
+      date: scheduledAt,
+      s3Key,
+      hasAttachments: false,
+      scheduledAt,
+      scheduledJobId: jobId as string,
+      batchId,
+    });
+
+    return { messageId };
+  },
+});
+
+// Called from the /v1/send HTTP route — no Clerk auth, validated via API key
+export const sendEmailViaApi = internalAction({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    to: v.array(v.string()),
+    subject: v.string(),
+    html: v.string(),
+    batchId: v.optional(v.string()),
+  },
+  handler: async (ctx, { mailboxId, to, subject, html, batchId }) => {
+    const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
+    if (!mailbox) throw new Error("Mailbox not found");
+
+    const fromAddress = mailbox.displayName
+      ? `${mailbox.displayName} <${mailbox.fullAddress}>`
+      : mailbox.fullAddress;
+
+    const ses = getSESClient();
+    const messageId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? "";
+    const trackingPixel = `<img src="${convexSiteUrl}/track/open/${messageId}.gif" width="1" height="1" style="display:none" alt="" />`;
+    const bodyWithTracking = html + trackingPixel;
+
+    const rawEmail = [
+      `From: ${fromAddress}`,
+      `To: ${to.join(", ")}`,
+      `Subject: ${subject}`,
+      `Date: ${new Date().toUTCString()}`,
+      `Message-ID: <${messageId}@${mailbox.domain}>`,
+      `Content-Type: text/html; charset=UTF-8`,
+      "",
+      bodyWithTracking,
+    ].join("\r\n");
+
+    const sesResponse = await ses.send(
+      new SendEmailCommand({
+        FromEmailAddress: fromAddress,
+        Destination: { ToAddresses: to },
+        ConfigurationSetName: "devmail-sending",
+        Content: { Raw: { Data: new TextEncoder().encode(rawEmail) } },
+      })
+    );
+
+    const s3Key = `${mailbox.domain}/${mailbox.address}/sent/${messageId}.eml`;
+    const s3 = getS3Client();
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET!,
+        Key: s3Key,
+        Body: rawEmail,
+        ContentType: "message/rfc822",
+      })
+    );
+
+    const snippet = html.replace(/<[^>]*>/g, "").slice(0, 100);
+    await ctx.runMutation(internal.emails.insertSent, {
+      mailboxId,
+      messageId,
+      sesMessageId: sesResponse.MessageId,
+      from: fromAddress,
+      to,
+      subject,
+      snippet,
+      date: Date.now(),
+      s3Key,
+      hasAttachments: false,
+      folder: "sent",
+      batchId,
+    });
+
+    return { messageId };
+  },
+});
+
 // Move incoming email from domain/incoming/ to domain/mailbox/incoming/
 export const moveIncomingEmail = internalAction({
   args: {

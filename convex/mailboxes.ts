@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation, action, internalMutation, internalQuery } from "./_generated/server";
+import { query, mutation, action, internalMutation, internalQuery, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 
@@ -230,5 +230,96 @@ export const getByFullAddress = internalQuery({
       .query("mailboxes")
       .withIndex("by_full_address", (q) => q.eq("fullAddress", fullAddress))
       .unique();
+  },
+});
+
+// ── API-key-authenticated internal helpers (no Clerk auth) ──────────────────
+
+export const listByDomainInternal = internalQuery({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }) => {
+    return await ctx.db
+      .query("mailboxes")
+      .withIndex("by_domain_id", (q) => q.eq("domainId", domainId))
+      .collect();
+  },
+});
+
+export const createInternal = internalMutation({
+  args: {
+    domainId: v.id("domains"),
+    userId: v.id("users"),
+    address: v.string(),
+    fullAddress: v.string(),
+    displayName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("mailboxes")
+      .withIndex("by_full_address", (q) => q.eq("fullAddress", args.fullAddress))
+      .unique();
+    if (existing) throw new Error("Mailbox already exists");
+    return await ctx.db.insert("mailboxes", {
+      domainId: args.domainId,
+      userId: args.userId,
+      address: args.address,
+      fullAddress: args.fullAddress,
+      displayName: args.displayName,
+    });
+  },
+});
+
+export const deleteRecordsInternal = internalMutation({
+  args: { mailboxId: v.id("mailboxes") },
+  handler: async (ctx, { mailboxId }) => {
+    const emails = await ctx.db
+      .query("emails")
+      .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mailboxId))
+      .collect();
+    const s3Keys = emails.map((e) => e.s3Key);
+    for (const email of emails) await ctx.db.delete(email._id);
+
+    // Remove this mailbox from any sender groups
+    const groups = await ctx.db.query("senderGroups").collect();
+    for (const group of groups) {
+      if (group.mailboxIds.includes(mailboxId)) {
+        const remaining = group.mailboxIds.filter((id) => id !== mailboxId);
+        if (remaining.length === 0) {
+          await ctx.db.delete(group._id);
+        } else {
+          await ctx.db.patch(group._id, { mailboxIds: remaining });
+        }
+      }
+    }
+
+    await ctx.db.delete(mailboxId);
+    return s3Keys;
+  },
+});
+
+export const removeInternal = internalAction({
+  args: { mailboxId: v.id("mailboxes") },
+  handler: async (ctx, { mailboxId }) => {
+    const s3Keys: string[] = await ctx.runMutation(
+      internal.mailboxes.deleteRecordsInternal,
+      { mailboxId }
+    );
+    if (s3Keys.length === 0) return;
+    const s3 = new S3Client({
+      region: process.env.AWS_REGION!,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+    const bucket = process.env.AWS_S3_BUCKET!;
+    for (let i = 0; i < s3Keys.length; i += 1000) {
+      await s3.send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: { Objects: s3Keys.slice(i, i + 1000).map((Key) => ({ Key })) },
+        })
+      );
+    }
   },
 });

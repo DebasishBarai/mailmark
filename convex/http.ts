@@ -148,4 +148,388 @@ http.route({
   }),
 });
 
+// ─── Public REST API ─────────────────────────────────────────────────────────
+
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function jsonResponse(body: unknown, status: number) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+async function authenticate(ctx: any, request: Request) {
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  const keyHash = await sha256Hex(authHeader.slice(7).trim());
+  return ctx.runQuery(internal.apiKeys.validateByHash, { keyHash });
+}
+
+// ── Mailboxes ────────────────────────────────────────────────────────────────
+
+http.route({
+  path: "/v1/mailboxes",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const mailboxes = await ctx.runQuery(internal.mailboxes.listByDomainInternal, {
+      domainId: apiKey.domainId,
+    });
+
+    return jsonResponse(
+      mailboxes.map((m: any) => ({
+        id: m._id,
+        address: m.address,
+        fullAddress: m.fullAddress,
+        displayName: m.displayName ?? null,
+      })),
+      200
+    );
+  }),
+});
+
+http.route({
+  path: "/v1/mailboxes",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    let body: { address?: string; displayName?: string };
+    try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
+
+    const { address, displayName } = body;
+    if (!address) return jsonResponse({ error: '"address" is required' }, 400);
+
+    const localPart = address.trim().toLowerCase();
+    if (!/^[a-z0-9._%+-]+$/.test(localPart))
+      return jsonResponse({ error: "Invalid address format" }, 400);
+
+    const domain = await ctx.runQuery(internal.domains.getByIdInternal, { domainId: apiKey.domainId });
+    if (!domain) return jsonResponse({ error: "Domain not found" }, 404);
+
+    const fullAddress = `${localPart}@${domain.domain}`;
+
+    let mailboxId: any;
+    try {
+      mailboxId = await ctx.runMutation(internal.mailboxes.createInternal, {
+        domainId: apiKey.domainId,
+        userId: apiKey.userId,
+        address: localPart,
+        fullAddress,
+        displayName: displayName?.trim() || undefined,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to create mailbox";
+      return jsonResponse({ error: msg }, 409);
+    }
+
+    return jsonResponse({ id: mailboxId, address: localPart, fullAddress, displayName: displayName ?? null }, 201);
+  }),
+});
+
+http.route({
+  pathPrefix: "/v1/mailboxes/",
+  method: "DELETE",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const address = url.pathname.replace("/v1/mailboxes/", "").toLowerCase();
+    if (!address) return jsonResponse({ error: "Address required in path" }, 400);
+
+    const domain = await ctx.runQuery(internal.domains.getByIdInternal, { domainId: apiKey.domainId });
+    if (!domain) return jsonResponse({ error: "Domain not found" }, 404);
+
+    const fullAddress = address.includes("@") ? address : `${address}@${domain.domain}`;
+    const mailbox = await ctx.runQuery(internal.mailboxes.getByFullAddress, { fullAddress });
+
+    if (!mailbox || mailbox.domainId !== apiKey.domainId)
+      return jsonResponse({ error: "Mailbox not found" }, 404);
+
+    await ctx.runAction(internal.mailboxes.removeInternal, { mailboxId: mailbox._id });
+
+    return jsonResponse({ deleted: true }, 200);
+  }),
+});
+
+// ── Sender Groups ────────────────────────────────────────────────────────────
+
+http.route({
+  path: "/v1/sender-groups",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const groups = await ctx.runQuery(internal.senderGroups.listByDomainInternal, {
+      domainId: apiKey.domainId,
+    });
+
+    return jsonResponse(
+      groups.map((g: any) => ({
+        id: g._id,
+        name: g.name,
+        mailboxIds: g.mailboxIds,
+        emails: g.emails,
+      })),
+      200
+    );
+  }),
+});
+
+http.route({
+  path: "/v1/sender-groups",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    let body: { name?: string; mailboxes?: string[] | "all"; emails?: string[] };
+    try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
+
+    const { name, mailboxes = "all", emails = [] } = body;
+    if (!name) return jsonResponse({ error: '"name" is required' }, 400);
+
+    const allMailboxes = await ctx.runQuery(internal.mailboxes.listByDomainInternal, {
+      domainId: apiKey.domainId,
+    });
+
+    let mailboxIds: any[];
+    if (mailboxes === "all") {
+      mailboxIds = allMailboxes.map((m: any) => m._id);
+    } else {
+      const domain = await ctx.runQuery(internal.domains.getByIdInternal, { domainId: apiKey.domainId });
+      mailboxIds = mailboxes.map((addr: string) => {
+        const full = addr.includes("@") ? addr.toLowerCase() : `${addr.toLowerCase()}@${domain!.domain}`;
+        const found = allMailboxes.find((m: any) => m.fullAddress === full);
+        if (!found) throw new Error(`Mailbox not found: ${addr}`);
+        return found._id;
+      });
+    }
+
+    if (mailboxIds.length === 0)
+      return jsonResponse({ error: "Group must have at least one mailbox" }, 400);
+
+    let group: any;
+    try {
+      group = await ctx.runMutation(internal.senderGroups.createInternal, {
+        domainId: apiKey.domainId,
+        name,
+        mailboxIds,
+        emails,
+      });
+    } catch (err) {
+      return jsonResponse({ error: err instanceof Error ? err.message : "Failed" }, 500);
+    }
+
+    return jsonResponse({ id: group._id, name: group.name, mailboxIds: group.mailboxIds, emails: group.emails }, 201);
+  }),
+});
+
+http.route({
+  pathPrefix: "/v1/sender-groups/",
+  method: "PATCH",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const groupId = url.pathname.replace("/v1/sender-groups/", "") as any;
+    if (!groupId) return jsonResponse({ error: "Group ID required in path" }, 400);
+
+    const group = await ctx.runQuery(internal.senderGroups.getByIdInternal, { id: groupId });
+    if (!group || group.domainId !== apiKey.domainId)
+      return jsonResponse({ error: "Sender group not found" }, 404);
+
+    let body: {
+      name?: string;
+      emails?: string[];
+      addEmails?: string[];
+      removeEmails?: string[];
+      mailboxes?: string[] | "all";
+    };
+    try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
+
+    let mailboxIds: any[] | undefined;
+    if (body.mailboxes !== undefined) {
+      const allMailboxes = await ctx.runQuery(internal.mailboxes.listByDomainInternal, { domainId: apiKey.domainId });
+      if (body.mailboxes === "all") {
+        mailboxIds = allMailboxes.map((m: any) => m._id);
+      } else {
+        const domain = await ctx.runQuery(internal.domains.getByIdInternal, { domainId: apiKey.domainId });
+        mailboxIds = (body.mailboxes as string[]).map((addr) => {
+          const full = addr.includes("@") ? addr.toLowerCase() : `${addr.toLowerCase()}@${domain!.domain}`;
+          const found = allMailboxes.find((m: any) => m.fullAddress === full);
+          if (!found) throw new Error(`Mailbox not found: ${addr}`);
+          return found._id;
+        });
+      }
+    }
+
+    let updated: any;
+    try {
+      updated = await ctx.runMutation(internal.senderGroups.updateInternal, {
+        id: groupId,
+        name: body.name,
+        emails: body.emails,
+        addEmails: body.addEmails,
+        removeEmails: body.removeEmails,
+        mailboxIds,
+      });
+    } catch (err) {
+      return jsonResponse({ error: err instanceof Error ? err.message : "Failed" }, 500);
+    }
+
+    return jsonResponse({ id: updated._id, name: updated.name, mailboxIds: updated.mailboxIds, emails: updated.emails }, 200);
+  }),
+});
+
+http.route({
+  pathPrefix: "/v1/sender-groups/",
+  method: "DELETE",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const groupId = url.pathname.replace("/v1/sender-groups/", "") as any;
+
+    const group = await ctx.runQuery(internal.senderGroups.getByIdInternal, { id: groupId });
+    if (!group || group.domainId !== apiKey.domainId)
+      return jsonResponse({ error: "Sender group not found" }, 404);
+
+    await ctx.runMutation(internal.senderGroups.deleteInternal, { id: groupId });
+
+    return jsonResponse({ deleted: true }, 200);
+  }),
+});
+
+// ── Send Email ───────────────────────────────────────────────────────────────
+
+http.route({
+  path: "/v1/send",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    let body: {
+      from?: string;
+      to?: unknown;
+      subject?: string;
+      html?: string;
+      text?: string;
+      type?: string;
+      scheduledAt?: number;
+    };
+    try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON body" }, 400); }
+
+    const { from, to, subject, html, text, type = "transactional", scheduledAt } = body;
+
+    if (!from || !to || !subject || (!html && !text))
+      return jsonResponse({ error: "Required fields: from, to, subject, and html or text" }, 400);
+
+    if (type !== "transactional" && type !== "campaign")
+      return jsonResponse({ error: '"type" must be "transactional" or "campaign"' }, 400);
+
+    const toAddresses: string[] = Array.isArray(to) ? (to as string[]) : [to as string];
+    const htmlBody = html ?? `<pre style="font-family:sans-serif">${text}</pre>`;
+
+    const mailbox = await ctx.runQuery(internal.mailboxes.getByFullAddress, {
+      fullAddress: (from as string).toLowerCase(),
+    });
+
+    if (!mailbox) return jsonResponse({ error: `No mailbox found for: ${from}` }, 404);
+    if (mailbox.domainId !== apiKey.domainId)
+      return jsonResponse({ error: "From address does not belong to this API key's domain" }, 403);
+
+    await ctx.runMutation(internal.apiKeys.markLastUsed, { id: apiKey._id });
+
+    // Scheduled send
+    if (scheduledAt) {
+      if (typeof scheduledAt !== "number" || scheduledAt <= Date.now())
+        return jsonResponse({ error: "scheduledAt must be a future unix ms timestamp" }, 400);
+
+      const batchId = type === "campaign" ? `batch-${Date.now()}` : undefined;
+
+      if (type === "campaign") {
+        const results: string[] = [];
+        for (const recipient of toAddresses) {
+          try {
+            const r = await ctx.runAction(internal.ses.scheduleEmailViaApi, {
+              mailboxId: mailbox._id,
+              to: [recipient],
+              subject: subject as string,
+              html: htmlBody,
+              scheduledAt,
+              batchId,
+            });
+            results.push(r.messageId);
+          } catch (err) {
+            return jsonResponse({ error: err instanceof Error ? err.message : "Failed" }, 500);
+          }
+        }
+        return jsonResponse({ messageIds: results, batchId, status: "scheduled" }, 200);
+      }
+
+      try {
+        const r = await ctx.runAction(internal.ses.scheduleEmailViaApi, {
+          mailboxId: mailbox._id,
+          to: toAddresses,
+          subject: subject as string,
+          html: htmlBody,
+          scheduledAt,
+        });
+        return jsonResponse({ messageId: r.messageId, status: "scheduled" }, 200);
+      } catch (err) {
+        return jsonResponse({ error: err instanceof Error ? err.message : "Failed" }, 500);
+      }
+    }
+
+    // Immediate send
+    if (type === "campaign") {
+      const batchId = `batch-${Date.now()}`;
+      const results: string[] = [];
+      for (const recipient of toAddresses) {
+        try {
+          const r = await ctx.runAction(internal.ses.sendEmailViaApi, {
+            mailboxId: mailbox._id,
+            to: [recipient],
+            subject: subject as string,
+            html: htmlBody,
+            batchId,
+          });
+          results.push(r.messageId);
+        } catch (err) {
+          return jsonResponse({ error: err instanceof Error ? err.message : "Failed to send to " + recipient }, 500);
+        }
+      }
+      return jsonResponse({ messageIds: results, batchId, status: "queued" }, 200);
+    }
+
+    try {
+      const r = await ctx.runAction(internal.ses.sendEmailViaApi, {
+        mailboxId: mailbox._id,
+        to: toAddresses,
+        subject: subject as string,
+        html: htmlBody,
+      });
+      return jsonResponse({ messageId: r.messageId, status: "queued" }, 200);
+    } catch (err) {
+      return jsonResponse({ error: err instanceof Error ? err.message : "Failed to send email" }, 500);
+    }
+  }),
+});
+
 export default http;

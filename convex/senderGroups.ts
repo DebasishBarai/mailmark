@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 
 // List sender groups visible to a specific mailbox
 export const list = query({
@@ -165,6 +165,88 @@ export const remove = mutation({
     const domain = await ctx.db.get(group.domainId);
     if (!domain || domain.userId !== user._id) throw new Error("Not authorized");
 
+    await ctx.db.delete(id);
+  },
+});
+
+// ── API-key-authenticated internal helpers (no Clerk auth) ──────────────────
+
+export const listByDomainInternal = internalQuery({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }) => {
+    return await ctx.db
+      .query("senderGroups")
+      .withIndex("by_domain_id", (q) => q.eq("domainId", domainId))
+      .collect();
+  },
+});
+
+export const getByIdInternal = internalQuery({
+  args: { id: v.id("senderGroups") },
+  handler: async (ctx, { id }) => {
+    return await ctx.db.get(id);
+  },
+});
+
+export const createInternal = internalMutation({
+  args: {
+    domainId: v.id("domains"),
+    name: v.string(),
+    mailboxIds: v.array(v.id("mailboxes")),
+    emails: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const id = await ctx.db.insert("senderGroups", {
+      domainId: args.domainId,
+      name: args.name,
+      mailboxIds: args.mailboxIds,
+      emails: args.emails,
+    });
+    return await ctx.db.get(id);
+  },
+});
+
+export const updateInternal = internalMutation({
+  args: {
+    id: v.id("senderGroups"),
+    name: v.optional(v.string()),
+    emails: v.optional(v.array(v.string())),
+    addEmails: v.optional(v.array(v.string())),
+    removeEmails: v.optional(v.array(v.string())),
+    mailboxIds: v.optional(v.array(v.id("mailboxes"))),
+  },
+  handler: async (ctx, { id, name, emails, addEmails, removeEmails, mailboxIds }) => {
+    const group = await ctx.db.get(id);
+    if (!group) throw new Error("Sender group not found");
+
+    const patch: Partial<{ name: string; emails: string[]; mailboxIds: typeof group.mailboxIds }> = {};
+
+    if (name !== undefined) patch.name = name;
+
+    if (emails !== undefined) {
+      patch.emails = emails;
+    } else {
+      let current = group.emails;
+      if (addEmails?.length) current = [...new Set([...current, ...addEmails])];
+      if (removeEmails?.length) current = current.filter((e) => !removeEmails.includes(e));
+      if (addEmails?.length || removeEmails?.length) patch.emails = current;
+    }
+
+    if (mailboxIds !== undefined) {
+      if (mailboxIds.length === 0) throw new Error("Group must have at least one mailbox");
+      patch.mailboxIds = mailboxIds;
+    }
+
+    await ctx.db.patch(id, patch);
+    return await ctx.db.get(id);
+  },
+});
+
+export const deleteInternal = internalMutation({
+  args: { id: v.id("senderGroups") },
+  handler: async (ctx, { id }) => {
+    const group = await ctx.db.get(id);
+    if (!group) throw new Error("Sender group not found");
     await ctx.db.delete(id);
   },
 });
