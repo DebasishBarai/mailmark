@@ -1,7 +1,19 @@
 import type { NextConfig } from "next";
 
+const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL!;
+
 const nextConfig: NextConfig = {
-  /* config options here */
+  async rewrites() {
+    return [
+      // Proxy all requests to api.remindme.me → Convex HTTP backend.
+      // The real Convex URL is kept server-side and never exposed to clients.
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "api.remindme.me" }],
+        destination: `${CONVEX_SITE_URL}/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

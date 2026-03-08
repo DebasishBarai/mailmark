@@ -4,8 +4,8 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Troubleshooting - Mailmark Docs",
-  description: "Fix common Mailmark issues — emails not sending, domain verification failures, bounces, and rejections.",
+  title: "Troubleshooting - RemindMe Docs",
+  description: "Fix common RemindMe issues — emails not sending, domain verification failures, bounces, and rejections.",
 };
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -121,7 +121,7 @@ export default function TroubleshootingPage() {
                 After adding a TXT record, use a DNS lookup tool (e.g. <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">dig TXT yourdomain.com</code> or MXToolbox) to confirm the record is visible. If it isn&apos;t, double-check you saved the record at your DNS provider.
               </CheckItem>
               <CheckItem title="Record added to the wrong subdomain">
-                The verification TXT record should be added to the root domain (<code className="rounded bg-gray-100 px-1 dark:bg-gray-800">@</code>), not to a subdomain unless Mailmark specifically instructs otherwise.
+                The verification TXT record should be added to the root domain (<code className="rounded bg-gray-100 px-1 dark:bg-gray-800">@</code>), not to a subdomain unless RemindMe specifically instructs otherwise.
               </CheckItem>
               <CheckItem title="Multiple conflicting SPF records">
                 A domain can only have one SPF TXT record. If you have two records starting with <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">v=spf1</code>, merge them into one. For example:
@@ -132,7 +132,7 @@ export default function TroubleshootingPage() {
                 DNS records are cached by your TTL (time-to-live) value. If you recently added or changed a record, wait for the TTL to expire before re-verifying. A common TTL is 3600 seconds (1 hour).
               </CheckItem>
               <CheckItem title="Domain registrar propagation">
-                Some registrars take longer to propagate changes. If dig shows the record but Mailmark still shows unverified, click <strong>Verify now</strong> again — Mailmark re-checks on demand.
+                Some registrars take longer to propagate changes. If dig shows the record but RemindMe still shows unverified, click <strong>Verify now</strong> again — RemindMe re-checks on demand.
               </CheckItem>
             </div>
           </Section>

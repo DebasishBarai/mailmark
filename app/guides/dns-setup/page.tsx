@@ -4,9 +4,9 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
-  title: "DNS Setup Guide - Mailmark",
+  title: "DNS Setup Guide - RemindMe",
   description:
-    "Step-by-step guide to setting up MX, SPF, DKIM, and DMARC DNS records for your domain in Mailmark.",
+    "Step-by-step guide to setting up MX, SPF, DKIM, and DMARC DNS records for your domain in RemindMe.",
 };
 
 export default function DnsSetupGuidePage() {
@@ -27,7 +27,7 @@ export default function DnsSetupGuidePage() {
           </h1>
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
             Configure your domain&apos;s DNS records to send and receive email
-            with Mailmark. This takes about 10 minutes, plus DNS propagation time
+            with RemindMe. This takes about 10 minutes, plus DNS propagation time
             (up to 48 hours).
           </p>
           <div className="mt-6 flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400">
@@ -56,7 +56,7 @@ export default function DnsSetupGuidePage() {
             <ul className="mt-3 space-y-1.5 text-sm text-amber-800 dark:text-amber-300">
               <li>• You must own the domain you want to configure.</li>
               <li>• You need access to your domain registrar&apos;s DNS settings (e.g., Namecheap, Cloudflare, GoDaddy).</li>
-              <li>• Mailmark will show you the exact values to copy — you don&apos;t need to calculate anything.</li>
+              <li>• RemindMe will show you the exact values to copy — you don&apos;t need to calculate anything.</li>
             </ul>
           </div>
 
@@ -64,10 +64,10 @@ export default function DnsSetupGuidePage() {
           <div className="mb-10">
             <h2 className="flex items-center gap-3 text-2xl font-bold text-gray-900 dark:text-white">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">1</span>
-              Add your domain in Mailmark
+              Add your domain in RemindMe
             </h2>
             <p className="mt-4 text-gray-600 dark:text-gray-300">
-              Go to <strong>Dashboard → Domains → Add domain</strong> and enter your domain name (e.g., <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm text-violet-700 dark:bg-gray-800 dark:text-violet-400">yourcompany.com</code>). Mailmark will generate the DNS records you need to add.
+              Go to <strong>Dashboard → Domains → Add domain</strong> and enter your domain name (e.g., <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm text-violet-700 dark:bg-gray-800 dark:text-violet-400">yourcompany.com</code>). RemindMe will generate the DNS records you need to add.
             </p>
           </div>
 
@@ -95,14 +95,14 @@ export default function DnsSetupGuidePage() {
                   <tr className="border-b border-gray-100 dark:border-gray-700">
                     <td className="px-4 py-3 font-mono text-violet-700 dark:text-violet-400">MX</td>
                     <td className="px-4 py-3 font-mono dark:text-gray-300">@</td>
-                    <td className="px-4 py-3 font-mono text-xs dark:text-gray-300">inbound.mailmark.app</td>
+                    <td className="px-4 py-3 font-mono text-xs dark:text-gray-300">inbound.remindme.me</td>
                     <td className="px-4 py-3 dark:text-gray-300">10</td>
                     <td className="px-4 py-3 dark:text-gray-300">3600</td>
                   </tr>
                   <tr>
                     <td className="px-4 py-3 font-mono text-violet-700 dark:text-violet-400">MX</td>
                     <td className="px-4 py-3 font-mono dark:text-gray-300">@</td>
-                    <td className="px-4 py-3 font-mono text-xs dark:text-gray-300">inbound-alt.mailmark.app</td>
+                    <td className="px-4 py-3 font-mono text-xs dark:text-gray-300">inbound-alt.remindme.me</td>
                     <td className="px-4 py-3 dark:text-gray-300">20</td>
                     <td className="px-4 py-3 dark:text-gray-300">3600</td>
                   </tr>
@@ -134,14 +134,14 @@ export default function DnsSetupGuidePage() {
                   <tr>
                     <td className="px-4 py-3 font-mono text-violet-700 dark:text-violet-400">TXT</td>
                     <td className="px-4 py-3 font-mono dark:text-gray-300">@</td>
-                    <td className="px-4 py-3 font-mono text-xs dark:text-gray-300">v=spf1 include:spf.mailmark.app ~all</td>
+                    <td className="px-4 py-3 font-mono text-xs dark:text-gray-300">v=spf1 include:spf.remindme.me ~all</td>
                     <td className="px-4 py-3 dark:text-gray-300">3600</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-              <strong>Note:</strong> If you already have an SPF record, add <code className="rounded bg-gray-100 px-1 text-violet-700 dark:bg-gray-800 dark:text-violet-400">include:spf.mailmark.app</code> to it rather than creating a second TXT record. Domains can only have one SPF record.
+              <strong>Note:</strong> If you already have an SPF record, add <code className="rounded bg-gray-100 px-1 text-violet-700 dark:bg-gray-800 dark:text-violet-400">include:spf.remindme.me</code> to it rather than creating a second TXT record. Domains can only have one SPF record.
             </p>
           </div>
 
@@ -152,7 +152,7 @@ export default function DnsSetupGuidePage() {
               Add DKIM record (email signing)
             </h2>
             <p className="mt-4 text-gray-600 dark:text-gray-300">
-              DKIM (DomainKeys Identified Mail) adds a cryptographic signature to your outgoing emails. Mailmark generates a unique DKIM key for your domain — find it in <strong>Dashboard → Domains → [your domain] → DNS records</strong>.
+              DKIM (DomainKeys Identified Mail) adds a cryptographic signature to your outgoing emails. RemindMe generates a unique DKIM key for your domain — find it in <strong>Dashboard → Domains → [your domain] → DNS records</strong>.
             </p>
             <div className="mt-4 overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
               <table className="w-full text-sm">
@@ -167,7 +167,7 @@ export default function DnsSetupGuidePage() {
                 <tbody>
                   <tr>
                     <td className="px-4 py-3 font-mono text-violet-700 dark:text-violet-400">TXT</td>
-                    <td className="px-4 py-3 font-mono text-xs dark:text-gray-300">mailmark._domainkey</td>
+                    <td className="px-4 py-3 font-mono text-xs dark:text-gray-300">remindme._domainkey</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500 dark:text-gray-400">v=DKIM1; k=rsa; p=&lt;your key from dashboard&gt;</td>
                     <td className="px-4 py-3 dark:text-gray-300">3600</td>
                   </tr>
@@ -214,7 +214,7 @@ export default function DnsSetupGuidePage() {
               Verify your domain
             </h2>
             <p className="mt-4 text-gray-600 dark:text-gray-300">
-              Go back to <strong>Dashboard → Domains</strong> and click <strong>Verify domain</strong>. Mailmark will check for all the records above. DNS changes typically propagate within minutes but can take up to 48 hours.
+              Go back to <strong>Dashboard → Domains</strong> and click <strong>Verify domain</strong>. RemindMe will check for all the records above. DNS changes typically propagate within minutes but can take up to 48 hours.
             </p>
             <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-5 dark:border-emerald-800 dark:bg-emerald-900/20">
               <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">

@@ -2,7 +2,7 @@ const showcaseItems = [
   {
     title: "Add Your Domain in Minutes",
     description:
-      "Connect any domain you already own. Mailmark walks you through the DNS setup step by step — MX records, SPF, DKIM, and DMARC. Your emails land in inboxes, not spam folders.",
+      "Connect any domain you already own. RemindMe walks you through the DNS setup step by step — MX records, SPF, DKIM, and DMARC. Your emails land in inboxes, not spam folders.",
     bullets: [
       "Guided DNS configuration wizard",
       "Auto-verify MX, SPF, DKIM & DMARC",
@@ -175,7 +175,7 @@ export default function FeatureShowcase() {
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
-            How Mailmark works
+            How RemindMe works
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
             From domain setup to email campaigns — four simple steps.

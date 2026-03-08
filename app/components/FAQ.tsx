@@ -4,22 +4,22 @@ import { useState } from "react";
 
 const faqs = [
   {
-    question: "What is Mailmark?",
+    question: "What is RemindMe?",
     answer:
-      "Mailmark is an all-in-one email hosting and campaign platform for custom domains. You connect your own domain, create as many mailboxes as you need, and manage everything — from day-to-day email to mass outreach campaigns — in a single dashboard.",
+      "RemindMe is an all-in-one email hosting and campaign platform for custom domains. You connect your own domain, create as many mailboxes as you need, and manage everything — from day-to-day email to mass outreach campaigns — in a single dashboard.",
   },
   {
     question: "Can I use my own custom domain?",
     answer:
-      "Yes. Mailmark is built around custom domains. You add your domain, configure the required DNS records (we provide step-by-step instructions), and your mailboxes go live in minutes. You can add multiple domains on paid plans.",
+      "Yes. RemindMe is built around custom domains. You add your domain, configure the required DNS records (we provide step-by-step instructions), and your mailboxes go live in minutes. You can add multiple domains on paid plans.",
   },
   {
     question: "How many mailboxes can I create?",
     answer:
-      "The Starter (free) plan supports up to 3 mailboxes on a single domain. The Pro plan gives you unlimited mailboxes across 5 domains, and the Business plan lifts all limits so your whole organization can be on Mailmark.",
+      "The Starter (free) plan supports up to 3 mailboxes on a single domain. The Pro plan gives you unlimited mailboxes across 5 domains, and the Business plan lifts all limits so your whole organization can be on RemindMe.",
   },
   {
-    question: "Does Mailmark support email campaigns?",
+    question: "Does RemindMe support email campaigns?",
     answer:
       "Yes. Pro and Business plans include a full campaign suite — compose rich HTML emails, import or build your recipient list, schedule sends, and track opens, clicks, and deliverability in the built-in analytics dashboard. Auto follow-up sequences are also supported.",
   },
@@ -39,9 +39,9 @@ const faqs = [
       "Absolutely. There are no long-term contracts or cancellation fees. You can cancel from your account settings at any time and your paid plan remains active until the end of the current billing period.",
   },
   {
-    question: "What email clients or apps can I use with Mailmark?",
+    question: "What email clients or apps can I use with RemindMe?",
     answer:
-      "You can use the built-in Mailmark web UI — which works in any modern browser. We also support IMAP and SMTP access, so you can connect your Mailmark mailboxes to any standard email client such as Apple Mail, Thunderbird, or Outlook.",
+      "You can use the built-in RemindMe web UI — which works in any modern browser. We also support IMAP and SMTP access, so you can connect your RemindMe mailboxes to any standard email client such as Apple Mail, Thunderbird, or Outlook.",
   },
 ];
 
@@ -77,7 +77,7 @@ export default function FAQ() {
             Frequently asked questions
           </h2>
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
-            Everything you need to know about Mailmark.
+            Everything you need to know about RemindMe.
           </p>
         </div>
 

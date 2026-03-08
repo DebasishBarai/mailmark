@@ -4,7 +4,7 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Email Deliverability Guide - Mailmark",
+  title: "Email Deliverability Guide - RemindMe",
   description:
     "A comprehensive guide to improving your email deliverability — authentication, sender reputation, list hygiene, and content best practices.",
 };
@@ -171,7 +171,7 @@ export default function EmailDeliverabilityPage() {
               Great deliverability comes down to three things: <strong>proving you are
               who you say you are</strong> (authentication), <strong>earning trust over time</strong>{" "}
               (sender reputation), and <strong>respecting your recipients</strong> (list hygiene
-              and content quality). Mailmark handles the technical infrastructure — the
+              and content quality). RemindMe handles the technical infrastructure — the
               rest is up to you.
             </p>
           </div>

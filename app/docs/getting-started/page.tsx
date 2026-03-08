@@ -4,8 +4,8 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Getting Started - Mailmark Docs",
-  description: "Set up Mailmark in minutes — create your account, verify a domain, and send your first email.",
+  title: "Getting Started - RemindMe Docs",
+  description: "Set up RemindMe in minutes — create your account, verify a domain, and send your first email.",
 };
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -83,14 +83,14 @@ export default function GettingStartedPage() {
             Getting Started
           </h1>
           <p className="mt-3 text-lg text-gray-600 dark:text-gray-300">
-            Go from zero to sending emails with Mailmark in under 10 minutes.
+            Go from zero to sending emails with RemindMe in under 10 minutes.
           </p>
 
           <Section id="quick-start" title="Quick-start guide">
             <p>Follow these four steps to get up and running:</p>
             <div className="mt-6 space-y-6">
-              <Step n={1} title="Create a Mailmark account">
-                Sign up at <Link href="/sign-up" className="text-violet-600 hover:underline">mailmark.io/sign-up</Link>. No credit card required to start.
+              <Step n={1} title="Create a RemindMe account">
+                Sign up at <Link href="/sign-up" className="text-violet-600 hover:underline">remindme.me/sign-up</Link>. No credit card required to start.
               </Step>
               <Step n={2} title="Add and verify your domain">
                 Go to <strong>Dashboard → Domains</strong> and click <strong>Add domain</strong>. Enter your domain name and follow the DNS instructions to verify ownership.
@@ -99,14 +99,14 @@ export default function GettingStartedPage() {
                 Once your domain is verified, create a mailbox under <strong>Dashboard → Mailboxes</strong>. For example, <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">hello@yourdomain.com</code>.
               </Step>
               <Step n={4} title="Send your first email">
-                Use the dashboard composer, the REST API, or the <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">mailmark</code> npm package to send.
+                Use the dashboard composer, the REST API, or the <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">remindme</code> npm package to send.
               </Step>
             </div>
           </Section>
 
           <Section id="creating-account" title="Creating your account">
             <p>
-              Visit <Link href="/sign-up" className="text-violet-600 hover:underline">mailmark.io/sign-up</Link> and sign up with your email or Google account via Clerk.
+              Visit <Link href="/sign-up" className="text-violet-600 hover:underline">remindme.me/sign-up</Link> and sign up with your email or Google account via Clerk.
               After signing in you will land on the dashboard. Your account starts on the free plan with support for one domain and up to 200 emails per day.
             </p>
             <p>
@@ -116,12 +116,12 @@ export default function GettingStartedPage() {
 
           <Section id="adding-domain" title="Adding your first domain">
             <p>
-              You must own and control the domain you want to send from. Mailmark does not provide domain registration.
+              You must own and control the domain you want to send from. RemindMe does not provide domain registration.
             </p>
             <div className="mt-4 space-y-3">
               <p><strong>1.</strong> Go to <strong>Dashboard → Domains</strong> and click <strong>Add domain</strong>.</p>
               <p><strong>2.</strong> Enter your domain (e.g. <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">acme.com</code>) and click <strong>Continue</strong>.</p>
-              <p><strong>3.</strong> Mailmark will show you DNS records to add to your domain registrar. These include TXT records for SPF and DKIM. Add them all.</p>
+              <p><strong>3.</strong> RemindMe will show you DNS records to add to your domain registrar. These include TXT records for SPF and DKIM. Add them all.</p>
               <p><strong>4.</strong> Click <strong>Verify</strong>. DNS propagation can take up to 48 hours but usually completes within minutes.</p>
             </div>
             <p>
@@ -134,18 +134,18 @@ export default function GettingStartedPage() {
             <p>Once your domain is verified and a mailbox exists, you can send immediately.</p>
 
             <p className="mt-4 font-medium text-gray-900 dark:text-white">Using the npm SDK</p>
-            <Code>{`npm install mailmark
+            <Code>{`npm install remindme
 # or
-bun add mailmark`}</Code>
+bun add remindme`}</Code>
 
-            <Code>{`import { Mailmark } from 'mailmark';
+            <Code>{`import { RemindMe } from 'remindme';
 
-const client = new Mailmark('dm_live_your_api_key');
+const client = new RemindMe('dm_live_your_api_key');
 
 await client.send({
   from: 'hello@yourdomain.com',
   to: 'recipient@example.com',
-  subject: 'Hello from Mailmark!',
+  subject: 'Hello from RemindMe!',
   html: '<h1>It works!</h1>',
 });`}</Code>
 
@@ -156,7 +156,7 @@ await client.send({
   -d '{
     "from": "hello@yourdomain.com",
     "to": ["recipient@example.com"],
-    "subject": "Hello from Mailmark!",
+    "subject": "Hello from RemindMe!",
     "html": "<h1>It works!</h1>"
   }'`}</Code>
 

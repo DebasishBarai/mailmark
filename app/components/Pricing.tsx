@@ -147,7 +147,7 @@ export default function Pricing() {
                   </CTAButton>
                 ) : plan.name === "Business" ? (
                   <a
-                    href="mailto:sales@mailmark.app"
+                    href="mailto:sales@remindme.me"
                     className="inline-flex w-full items-center justify-center rounded-full border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
                   >
                     {plan.cta}

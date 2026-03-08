@@ -4,8 +4,8 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Domain Setup - Mailmark Docs",
-  description: "Verify your domain and configure DNS records including MX, SPF, DKIM, and DMARC for Mailmark.",
+  title: "Domain Setup - RemindMe Docs",
+  description: "Verify your domain and configure DNS records including MX, SPF, DKIM, and DMARC for RemindMe.",
 };
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -84,14 +84,14 @@ export default function DomainSetupPage() {
 
           <Section id="verifying-domain" title="Verifying your domain">
             <p>
-              Domain verification proves to Mailmark (and to the internet) that you control the domain you want to send from.
+              Domain verification proves to RemindMe (and to the internet) that you control the domain you want to send from.
               Until your domain is verified you cannot create mailboxes or send email from it.
             </p>
             <div className="mt-4 space-y-3">
               <p><strong>1.</strong> In the dashboard go to <strong>Domains → Add domain</strong>.</p>
               <p><strong>2.</strong> Enter your root domain, e.g. <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">acme.com</code>.</p>
-              <p><strong>3.</strong> Mailmark generates a unique TXT record. Add it to your DNS provider.</p>
-              <p><strong>4.</strong> Click <strong>Verify now</strong>. Mailmark polls for the record automatically every few minutes.</p>
+              <p><strong>3.</strong> RemindMe generates a unique TXT record. Add it to your DNS provider.</p>
+              <p><strong>4.</strong> Click <strong>Verify now</strong>. RemindMe polls for the record automatically every few minutes.</p>
             </div>
             <InfoBox>
               DNS changes can take anywhere from a few seconds to 48 hours to propagate worldwide. Most providers update within 5–15 minutes.
@@ -104,7 +104,7 @@ export default function DomainSetupPage() {
           <Section id="mx-records" title="Configuring MX records">
             <p>
               MX (Mail Exchanger) records tell other mail servers where to deliver inbound email for your domain.
-              Add these records at your DNS provider to receive email in Mailmark.
+              Add these records at your DNS provider to receive email in RemindMe.
             </p>
             <div className="mt-4 overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-800">
               <table className="w-full text-left">
@@ -127,7 +127,7 @@ export default function DomainSetupPage() {
               </table>
             </div>
             <InfoBox>
-              If you already have MX records pointing to another mail provider (e.g. Google Workspace), replacing them will redirect all incoming email to Mailmark. Only make this change if you intend Mailmark to be your primary mail host.
+              If you already have MX records pointing to another mail provider (e.g. Google Workspace), replacing them will redirect all incoming email to RemindMe. Only make this change if you intend RemindMe to be your primary mail host.
             </InfoBox>
           </Section>
 
@@ -162,7 +162,7 @@ export default function DomainSetupPage() {
 
             <p className="mt-6 font-semibold text-gray-900 dark:text-white">DKIM (DomainKeys Identified Mail)</p>
             <p>
-              DKIM adds a cryptographic signature to outgoing emails. Mailmark generates a DKIM key pair for each domain.
+              DKIM adds a cryptographic signature to outgoing emails. RemindMe generates a DKIM key pair for each domain.
               The public key is shown in the dashboard — add it as a CNAME or TXT record:
             </p>
             <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-800">
@@ -175,7 +175,7 @@ export default function DomainSetupPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  <DnsRow type="CNAME" name="mailmark._domainkey" value="mailmark._domainkey.amazonses.com" />
+                  <DnsRow type="CNAME" name="remindme._domainkey" value="remindme._domainkey.amazonses.com" />
                 </tbody>
               </table>
             </div>

@@ -65,7 +65,7 @@ const ENDPOINTS: Endpoint[] = [
     curlTemplate: (key) =>
       `curl -X GET ${BASE_URL}/v1/mailboxes \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}"`,
     npmTemplate: (key) =>
-      `import { Mailmark } from 'mailmark';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst mailboxes = await client.listMailboxes();\nconsole.log(mailboxes);`,
+      `import { RemindMe } from 'remindme';\n\nconst client = new RemindMe('${key || "dm_live_..."}');\n\nconst mailboxes = await client.listMailboxes();\nconsole.log(mailboxes);`,
     buildRequest: () => ({ path: "/v1/mailboxes" }),
   },
   {
@@ -98,7 +98,7 @@ const ENDPOINTS: Endpoint[] = [
     curlTemplate: (key, v) =>
       `curl -X POST ${BASE_URL}/v1/mailboxes \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"address":"${v.address || "hello"}","displayName":"${v.displayName || "Hello Team"}"}'`,
     npmTemplate: (key, v) =>
-      `import { Mailmark } from 'mailmark';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst mailbox = await client.createMailbox({\n  address: '${v.address || "hello"}',\n  displayName: '${v.displayName || "Hello Team"}',\n});\nconsole.log(mailbox);`,
+      `import { RemindMe } from 'remindme';\n\nconst client = new RemindMe('${key || "dm_live_..."}');\n\nconst mailbox = await client.createMailbox({\n  address: '${v.address || "hello"}',\n  displayName: '${v.displayName || "Hello Team"}',\n});\nconsole.log(mailbox);`,
     buildRequest: (v) => ({
       path: "/v1/mailboxes",
       body: { address: v.address, displayName: v.displayName || undefined },
@@ -127,7 +127,7 @@ const ENDPOINTS: Endpoint[] = [
     curlTemplate: (key, v) =>
       `curl -X DELETE ${BASE_URL}/v1/mailboxes/${v.address || "hello"} \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}"`,
     npmTemplate: (key, v) =>
-      `import { Mailmark } from 'mailmark';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nawait client.deleteMailbox('${v.address || "hello"}');`,
+      `import { RemindMe } from 'remindme';\n\nconst client = new RemindMe('${key || "dm_live_..."}');\n\nawait client.deleteMailbox('${v.address || "hello"}');`,
     buildRequest: (v) => ({ path: `/v1/mailboxes/${encodeURIComponent(v.address || "")}` }),
   },
 
@@ -143,7 +143,7 @@ const ENDPOINTS: Endpoint[] = [
     curlTemplate: (key) =>
       `curl -X GET ${BASE_URL}/v1/sender-groups \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}"`,
     npmTemplate: (key) =>
-      `import { Mailmark } from 'mailmark';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst groups = await client.listSenderGroups();\nconsole.log(groups);`,
+      `import { RemindMe } from 'remindme';\n\nconst client = new RemindMe('${key || "dm_live_..."}');\n\nconst groups = await client.listSenderGroups();\nconsole.log(groups);`,
     buildRequest: () => ({ path: "/v1/sender-groups" }),
   },
   {
@@ -188,7 +188,7 @@ const ENDPOINTS: Endpoint[] = [
     npmTemplate: (key, v) => {
       const mailboxes = v.mailboxes?.trim() === "all" || !v.mailboxes ? '"all"' : JSON.stringify(v.mailboxes.split(",").map((s: string) => s.trim()));
       const emails = JSON.stringify(csvToArray(v.emails || ""));
-      return `import { Mailmark } from 'mailmark';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst group = await client.createSenderGroup({\n  name: '${v.name || "My Group"}',\n  mailboxes: ${mailboxes},\n  emails: ${emails},\n});\nconsole.log(group);`;
+      return `import { RemindMe } from 'remindme';\n\nconst client = new RemindMe('${key || "dm_live_..."}');\n\nconst group = await client.createSenderGroup({\n  name: '${v.name || "My Group"}',\n  mailboxes: ${mailboxes},\n  emails: ${emails},\n});\nconsole.log(group);`;
     },
     buildRequest: (v) => {
       const mailboxes = v.mailboxes?.trim() === "all" || !v.mailboxes ? "all" : v.mailboxes.split(",").map((s: string) => s.trim());
@@ -271,7 +271,7 @@ const ENDPOINTS: Endpoint[] = [
       if (v.name) opts.push(`  name: '${v.name}'`);
       if (v.addEmails) opts.push(`  addEmails: ${JSON.stringify(csvToArray(v.addEmails))}`);
       if (v.removeEmails) opts.push(`  removeEmails: ${JSON.stringify(csvToArray(v.removeEmails))}`);
-      return `import { Mailmark } from 'mailmark';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst group = await client.updateSenderGroup('${v.id || "GROUP_ID"}', {\n${opts.join(",\n")}\n});\nconsole.log(group);`;
+      return `import { RemindMe } from 'remindme';\n\nconst client = new RemindMe('${key || "dm_live_..."}');\n\nconst group = await client.updateSenderGroup('${v.id || "GROUP_ID"}', {\n${opts.join(",\n")}\n});\nconsole.log(group);`;
     },
     buildRequest: (v) => {
       const body: Record<string, unknown> = {};
@@ -304,7 +304,7 @@ const ENDPOINTS: Endpoint[] = [
     curlTemplate: (key, v) =>
       `curl -X DELETE ${BASE_URL}/v1/sender-groups/${v.id || "GROUP_ID"} \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}"`,
     npmTemplate: (key, v) =>
-      `import { Mailmark } from 'mailmark';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nawait client.deleteSenderGroup('${v.id || "GROUP_ID"}');`,
+      `import { RemindMe } from 'remindme';\n\nconst client = new RemindMe('${key || "dm_live_..."}');\n\nawait client.deleteSenderGroup('${v.id || "GROUP_ID"}');`,
     buildRequest: (v) => ({ path: `/v1/sender-groups/${encodeURIComponent(v.id || "")}` }),
   },
 
@@ -339,7 +339,7 @@ const ENDPOINTS: Endpoint[] = [
         type: "text",
         required: true,
         description: "Email subject line.",
-        placeholder: "Hello from Mailmark!",
+        placeholder: "Hello from RemindMe!",
       },
       {
         name: "html",
@@ -347,7 +347,7 @@ const ENDPOINTS: Endpoint[] = [
         type: "textarea",
         required: false,
         description: "HTML content of the email. Either html or text is required.",
-        placeholder: "<h1>Hello!</h1><p>This was sent via the Mailmark API.</p>",
+        placeholder: "<h1>Hello!</h1><p>This was sent via the RemindMe API.</p>",
       },
       {
         name: "text",
@@ -355,7 +355,7 @@ const ENDPOINTS: Endpoint[] = [
         type: "textarea",
         required: false,
         description: "Plain text fallback. Used if html is not provided.",
-        placeholder: "Hello! This was sent via the Mailmark API.",
+        placeholder: "Hello! This was sent via the RemindMe API.",
       },
       {
         name: "type",
@@ -401,7 +401,7 @@ const ENDPOINTS: Endpoint[] = [
       if (v.html) opts.push(`  html: \`${v.html}\`,`);
       if (v.type) opts.push(`  type: '${v.type}',`);
       if (v.scheduledAt) opts.push(`  scheduledAt: ${new Date(v.scheduledAt).getTime()},`);
-      return `import { Mailmark } from 'mailmark';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst result = await client.send({\n${opts.join("\n")}\n});\nconsole.log(result);`;
+      return `import { RemindMe } from 'remindme';\n\nconst client = new RemindMe('${key || "dm_live_..."}');\n\nconst result = await client.send({\n${opts.join("\n")}\n});\nconsole.log(result);`;
     },
     buildRequest: (v) => {
       const body: Record<string, unknown> = {
@@ -599,7 +599,7 @@ function EndpointPlayground({ endpoint, apiKey }: { endpoint: Endpoint; apiKey: 
                   : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               }`}
             >
-              {tab === "curl" ? "cURL" : "npm (mailmark)"}
+              {tab === "curl" ? "cURL" : "npm (remindme)"}
             </button>
           ))}
         </div>
@@ -870,7 +870,7 @@ export default function ApiDocsPage() {
             <section id="overview" className="scroll-mt-24 border-b border-gray-100 pb-12 dark:border-gray-800">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">Overview</h2>
               <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                The Mailmark API is a simple HTTP REST API. All endpoints are hosted at:
+                The RemindMe API is a simple HTTP REST API. All endpoints are hosted at:
               </p>
               <CodeBlock code={BASE_URL} />
 
@@ -879,7 +879,7 @@ export default function ApiDocsPage() {
                   { label: "Format", value: "JSON request and response bodies." },
                   { label: "Auth", value: "Bearer token via the Authorization header." },
                   { label: "Errors", value: "Standard HTTP status codes with an error field in the body." },
-                  { label: "SDK", value: "Use the mailmark npm package for a typed client." },
+                  { label: "SDK", value: "Use the remindme npm package for a typed client." },
                 ].map((item) => (
                   <div key={item.label} className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800/50">
                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">{item.label}</p>
@@ -936,10 +936,10 @@ export default function ApiDocsPage() {
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                 Install the official typed SDK to avoid writing raw fetch calls:
               </p>
-              <CodeBlock code="npm install mailmark\n# or\nbun add mailmark" />
+              <CodeBlock code="npm install remindme\n# or\nbun add remindme" />
               <CodeBlock
                 lang="ts"
-                code={`import { Mailmark } from 'mailmark';\n\nconst client = new Mailmark('dm_live_your_key');\n\n// List mailboxes\nconst mailboxes = await client.listMailboxes();\n\n// Send an email\nconst result = await client.send({\n  from: 'hello@yourdomain.com',\n  to: ['user@example.com'],\n  subject: 'Hello!',\n  html: '<p>Sent via Mailmark.</p>',\n});\n\n// Campaign send\nconst campaign = await client.send({\n  from: 'hello@yourdomain.com',\n  to: ['a@example.com', 'b@example.com'],\n  subject: 'Big announcement',\n  html: '<h1>Hello!</h1>',\n  type: 'campaign',\n});\n\n// Scheduled send\nconst scheduled = await client.send({\n  from: 'hello@yourdomain.com',\n  to: ['user@example.com'],\n  subject: 'Reminder',\n  html: '<p>This is scheduled.</p>',\n  scheduledAt: Date.now() + 60 * 60 * 1000, // 1 hour from now\n});`}
+                code={`import { RemindMe } from 'remindme';\n\nconst client = new RemindMe('dm_live_your_key');\n\n// List mailboxes\nconst mailboxes = await client.listMailboxes();\n\n// Send an email\nconst result = await client.send({\n  from: 'hello@yourdomain.com',\n  to: ['user@example.com'],\n  subject: 'Hello!',\n  html: '<p>Sent via RemindMe.</p>',\n});\n\n// Campaign send\nconst campaign = await client.send({\n  from: 'hello@yourdomain.com',\n  to: ['a@example.com', 'b@example.com'],\n  subject: 'Big announcement',\n  html: '<h1>Hello!</h1>',\n  type: 'campaign',\n});\n\n// Scheduled send\nconst scheduled = await client.send({\n  from: 'hello@yourdomain.com',\n  to: ['user@example.com'],\n  subject: 'Reminder',\n  html: '<p>This is scheduled.</p>',\n  scheduledAt: Date.now() + 60 * 60 * 1000, // 1 hour from now\n});`}
               />
             </section>
           </main>

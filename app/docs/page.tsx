@@ -4,9 +4,9 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Documentation - Mailmark",
+  title: "Documentation - RemindMe",
   description:
-    "Everything you need to set up and use Mailmark — from adding your first domain to running advanced email campaigns.",
+    "Everything you need to set up and use RemindMe — from adding your first domain to running advanced email campaigns.",
 };
 
 const sections = [
@@ -140,7 +140,7 @@ export default function DocsPage() {
           </h1>
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
             Everything you need to set up domains, create mailboxes, and run
-            email campaigns with Mailmark.
+            email campaigns with RemindMe.
           </p>
           {/* Static search bar */}
           <div className="relative mx-auto mt-8 max-w-xl">
