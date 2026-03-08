@@ -150,7 +150,7 @@ await client.send({
 });`}</Code>
 
             <p className="mt-4 font-medium text-gray-900 dark:text-white">Using cURL</p>
-            <Code>{`curl -X POST https://harmless-armadillo-386.convex.site/v1/send \\
+            <Code>{`curl -X POST https://api.remindme.me/v1/send \\
   -H "Authorization: Bearer dm_live_your_api_key" \\
   -H "Content-Type: application/json" \\
   -d '{

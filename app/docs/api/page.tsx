@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
-const BASE_URL = "https://harmless-armadillo-386.convex.site";
+const BASE_URL = "https://api.remindme.me";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
