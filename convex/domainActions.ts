@@ -239,7 +239,7 @@ export const verifyDns = action({
 
     const status = {
       domainId,
-      verified: sesVerified && dkimVerified,
+      verified: dkimVerified,
       mxVerified,
       spfVerified,
       dkimVerified,
