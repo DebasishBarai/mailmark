@@ -102,7 +102,7 @@ export default function DeveloperPage() {
     "html": "<h1>Hello!</h1><p>This was sent via the RemindMe API.</p>"
   }'`;
 
-  const npmExample = `import { RemindMe } from 'remindme';
+  const npmExample = `import { RemindMe } from 'remindme-sdk';
 
 const client = new RemindMe('${exampleKey}');
 
@@ -279,7 +279,7 @@ await client.send({
             <div className="space-y-4">
               <div>
                 <p className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">Install</p>
-                <CodeBlock code="npm install remindme" />
+                <CodeBlock code="npm install remindme-sdk" />
               </div>
               <div>
                 <p className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">Usage</p>

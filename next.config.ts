@@ -4,15 +4,17 @@ const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL!;
 
 const nextConfig: NextConfig = {
   async rewrites() {
-    return [
-      // Proxy all requests to api.remindme.me → Convex HTTP backend.
-      // The real Convex URL is kept server-side and never exposed to clients.
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "api.remindme.me" }],
-        destination: `${CONVEX_SITE_URL}/:path*`,
-      },
-    ];
+    return {
+      // beforeFiles runs before Next.js checks its own pages/filesystem,
+      // so api.remindme.me traffic is always proxied to Convex — never the UI.
+      beforeFiles: [
+        {
+          source: "/:path*",
+          has: [{ type: "host", value: "api.remindme.me" }],
+          destination: `${CONVEX_SITE_URL}/:path*`,
+        },
+      ],
+    };
   },
 
   async headers() {

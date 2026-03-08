@@ -134,11 +134,11 @@ export default function GettingStartedPage() {
             <p>Once your domain is verified and a mailbox exists, you can send immediately.</p>
 
             <p className="mt-4 font-medium text-gray-900 dark:text-white">Using the npm SDK</p>
-            <Code>{`npm install remindme
+            <Code>{`npm install remindme-sdk
 # or
-bun add remindme`}</Code>
+bun add remindme-sdk`}</Code>
 
-            <Code>{`import { RemindMe } from 'remindme';
+            <Code>{`import { RemindMe } from 'remindme-sdk';
 
 const client = new RemindMe('dm_live_your_api_key');
 

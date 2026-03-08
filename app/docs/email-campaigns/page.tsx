@@ -86,7 +86,7 @@ export default function EmailCampaignsPage() {
             </p>
 
             <p className="font-semibold text-gray-900 dark:text-white">Via the API</p>
-            <Code>{`import { RemindMe } from 'remindme';
+            <Code>{`import { RemindMe } from 'remindme-sdk';
 
 const client = new RemindMe('dm_live_your_api_key');
 
@@ -142,7 +142,7 @@ console.log(result.messageIds); // one messageId per recipient`}</Code>
               RemindMe does not yet have a built-in template engine — personalisation is done in your application code before you call the API.
               A simple pattern using a helper function:
             </p>
-            <Code>{`import { RemindMe } from 'remindme';
+            <Code>{`import { RemindMe } from 'remindme-sdk';
 
 const client = new RemindMe('dm_live_your_api_key');
 

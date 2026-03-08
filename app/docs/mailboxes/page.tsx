@@ -93,7 +93,7 @@ export default function MailboxesPage() {
             </div>
 
             <p className="font-semibold text-gray-900 dark:text-white">Via the API</p>
-            <Code>{`import { RemindMe } from 'remindme';
+            <Code>{`import { RemindMe } from 'remindme-sdk';
 
 const client = new RemindMe('dm_live_your_api_key');
 
