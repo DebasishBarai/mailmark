@@ -1,4 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)",
@@ -6,7 +8,18 @@ const isProtectedRoute = createRouteMatcher([
   "/mailbox(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, req) => {
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "https://www.remindme.me",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+};
+
+export default clerkMiddleware(async (auth, req: NextRequest) => {
+  // Handle CORS preflight for api.remindme.me
+  if (req.headers.get("host") === "api.remindme.me" && req.method === "OPTIONS") {
+    return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+  }
+
   if (isProtectedRoute(req)) {
     await auth.protect();
   }
