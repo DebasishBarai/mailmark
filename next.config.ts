@@ -14,6 +14,20 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "api.remindme.me" }],
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "https://www.remindme.me" },
+          { key: "Access-Control-Allow-Methods", value: "GET, POST, PATCH, DELETE, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "Authorization, Content-Type" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
