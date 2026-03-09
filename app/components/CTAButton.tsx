@@ -19,7 +19,7 @@ export default function CTAButton({
       <Unauthenticated>
         <SignUpButton mode="modal" forceRedirectUrl="/dashboard">
           <button className={className ?? defaultClass}>
-            {children ?? "Get Started Free"}
+            {children ?? "Start Free Trial"}
           </button>
         </SignUpButton>
       </Unauthenticated>

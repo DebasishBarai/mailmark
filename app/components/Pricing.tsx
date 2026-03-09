@@ -3,8 +3,8 @@ import CTAButton from "./CTAButton";
 const plans = [
   {
     name: "Starter",
-    price: "Free",
-    period: "forever",
+    price: "$9",
+    period: "per month",
     description: "Perfect for individuals getting started with custom domain email.",
     features: [
       "1,000 emails / month",
@@ -14,7 +14,7 @@ const plans = [
       "5 GB storage",
       "Basic support",
     ],
-    cta: "Get Started Free",
+    cta: "Start 7-Day Free Trial",
     highlighted: false,
   },
   {
@@ -31,7 +31,7 @@ const plans = [
       "50 GB storage",
       "Priority support",
     ],
-    cta: "Start Pro Trial",
+    cta: "Start 7-Day Free Trial",
     highlighted: true,
   },
   {
@@ -48,7 +48,7 @@ const plans = [
       "500 GB storage",
       "Dedicated support",
     ],
-    cta: "Contact Sales",
+    cta: "Start 7-Day Free Trial",
     highlighted: false,
   },
 ];
@@ -79,7 +79,14 @@ export default function Pricing() {
             Simple, transparent pricing
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            Start free and scale as you grow. No hidden fees, no surprises.
+            Every plan includes a 7-day free trial. No credit card required.
+          </p>
+        </div>
+
+        {/* Trial banner */}
+        <div className="mx-auto mt-10 max-w-2xl rounded-2xl border border-violet-200 bg-violet-50 px-6 py-4 text-center dark:border-violet-800 dark:bg-violet-950/30">
+          <p className="text-sm font-medium text-violet-800 dark:text-violet-300">
+            Try any plan free for 7 days with full access. No credit card needed — your account pauses after the trial until you choose a plan.
           </p>
         </div>
 
@@ -117,6 +124,11 @@ export default function Pricing() {
                   </span>
                 </div>
                 <p
+                  className={`mt-1 text-xs font-medium ${plan.highlighted ? "text-violet-200" : "text-violet-600 dark:text-violet-400"}`}
+                >
+                  7-day free trial included
+                </p>
+                <p
                   className={`mt-3 text-sm ${plan.highlighted ? "text-violet-100" : "text-gray-600 dark:text-gray-400"}`}
                 >
                   {plan.description}
@@ -145,13 +157,6 @@ export default function Pricing() {
                   <CTAButton className="inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-violet-700 shadow transition-all hover:bg-gray-50 hover:shadow-md">
                     {plan.cta}
                   </CTAButton>
-                ) : plan.name === "Business" ? (
-                  <a
-                    href="mailto:sales@remindme.me"
-                    className="inline-flex w-full items-center justify-center rounded-full border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-900 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
-                  >
-                    {plan.cta}
-                  </a>
                 ) : (
                   <CTAButton className="inline-flex w-full items-center justify-center rounded-full border border-violet-600 bg-white px-6 py-3 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-50 dark:bg-gray-700 dark:text-violet-300 dark:hover:bg-violet-900/30">
                     {plan.cta}

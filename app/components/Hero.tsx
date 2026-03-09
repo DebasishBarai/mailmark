@@ -23,7 +23,7 @@ export default function Hero() {
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <CTAButton className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-200 transition-all hover:bg-violet-700 hover:shadow-xl dark:shadow-violet-900/30">
-                Get Started Free
+                Start Free Trial
               </CTAButton>
               <a
                 href="#how-it-works"
