@@ -532,4 +532,84 @@ http.route({
   }),
 });
 
+// ── Polar Webhook ─────────────────────────────────────────────────────────────
+// Receives subscription lifecycle events from Polar.sh and updates the DB.
+// Configure the webhook secret in your Polar dashboard and set POLAR_WEBHOOK_SECRET.
+
+http.route({
+  path: "/polar-webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    // Validate webhook secret
+    const webhookSecret = request.headers.get("x-polar-signature") ??
+                          request.headers.get("authorization");
+    const expectedSecret = process.env.POLAR_WEBHOOK_SECRET;
+
+    if (expectedSecret && webhookSecret !== expectedSecret &&
+        webhookSecret !== `Bearer ${expectedSecret}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+
+    const event = body.type as string;
+    const data = body.data as Record<string, unknown> | undefined;
+
+    // Handle subscription created/updated events
+    if (
+      event === "subscription.created" ||
+      event === "subscription.updated" ||
+      event === "subscription.canceled"
+    ) {
+      if (!data) {
+        return new Response("Missing data", { status: 400 });
+      }
+
+      const polarSubscriptionId = data.id as string;
+      const polarStatus = data.status as string;
+      const polarProductId = data.product_id as string;
+      const customer = data.customer as Record<string, unknown> | undefined;
+      const clerkId = customer?.external_id as string | undefined;
+
+      if (!clerkId) {
+        return new Response("Missing customer external_id", { status: 400 });
+      }
+
+      // Map Polar product ID → plan name using env vars
+      const productPlanMap: Record<string, "starter" | "pro" | "business"> = {
+        [process.env.POLAR_PRODUCT_ID_STARTER ?? ""]: "starter",
+        [process.env.POLAR_PRODUCT_ID_PRO ?? ""]: "pro",
+        [process.env.POLAR_PRODUCT_ID_BUSINESS ?? ""]: "business",
+      };
+
+      const plan = productPlanMap[polarProductId];
+      if (!plan) {
+        console.warn(`[polar-webhook] Unknown product ID: ${polarProductId}`);
+        return new Response("Unknown product ID", { status: 400 });
+      }
+
+      const status =
+        polarStatus === "active" ? "active" :
+        polarStatus === "canceled" ? "canceled" : "past_due";
+
+      await ctx.runMutation(internal.subscriptions.handlePolarSubscriptionEvent, {
+        polarSubscriptionId,
+        clerkId,
+        plan,
+        status,
+      });
+    }
+
+    return new Response(JSON.stringify({ received: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
 export default http;

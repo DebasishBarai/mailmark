@@ -13,8 +13,27 @@ export const getUser = internalQuery({
   },
 });
 
-// Atomic upsert — checks and creates in a single mutation to prevent duplicates
-export const upsertUser = internalMutation({
+export const createUser = internalMutation({
+  args: {
+    subject: v.string(),
+    email: v.optional(v.string()),
+    name: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    polarCustomerId: v.string(),
+  },
+  handler: async (ctx, args): Promise<Doc<"users">> => {
+    const userId = await ctx.db.insert("users", {
+      clerkId: args.subject,
+      email: args.email ?? "",
+      name: args.name,
+      imageUrl: args.imageUrl,
+      polarCustomerId: args.polarCustomerId,
+    });
+    return (await ctx.db.get(userId))!;
+  },
+});
+
+export const updateUserProfile = internalMutation({
   args: {
     subject: v.string(),
     email: v.optional(v.string()),
@@ -22,28 +41,20 @@ export const upsertUser = internalMutation({
     imageUrl: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Doc<"users">> => {
-    const existing = await ctx.db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.subject))
       .unique();
 
-    if (existing) {
-      // Update existing user's info
-      await ctx.db.patch(existing._id, {
-        email: args.email ?? existing.email,
-        name: args.name ?? existing.name,
-        imageUrl: args.imageUrl ?? existing.imageUrl,
-      });
-      return (await ctx.db.get(existing._id))!;
-    }
+    if (!user) throw new Error("User not found");
 
-    const userId = await ctx.db.insert("users", {
-      clerkId: args.subject,
-      email: args.email ?? "",
-      name: args.name,
-      imageUrl: args.imageUrl,
+    await ctx.db.patch(user._id, {
+      email: args.email ?? user.email,
+      name: args.name ?? user.name,
+      imageUrl: args.imageUrl ?? user.imageUrl,
     });
-    return (await ctx.db.get(userId))!;
+
+    return (await ctx.db.get(user._id))!;
   },
 });
 
@@ -51,19 +62,51 @@ export const addUser = action({
   args: {},
   handler: async (ctx): Promise<Doc<"users"> | null | undefined> => {
     const identity = await ctx.auth.getUserIdentity();
+    if (identity === null) throw new Error("Not authenticated");
 
-    if (identity === null) {
-      throw new Error("Not authenticated");
+    // Check if user already exists
+    const existingUser = await ctx.runQuery(internal.users.getUser, {
+      subject: identity.subject,
+    });
+
+    if (existingUser) {
+      // Existing user — update profile fields only (no Polar API call)
+      return await ctx.runMutation(internal.users.updateUserProfile, {
+        subject: identity.subject,
+        email: identity.email,
+        name: identity.name,
+        imageUrl: identity.pictureUrl,
+      });
     }
 
-    const user = await ctx.runMutation(internal.users.upsertUser, {
+    // New user — create a Polar customer first
+    const polarResponse = await fetch(`${process.env.POLAR_BASE_URL}/v1/customers`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.POLAR_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: identity.email,
+        name: identity.name || "Anonymous",
+        external_id: identity.subject,
+      }),
+    });
+
+    if (!polarResponse.ok) {
+      const errorText = await polarResponse.text();
+      throw new Error(`Failed to create Polar customer: ${errorText}`);
+    }
+
+    const polarCustomer = await polarResponse.json();
+
+    return await ctx.runMutation(internal.users.createUser, {
       subject: identity.subject,
       email: identity.email,
       name: identity.name,
       imageUrl: identity.pictureUrl,
+      polarCustomerId: polarCustomer.id,
     });
-
-    return user;
   },
 });
 

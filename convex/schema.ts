@@ -7,6 +7,7 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
+    polarCustomerId: v.optional(v.string()),
   }).index("by_clerk_id", ["clerkId"]),
 
   domains: defineTable({
@@ -108,6 +109,7 @@ export default defineSchema({
     priceMonthly: v.number(), // cents
     startedAt: v.number(),
     canceledAt: v.optional(v.number()),
+    polarSubscriptionId: v.optional(v.string()),
   })
     .index("by_user_id", ["userId"]),
 
