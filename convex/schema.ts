@@ -97,6 +97,20 @@ export default defineSchema({
     emails: v.array(v.string()),
   }).index("by_domain_id", ["domainId"]),
 
+  subscriptions: defineTable({
+    userId: v.id("users"),
+    plan: v.union(v.literal("starter"), v.literal("pro"), v.literal("business")),
+    status: v.union(
+      v.literal("active"),
+      v.literal("canceled"),
+      v.literal("past_due")
+    ),
+    priceMonthly: v.number(), // cents
+    startedAt: v.number(),
+    canceledAt: v.optional(v.number()),
+  })
+    .index("by_user_id", ["userId"]),
+
   api_keys: defineTable({
     userId: v.id("users"),
     domainId: v.id("domains"),
