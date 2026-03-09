@@ -16,7 +16,7 @@ const faqs = [
   {
     question: "How many mailboxes can I create?",
     answer:
-      "The Starter (free) plan supports up to 3 mailboxes on a single domain. The Pro plan gives you unlimited mailboxes across 5 domains, and the Business plan lifts all limits so your whole organization can be on RemindMe.",
+      "The Starter plan supports up to 3 mailboxes on a single domain. The Pro plan gives you unlimited mailboxes across 5 domains, and the Business plan lifts all limits so your whole organization can be on RemindMe.",
   },
   {
     question: "Does RemindMe support email campaigns?",
@@ -24,14 +24,14 @@ const faqs = [
       "Yes. Pro and Business plans include a full campaign suite — compose rich HTML emails, import or build your recipient list, schedule sends, and track opens, clicks, and deliverability in the built-in analytics dashboard. Auto follow-up sequences are also supported.",
   },
   {
-    question: "Is there a free plan?",
+    question: "Is there a free trial?",
     answer:
-      "Yes. The Starter plan is free forever. It includes one custom domain, three mailboxes, the full email UI, and 5 GB of storage — no credit card required to sign up.",
+      "Yes. Every plan comes with a 7-day free trial — no credit card required. You get full access to all features during the trial. After 7 days, your account pauses until you choose a paid plan.",
   },
   {
     question: "How does billing work?",
     answer:
-      "Paid plans are billed monthly. You can upgrade, downgrade, or cancel at any time from your account settings. When you upgrade mid-cycle, we prorate the charge so you only pay for what you use.",
+      "All plans are billed monthly after your 7-day free trial ends. You can upgrade, downgrade, or cancel at any time from your account settings. When you upgrade mid-cycle, we prorate the charge so you only pay for what you use.",
   },
   {
     question: "Can I cancel my subscription anytime?",

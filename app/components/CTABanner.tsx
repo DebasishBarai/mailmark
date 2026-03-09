@@ -9,11 +9,11 @@ export default function CTABanner() {
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-lg text-violet-100">
           Add your domain, create your mailboxes, and start sending campaigns —
-          all in one place. Free to get started, no credit card required.
+          all in one place. Try free for 7 days, no credit card required.
         </p>
         <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
           <CTAButton className="inline-flex items-center gap-2 rounded-full bg-white px-8 py-3.5 text-base font-semibold text-violet-700 shadow-lg transition-all hover:bg-gray-50 hover:shadow-xl">
-            Get Started Free
+            Start Free Trial
           </CTAButton>
           <a
             href="#how-it-works"

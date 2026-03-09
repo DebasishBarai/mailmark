@@ -57,7 +57,7 @@ export default function Header() {
             </SignInButton>
             <SignUpButton mode="modal" forceRedirectUrl="/dashboard">
               <button className="rounded-full bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700">
-                Get Started Free
+                Start Free Trial
               </button>
             </SignUpButton>
           </Unauthenticated>
@@ -117,7 +117,7 @@ export default function Header() {
               </SignInButton>
               <SignUpButton mode="modal" forceRedirectUrl="/dashboard">
                 <button className="rounded-full bg-violet-600 px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-violet-700">
-                  Get Started Free
+                  Start Free Trial
                 </button>
               </SignUpButton>
             </Unauthenticated>
