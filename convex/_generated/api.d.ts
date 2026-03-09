@@ -20,6 +20,7 @@ import type * as http from "../http.js";
 import type * as mailboxes from "../mailboxes.js";
 import type * as senderGroups from "../senderGroups.js";
 import type * as ses from "../ses.js";
+import type * as subscriptions from "../subscriptions.js";
 import type * as users from "../users.js";
 
 import type {
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   mailboxes: typeof mailboxes;
   senderGroups: typeof senderGroups;
   ses: typeof ses;
+  subscriptions: typeof subscriptions;
   users: typeof users;
 }>;
 
