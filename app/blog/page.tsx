@@ -13,7 +13,7 @@ const categories = ["All", "Guides", "Deliverability", "Campaigns", "Product Upd
 
 const posts = [
   {
-    slug: "#",
+    slug: "/blog/getting-started-with-custom-domain-emails",
     category: "Guides",
     title: "Getting Started with Custom Domain Emails",
     excerpt:
@@ -23,7 +23,7 @@ const posts = [
     featured: true,
   },
   {
-    slug: "#",
+    slug: "/blog/understanding-spf-dkim-and-dmarc",
     category: "Deliverability",
     title: "Understanding SPF, DKIM, and DMARC",
     excerpt:
@@ -33,7 +33,7 @@ const posts = [
     featured: false,
   },
   {
-    slug: "#",
+    slug: "/blog/email-campaign-best-practices-2026",
     category: "Campaigns",
     title: "10 Email Campaign Best Practices for 2026",
     excerpt:
@@ -43,7 +43,7 @@ const posts = [
     featured: false,
   },
   {
-    slug: "#",
+    slug: "/blog/improve-email-deliverability-rate",
     category: "Deliverability",
     title: "How to Improve Your Email Deliverability Rate",
     excerpt:
@@ -53,7 +53,7 @@ const posts = [
     featured: false,
   },
   {
-    slug: "#",
+    slug: "/blog/remindme-1-0-whats-new",
     category: "Product Updates",
     title: "RemindMe 1.0: What's New",
     excerpt:
@@ -63,7 +63,7 @@ const posts = [
     featured: false,
   },
   {
-    slug: "#",
+    slug: "/blog/managing-team-mailboxes-at-scale",
     category: "Guides",
     title: "Managing Team Mailboxes at Scale",
     excerpt:
@@ -73,7 +73,7 @@ const posts = [
     featured: false,
   },
   {
-    slug: "#",
+    slug: "/blog/building-winning-email-campaign-strategy",
     category: "Campaigns",
     title: "Building a Winning Email Campaign Strategy",
     excerpt:
@@ -83,7 +83,7 @@ const posts = [
     featured: false,
   },
   {
-    slug: "#",
+    slug: "/blog/why-emails-land-in-spam",
     category: "Deliverability",
     title: "Why Your Emails Land in Spam (And How to Fix It)",
     excerpt:
