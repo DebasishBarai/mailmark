@@ -4,10 +4,11 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { Authenticated, Unauthenticated, AuthLoading, useAction, useConvexAuth } from "convex/react";
+import { Authenticated, Unauthenticated, AuthLoading, useAction, useQuery, useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import ThemeToggle from "../components/ThemeToggle";
 import { SidebarProvider, useSidebar } from "../components/SidebarContext";
+import UpgradeModal from "../components/UpgradeModal";
 
 const sidebarLinks = [
   {
@@ -69,6 +70,27 @@ function SyncUser() {
   }, [isAuthenticated, addUser]);
 
   return null;
+}
+
+function TrialGate({ children }: { children: ReactNode }) {
+  const status = useQuery(api.subscriptions.currentStatus);
+
+  // Still loading or user not yet synced — show children normally
+  if (status === undefined || status === null) return <>{children}</>;
+
+  if (status.needsUpgrade) {
+    return (
+      <>
+        {/* Render page content behind the modal so layout doesn't jump */}
+        <div className="pointer-events-none select-none opacity-40">
+          {children}
+        </div>
+        <UpgradeModal />
+      </>
+    );
+  }
+
+  return <>{children}</>;
 }
 
 function AppShell({ children }: { children: ReactNode }) {
@@ -179,7 +201,7 @@ function AppShell({ children }: { children: ReactNode }) {
         className={`flex-1 pt-14 transition-all md:pt-0 ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"
           }`}
       >
-        {children}
+        <TrialGate>{children}</TrialGate>
       </main>
     </div>
   );
