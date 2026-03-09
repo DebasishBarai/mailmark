@@ -168,7 +168,7 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "6. Nail your preview text",
         content: [
-          "Preview text (the snippet that appears after the subject line in most email clients) is free real estate. Don't waste it with "View in browser" or let it default to your first paragraph.",
+          "Preview text (the snippet that appears after the subject line in most email clients) is free real estate. Don't waste it with \"View in browser\" or let it default to your first paragraph.",
           "Use the preview text to complement your subject line — add context, create urgency, or tease the content inside. Think of subject line + preview text as a one-two punch.",
         ],
       },
