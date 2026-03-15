@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import Logo from "./Logo";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import ThemeToggle from "./ThemeToggle";
 
@@ -21,13 +21,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-md dark:border-gray-700/50 dark:bg-gray-900/80">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2.5">
-          <Image
-            src="/logo.svg"
-            alt="Mailmark logo"
-            width={36}
-            height={36}
-            priority
-          />
+          <Logo size={36} />
           <span className="text-2xl font-bold text-violet-600">Mailmark</span>
         </Link>
 
