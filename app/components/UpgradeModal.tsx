@@ -62,7 +62,7 @@ export default function UpgradeModal() {
             Your free trial has ended
           </h2>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Choose a plan to continue using RemindMe. All your data is safe and waiting.
+            Choose a plan to continue using Mailmark. All your data is safe and waiting.
           </p>
         </div>
 

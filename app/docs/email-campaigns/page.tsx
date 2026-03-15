@@ -4,8 +4,8 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Email Campaigns - RemindMe Docs",
-  description: "Create, personalise, schedule, and analyse bulk email campaigns with RemindMe.",
+  title: "Email Campaigns - Mailmark Docs",
+  description: "Create, personalise, schedule, and analyse bulk email campaigns with Mailmark.",
 };
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -86,9 +86,9 @@ export default function EmailCampaignsPage() {
             </p>
 
             <p className="font-semibold text-gray-900 dark:text-white">Via the API</p>
-            <Code>{`import { RemindMe } from 'remindme-sdk';
+            <Code>{`import { Mailmark } from 'mailmark-sdk';
 
-const client = new RemindMe('dm_live_your_api_key');
+const client = new Mailmark('dm_live_your_api_key');
 
 const result = await client.send({
   from: 'newsletter@acme.com',
@@ -139,12 +139,12 @@ console.log(result.messageIds); // one messageId per recipient`}</Code>
               Because each campaign email is rendered and sent individually, you can personalise the HTML body per recipient before calling <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">client.send()</code>.
             </p>
             <p>
-              RemindMe does not yet have a built-in template engine — personalisation is done in your application code before you call the API.
+              Mailmark does not yet have a built-in template engine — personalisation is done in your application code before you call the API.
               A simple pattern using a helper function:
             </p>
-            <Code>{`import { RemindMe } from 'remindme-sdk';
+            <Code>{`import { Mailmark } from 'mailmark-sdk';
 
-const client = new RemindMe('dm_live_your_api_key');
+const client = new Mailmark('dm_live_your_api_key');
 
 const recipients = [
   { email: 'alice@example.com', name: 'Alice' },

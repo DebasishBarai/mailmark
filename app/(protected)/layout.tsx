@@ -123,7 +123,7 @@ function AppShell({ children }: { children: ReactNode }) {
         <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4 dark:border-gray-700/50">
           {!sidebarCollapsed && (
             <Link href="/dashboard" className="text-xl font-bold text-violet-600">
-              RemindMe
+              Mailmark
             </Link>
           )}
           <button
@@ -192,7 +192,7 @@ function AppShell({ children }: { children: ReactNode }) {
           </svg>
         </button>
         <Link href="/dashboard" className="ml-3 text-lg font-bold text-violet-600">
-          RemindMe
+          Mailmark
         </Link>
       </div>
 

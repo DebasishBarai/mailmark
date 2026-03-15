@@ -6,11 +6,11 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       // beforeFiles runs before Next.js checks its own pages/filesystem,
-      // so api.remindme.me traffic is always proxied to Convex — never the UI.
+      // so api.mailmark.dev traffic is always proxied to Convex — never the UI.
       beforeFiles: [
         {
           source: "/:path*",
-          has: [{ type: "host", value: "api.remindme.me" }],
+          has: [{ type: "host", value: "api.mailmark.dev" }],
           destination: `${CONVEX_SITE_URL}/:path*`,
         },
       ],
@@ -21,9 +21,9 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/:path*",
-        has: [{ type: "host", value: "api.remindme.me" }],
+        has: [{ type: "host", value: "api.mailmark.dev" }],
         headers: [
-          { key: "Access-Control-Allow-Origin", value: "https://www.remindme.me" },
+          { key: "Access-Control-Allow-Origin", value: "https://www.mailmark.dev" },
           { key: "Access-Control-Allow-Methods", value: "GET, POST, PATCH, DELETE, OPTIONS" },
           { key: "Access-Control-Allow-Headers", value: "Authorization, Content-Type" },
         ],

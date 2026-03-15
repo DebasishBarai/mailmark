@@ -4,9 +4,9 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Affiliate Program - RemindMe",
+  title: "Affiliate Program - Mailmark",
   description:
-    "Earn 30% recurring commission for every customer you refer to RemindMe. Join our affiliate program today.",
+    "Earn 30% recurring commission for every customer you refer to Mailmark. Join our affiliate program today.",
 };
 
 const steps = [
@@ -48,8 +48,8 @@ const faqs = [
     a: "90 days. If someone clicks your link and signs up within 90 days, you get credit.",
   },
   {
-    q: "Can I promote RemindMe with paid ads?",
-    a: "You may not bid on branded terms like 'RemindMe' in paid search. All other paid promotion is allowed.",
+    q: "Can I promote Mailmark with paid ads?",
+    a: "You may not bid on branded terms like 'Mailmark' in paid search. All other paid promotion is allowed.",
   },
 ];
 
@@ -74,7 +74,7 @@ export default function AffiliatePage() {
             Earn 30% recurring commission
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-gray-600 dark:text-gray-300">
-            Recommend RemindMe to your audience and earn a 30% commission on every
+            Recommend Mailmark to your audience and earn a 30% commission on every
             payment — forever, not just for one year.
           </p>
           <div className="mt-8 flex justify-center gap-4">
@@ -175,7 +175,7 @@ export default function AffiliatePage() {
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-2xl font-bold text-white">Ready to start earning?</h2>
           <p className="mt-3 text-violet-100">
-            Join hundreds of creators, bloggers, and agencies already earning with RemindMe.
+            Join hundreds of creators, bloggers, and agencies already earning with Mailmark.
           </p>
           <Link
             href="/contact"

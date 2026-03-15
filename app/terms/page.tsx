@@ -3,20 +3,20 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Terms of Service - RemindMe",
-  description: "RemindMe Terms of Service — the rules and guidelines for using our platform.",
+  title: "Terms of Service - Mailmark",
+  description: "Mailmark Terms of Service — the rules and guidelines for using our platform.",
 };
 
 const sections = [
   {
     title: "1. Acceptance of terms",
-    content: `By accessing or using RemindMe ("the Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree, do not use the Service.
+    content: `By accessing or using Mailmark ("the Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree, do not use the Service.
 
 These Terms apply to all users, including free and paid account holders. We may update these Terms at any time. Continued use of the Service after changes are posted constitutes acceptance.`,
   },
   {
     title: "2. Description of service",
-    content: `RemindMe provides email hosting, mailbox management, and email campaign tools. We allow you to connect your own domain, create mailboxes, and send and receive email via our infrastructure (powered by AWS SES and related services).
+    content: `Mailmark provides email hosting, mailbox management, and email campaign tools. We allow you to connect your own domain, create mailboxes, and send and receive email via our infrastructure (powered by AWS SES and related services).
 
 We reserve the right to modify, suspend, or discontinue any aspect of the Service at any time, with or without notice. We will make reasonable efforts to notify users of significant changes.`,
   },
@@ -24,7 +24,7 @@ We reserve the right to modify, suspend, or discontinue any aspect of the Servic
     title: "3. Accounts",
     content: `**Eligibility:** You must be at least 16 years old to use the Service. By creating an account, you represent that you meet this requirement.
 
-**Account security:** You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. Notify us immediately at support@remindme.me if you suspect unauthorized access.
+**Account security:** You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. Notify us immediately at support@mailmark.dev if you suspect unauthorized access.
 
 **Accurate information:** You agree to provide accurate and complete information when creating your account and to keep it up to date.
 
@@ -64,7 +64,7 @@ We reserve the right to limit sending from accounts that generate high bounce ra
   },
   {
     title: "7. Intellectual property",
-    content: `**RemindMe IP:** The Service, including all software, design, and content, is owned by RemindMe and protected by copyright and other intellectual property laws. You may not copy, modify, or distribute any part of the Service without our written permission.
+    content: `**Mailmark IP:** The Service, including all software, design, and content, is owned by Mailmark and protected by copyright and other intellectual property laws. You may not copy, modify, or distribute any part of the Service without our written permission.
 
 **Your content:** You retain ownership of all content you upload, send, or store through the Service. By using the Service, you grant us a limited licence to process your content solely to provide the Service.
 
@@ -82,7 +82,7 @@ We do not warrant that the Service will be uninterrupted, error-free, or complet
   },
   {
     title: "10. Limitation of liability",
-    content: `To the maximum extent permitted by applicable law, RemindMe and its officers, employees, and agents shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising out of or related to your use of the Service.
+    content: `To the maximum extent permitted by applicable law, Mailmark and its officers, employees, and agents shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising out of or related to your use of the Service.
 
 Our total liability for any claim relating to the Service shall not exceed the amount you paid us in the 12 months preceding the claim.`,
   },
@@ -102,9 +102,9 @@ Any disputes arising from these Terms or the Service shall first be resolved thr
   },
   {
     title: "13. Contact",
-    content: `For questions about these Terms, contact us at legal@remindme.me or by mail at:
+    content: `For questions about these Terms, contact us at legal@mailmark.dev or by mail at:
 
-RemindMe Inc.
+Mailmark Inc.
 Legal Department
 [Address on file with Delaware Secretary of State]`,
   },
@@ -128,7 +128,7 @@ export default function TermsPage() {
             Last updated: <strong>January 15, 2026</strong>
           </p>
           <p className="mt-4 text-gray-600 dark:text-gray-300">
-            Please read these terms carefully before using RemindMe. They
+            Please read these terms carefully before using Mailmark. They
             describe the rules for using our platform and your rights and
             responsibilities as a user.
           </p>

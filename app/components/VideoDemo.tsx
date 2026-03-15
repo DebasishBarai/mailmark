@@ -24,7 +24,7 @@ export default function VideoDemo() {
       <section className="relative bg-white px-6 py-20 dark:bg-gray-900">
         <div className="mx-auto max-w-4xl text-center">
           <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white md:text-4xl">
-            See RemindMe in Action
+            See Mailmark in Action
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
             Watch how easy it is to add your domain, create mailboxes, and send
@@ -108,7 +108,7 @@ export default function VideoDemo() {
               <iframe
                 className="h-full w-full"
                 src={YOUTUBE_EMBED_URL}
-                title="RemindMe Demo"
+                title="Mailmark Demo"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />

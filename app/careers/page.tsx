@@ -3,9 +3,9 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Careers - RemindMe",
+  title: "Careers - Mailmark",
   description:
-    "Join the RemindMe team. We're a remote-first company building the future of professional email hosting and campaigns.",
+    "Join the Mailmark team. We're a remote-first company building the future of professional email hosting and campaigns.",
 };
 
 const perks = [
@@ -24,7 +24,7 @@ const openings = [
     location: "Remote (Worldwide)",
     type: "Full-time",
     description:
-      "Help us build and scale the core RemindMe platform — Next.js frontend, Convex backend, AWS email infrastructure. You'll own features end-to-end.",
+      "Help us build and scale the core Mailmark platform — Next.js frontend, Convex backend, AWS email infrastructure. You'll own features end-to-end.",
   },
   {
     title: "DevOps / Infrastructure Engineer",
@@ -48,7 +48,7 @@ const openings = [
     location: "Remote (Worldwide)",
     type: "Part-time / Contract",
     description:
-      "Create high-quality content — blog posts, docs, email guides — that drives organic growth and helps users get the most from RemindMe.",
+      "Create high-quality content — blog posts, docs, email guides — that drives organic growth and helps users get the most from Mailmark.",
   },
 ];
 
@@ -83,7 +83,7 @@ export default function CareersPage() {
       {/* Perks */}
       <section className="bg-white px-6 py-16 dark:bg-gray-900">
         <div className="mx-auto max-w-7xl">
-          <h2 className="text-center text-2xl font-bold text-gray-900 dark:text-white">Why RemindMe</h2>
+          <h2 className="text-center text-2xl font-bold text-gray-900 dark:text-white">Why Mailmark</h2>
           <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {perks.map((perk) => (
               <div
@@ -141,8 +141,8 @@ export default function CareersPage() {
             <p className="font-medium text-gray-700 dark:text-gray-200">Don&apos;t see a perfect fit?</p>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               We&apos;re always interested in exceptional people. Send us a note at{" "}
-              <a href="mailto:jobs@remindme.me" className="text-violet-600 hover:underline dark:text-violet-400">
-                jobs@remindme.me
+              <a href="mailto:jobs@mailmark.dev" className="text-violet-600 hover:underline dark:text-violet-400">
+                jobs@mailmark.dev
               </a>
               .
             </p>

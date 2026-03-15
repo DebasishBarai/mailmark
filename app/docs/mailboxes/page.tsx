@@ -4,8 +4,8 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Mailboxes - RemindMe Docs",
-  description: "Create and manage mailboxes, aliases, permissions, and IMAP access in RemindMe.",
+  title: "Mailboxes - Mailmark Docs",
+  description: "Create and manage mailboxes, aliases, permissions, and IMAP access in Mailmark.",
 };
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -93,9 +93,9 @@ export default function MailboxesPage() {
             </div>
 
             <p className="font-semibold text-gray-900 dark:text-white">Via the API</p>
-            <Code>{`import { RemindMe } from 'remindme-sdk';
+            <Code>{`import { Mailmark } from 'mailmark-sdk';
 
-const client = new RemindMe('dm_live_your_api_key');
+const client = new Mailmark('dm_live_your_api_key');
 
 const mailbox = await client.createMailbox({
   address: 'support',       // → support@yourdomain.com
@@ -144,7 +144,7 @@ await client.deleteMailbox('support@yourdomain.com');`}</Code>
 
           <Section id="imap" title="Connecting an email client (IMAP)">
             <p>
-              RemindMe supports IMAP for reading received email through standard email clients such as Apple Mail, Thunderbird, or Outlook.
+              Mailmark supports IMAP for reading received email through standard email clients such as Apple Mail, Thunderbird, or Outlook.
             </p>
 
             <p className="font-semibold text-gray-900 dark:text-white">IMAP settings</p>
@@ -158,11 +158,11 @@ await client.deleteMailbox('support@yourdomain.com');`}</Code>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                   {[
-                    ["Server", "imap.remindme.me"],
+                    ["Server", "imap.mailmark.dev"],
                     ["Port", "993"],
                     ["Security", "SSL / TLS"],
                     ["Username", "your full email address"],
-                    ["Password", "your RemindMe account password"],
+                    ["Password", "your Mailmark account password"],
                   ].map(([k, v]) => (
                     <tr key={k}>
                       <td className="px-4 py-2.5 font-mono text-xs text-gray-900 dark:text-gray-100">{k}</td>
@@ -173,7 +173,7 @@ await client.deleteMailbox('support@yourdomain.com');`}</Code>
               </table>
             </div>
             <InfoBox>
-              IMAP access is read-only. Sending always goes through the RemindMe dashboard or API.
+              IMAP access is read-only. Sending always goes through the Mailmark dashboard or API.
             </InfoBox>
           </Section>
 

@@ -23,7 +23,7 @@ const posts = [
     category: "Deliverability",
     title: "Understanding SPF, DKIM, and DMARC",
     excerpt:
-      "The three pillars of email authentication explained. Find out why these records matter and how RemindMe sets them up automatically for you.",
+      "The three pillars of email authentication explained. Find out why these records matter and how Mailmark sets them up automatically for you.",
     date: "Jan 20, 2026",
     readTime: "8 min read",
     featured: false,
@@ -49,9 +49,9 @@ const posts = [
     featured: false,
   },
   {
-    slug: "/blog/remindme-1-0-whats-new",
+    slug: "/blog/mailmark-1-0-whats-new",
     category: "Product Updates",
-    title: "RemindMe 1.0: What's New",
+    title: "Mailmark 1.0: What's New",
     excerpt:
       "We launched! Here's everything included in our first public release — domains, mailboxes, campaigns, analytics, and team collaboration.",
     date: "Dec 20, 2025",
@@ -63,7 +63,7 @@ const posts = [
     category: "Guides",
     title: "Managing Team Mailboxes at Scale",
     excerpt:
-      "Assign mailboxes to team members, set permissions, and collaborate without sharing passwords. A deep dive into RemindMe's team features.",
+      "Assign mailboxes to team members, set permissions, and collaborate without sharing passwords. A deep dive into Mailmark's team features.",
     date: "Dec 12, 2025",
     readTime: "5 min read",
     featured: false,
@@ -116,14 +116,14 @@ export default function BlogPageContent() {
       <section className="bg-gradient-to-b from-violet-50 to-white px-6 py-20 dark:from-violet-950/30 dark:to-gray-900">
         <div className="mx-auto max-w-7xl text-center">
           <span className="inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
-            RemindMe Blog
+            Mailmark Blog
           </span>
           <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl dark:text-white">
             Email tips & product news
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-lg text-gray-600 dark:text-gray-300">
             Guides, deliverability deep-dives, campaign strategies, and the
-            latest from the RemindMe team.
+            latest from the Mailmark team.
           </p>
         </div>
       </section>

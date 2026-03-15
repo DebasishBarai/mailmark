@@ -3,16 +3,16 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Security - RemindMe",
+  title: "Security - Mailmark",
   description:
-    "How RemindMe protects your data and email infrastructure with enterprise-grade security practices.",
+    "How Mailmark protects your data and email infrastructure with enterprise-grade security practices.",
 };
 
 const practices = [
   {
     title: "Encryption in transit",
     description:
-      "All data between your browser and RemindMe is encrypted using TLS 1.3. All email sent through our infrastructure uses STARTTLS and SMTP over TLS to encrypt messages in transit.",
+      "All data between your browser and Mailmark is encrypted using TLS 1.3. All email sent through our infrastructure uses STARTTLS and SMTP over TLS to encrypt messages in transit.",
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
@@ -32,7 +32,7 @@ const practices = [
   {
     title: "Infrastructure",
     description:
-      "RemindMe runs on AWS in multiple availability zones for high availability. We use AWS SES for email delivery, S3 for storage, and follow AWS security best practices including least-privilege IAM policies.",
+      "Mailmark runs on AWS in multiple availability zones for high availability. We use AWS SES for email delivery, S3 for storage, and follow AWS security best practices including least-privilege IAM policies.",
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
@@ -117,7 +117,7 @@ export default function SecurityPage() {
         <div className="mx-auto max-w-3xl">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Email security standards</h2>
           <p className="mt-3 text-gray-600 dark:text-gray-300">
-            RemindMe automatically configures your domain with the industry-standard email authentication suite:
+            Mailmark automatically configures your domain with the industry-standard email authentication suite:
           </p>
           <div className="mt-6 space-y-4">
             {[
@@ -143,13 +143,13 @@ export default function SecurityPage() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Responsible disclosure</h2>
           <p className="mt-4 text-gray-600 dark:text-gray-300">
             We believe security researchers play an important role in keeping the internet
-            safe. If you discover a vulnerability in RemindMe, please disclose it to us
+            safe. If you discover a vulnerability in Mailmark, please disclose it to us
             responsibly.
           </p>
           <div className="mt-6 rounded-2xl border border-violet-100 bg-violet-50 p-6 dark:border-violet-800 dark:bg-violet-900/20">
             <p className="font-semibold text-violet-900 dark:text-violet-200">Report a vulnerability</p>
             <p className="mt-2 text-sm text-violet-800 dark:text-violet-300">
-              Email: <a href="mailto:security@remindme.me" className="font-medium underline">security@remindme.me</a>
+              Email: <a href="mailto:security@mailmark.dev" className="font-medium underline">security@mailmark.dev</a>
             </p>
             <p className="mt-1 text-sm text-violet-800 dark:text-violet-300">
               Please include: a description of the vulnerability, steps to reproduce, potential impact, and your contact details.
@@ -167,8 +167,8 @@ export default function SecurityPage() {
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Security questions?</h2>
           <p className="mt-3 text-gray-600 dark:text-gray-300">
             For any security-related questions, contact our security team directly at{" "}
-            <a href="mailto:security@remindme.me" className="font-medium text-violet-600 hover:underline dark:text-violet-400">
-              security@remindme.me
+            <a href="mailto:security@mailmark.dev" className="font-medium text-violet-600 hover:underline dark:text-violet-400">
+              security@mailmark.dev
             </a>
             .
           </p>

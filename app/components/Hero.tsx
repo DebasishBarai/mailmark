@@ -62,7 +62,7 @@ export default function Hero() {
                 <div className="h-3 w-3 rounded-full bg-yellow-400" />
                 <div className="h-3 w-3 rounded-full bg-green-400" />
                 <span className="ml-3 text-xs font-medium text-gray-500 dark:text-gray-400">
-                  RemindMe — sales@yourco.com
+                  Mailmark — sales@yourco.com
                 </span>
               </div>
               <div className="flex">

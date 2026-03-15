@@ -1,7 +1,7 @@
 const testimonials = [
   {
     quote:
-      "We moved our entire team's email to RemindMe. Adding our domain took 5 minutes, and now everyone has their own mailbox. The campaign tools are a huge bonus.",
+      "We moved our entire team's email to Mailmark. Adding our domain took 5 minutes, and now everyone has their own mailbox. The campaign tools are a huge bonus.",
     name: "Sarah Chen",
     role: "Head of Sales, TechStart",
     stars: 5,
@@ -43,7 +43,7 @@ export default function Testimonials() {
             Loved by businesses everywhere
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            See why teams choose RemindMe for their domain email and campaigns.
+            See why teams choose Mailmark for their domain email and campaigns.
           </p>
         </div>
         <div className="mt-16 grid gap-8 md:grid-cols-3">

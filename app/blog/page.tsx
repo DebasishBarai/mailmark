@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import BlogPageContent from "./BlogPageContent";
 
 export const metadata: Metadata = {
-  title: "Blog - RemindMe",
+  title: "Blog - Mailmark",
   description:
-    "Tips, guides, and product updates from the RemindMe team on email hosting, deliverability, and campaigns.",
+    "Tips, guides, and product updates from the Mailmark team on email hosting, deliverability, and campaigns.",
 };
 
 export default function BlogPage() {

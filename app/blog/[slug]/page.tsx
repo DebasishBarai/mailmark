@@ -37,23 +37,23 @@ const articles: Record<string, ArticleContent> = {
         ],
       },
       {
-        heading: "Step 1: Add your domain to RemindMe",
+        heading: "Step 1: Add your domain to Mailmark",
         content: [
-          "Log in to your RemindMe dashboard and navigate to Domains → Add domain. Enter the domain you own (e.g., yourcompany.com). RemindMe will immediately generate the DNS records you need to configure at your domain registrar.",
+          "Log in to your Mailmark dashboard and navigate to Domains → Add domain. Enter the domain you own (e.g., yourcompany.com). Mailmark will immediately generate the DNS records you need to configure at your domain registrar.",
           "Don't have a domain yet? You can purchase one from registrars like Namecheap, Cloudflare, or Google Domains. Most domains cost between $10–$15 per year.",
         ],
       },
       {
         heading: "Step 2: Configure your DNS records",
         content: [
-          "RemindMe requires three types of DNS records: MX records for receiving email, an SPF record for sender authentication, and a DKIM record for message signing. Head to your domain registrar's DNS settings and add the records exactly as shown in your RemindMe dashboard.",
+          "Mailmark requires three types of DNS records: MX records for receiving email, an SPF record for sender authentication, and a DKIM record for message signing. Head to your domain registrar's DNS settings and add the records exactly as shown in your Mailmark dashboard.",
           "MX records tell the internet where to deliver mail for your domain. SPF and DKIM records prove to receiving mail servers that your messages are legitimate. For a detailed walkthrough, check out our DNS Setup Guide.",
         ],
       },
       {
         heading: "Step 3: Verify your domain",
         content: [
-          "Once you've added the DNS records, return to your RemindMe dashboard and click Verify domain. The system will check for all required records. DNS changes usually propagate within minutes, but can take up to 48 hours in some cases.",
+          "Once you've added the DNS records, return to your Mailmark dashboard and click Verify domain. The system will check for all required records. DNS changes usually propagate within minutes, but can take up to 48 hours in some cases.",
           "You'll see a green checkmark next to each record type once it's verified. If a record fails verification, double-check the values at your registrar — a common mistake is adding extra spaces or missing the trailing dot in hostnames.",
         ],
       },
@@ -61,13 +61,13 @@ const articles: Record<string, ArticleContent> = {
         heading: "Step 4: Create your first mailbox",
         content: [
           "With your domain verified, go to Mailboxes → Create mailbox. Choose your email address (e.g., hello@yourcompany.com), set a display name, and you're ready to send and receive email.",
-          "RemindMe lets you create unlimited mailboxes on any plan. You can assign them to team members, set forwarding rules, and even create shared mailboxes that multiple people can access.",
+          "Mailmark lets you create unlimited mailboxes on any plan. You can assign them to team members, set forwarding rules, and even create shared mailboxes that multiple people can access.",
         ],
       },
       {
         heading: "What's next?",
         content: [
-          "Now that you have your custom domain email set up, consider adding a DMARC record for extra protection against spoofing. You can also explore RemindMe's campaign features to send newsletters and marketing emails from your new professional address.",
+          "Now that you have your custom domain email set up, consider adding a DMARC record for extra protection against spoofing. You can also explore Mailmark's campaign features to send newsletters and marketing emails from your new professional address.",
         ],
       },
     ],
@@ -79,7 +79,7 @@ const articles: Record<string, ArticleContent> = {
     date: "Jan 20, 2026",
     readTime: "8 min read",
     excerpt:
-      "The three pillars of email authentication explained. Find out why these records matter and how RemindMe sets them up automatically for you.",
+      "The three pillars of email authentication explained. Find out why these records matter and how Mailmark sets them up automatically for you.",
     sections: [
       {
         heading: "Why email authentication matters",
@@ -92,7 +92,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "SPF: Who is allowed to send?",
         content: [
           "SPF (Sender Policy Framework) is a DNS TXT record that lists the servers authorized to send email on behalf of your domain. When a receiving server gets an email claiming to be from your domain, it checks your SPF record to see if the sending server's IP address is on the approved list.",
-          "If the IP matches, the SPF check passes. If not, the receiving server knows something is off. RemindMe automatically generates the correct SPF record for your domain — you just need to add it to your DNS settings.",
+          "If the IP matches, the SPF check passes. If not, the receiving server knows something is off. Mailmark automatically generates the correct SPF record for your domain — you just need to add it to your DNS settings.",
           "A common pitfall is having multiple SPF records. Each domain can only have one SPF record. If you use multiple email services, combine them into a single record using the include: mechanism.",
         ],
       },
@@ -101,7 +101,7 @@ const articles: Record<string, ArticleContent> = {
         content: [
           "DKIM (DomainKeys Identified Mail) takes a different approach. Instead of checking where the message came from, it checks whether the message was altered in transit. The sending server signs each outgoing email with a private cryptographic key, and the corresponding public key is published as a DNS record.",
           "Receiving servers use the public key to verify the signature. If the message was tampered with after being signed, the verification fails. This protects against man-in-the-middle attacks and gives receiving servers confidence that the email is genuine.",
-          "RemindMe generates a unique DKIM key pair for each domain you add. The private key stays on our servers; the public key goes into your DNS records.",
+          "Mailmark generates a unique DKIM key pair for each domain you add. The private key stays on our servers; the public key goes into your DNS records.",
         ],
       },
       {
@@ -113,9 +113,9 @@ const articles: Record<string, ArticleContent> = {
         ],
       },
       {
-        heading: "How RemindMe handles this for you",
+        heading: "How Mailmark handles this for you",
         content: [
-          "When you add a domain to RemindMe, we generate all the records you need — SPF, DKIM, and a recommended DMARC record — and show them in your dashboard with copy-to-clipboard buttons. Just paste them into your DNS settings and verify.",
+          "When you add a domain to Mailmark, we generate all the records you need — SPF, DKIM, and a recommended DMARC record — and show them in your dashboard with copy-to-clipboard buttons. Just paste them into your DNS settings and verify.",
           "Our system continuously monitors the health of your DNS records and alerts you if anything changes or expires. You don't need to be a DNS expert to maintain great deliverability.",
         ],
       },
@@ -141,7 +141,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "2. Segment your audience ruthlessly",
         content: [
           "Sending the same email to your entire list is the fastest way to tank your engagement metrics. Segment by behavior (opened last 3 emails vs. haven't opened in 90 days), by interest (product category, content topic), and by stage (new subscriber vs. long-time customer).",
-          "Even basic segmentation — active vs. inactive subscribers — can improve your click-through rates by 50% or more. RemindMe's campaign tools make it easy to build segments based on engagement data.",
+          "Even basic segmentation — active vs. inactive subscribers — can improve your click-through rates by 50% or more. Mailmark's campaign tools make it easy to build segments based on engagement data.",
         ],
       },
       {
@@ -155,7 +155,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "4. Optimize your send times",
         content: [
           "There's no universally perfect send time. The best time to send depends on your audience, their timezone, and what you're asking them to do. B2B emails tend to perform best on Tuesday through Thursday mornings. B2C emails often see higher engagement on evenings and weekends.",
-          "Use your campaign analytics to identify patterns. RemindMe's reporting shows open and click activity by hour, so you can find your audience's sweet spot.",
+          "Use your campaign analytics to identify patterns. Mailmark's reporting shows open and click activity by hour, so you can find your audience's sweet spot.",
         ],
       },
       {
@@ -190,7 +190,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "9. Authenticate your sending domain",
         content: [
           "If you haven't set up SPF, DKIM, and DMARC for your sending domain, do it before your next campaign. Authentication isn't optional in 2026 — major providers like Gmail and Yahoo now require it for bulk senders.",
-          "RemindMe handles authentication setup automatically when you add your domain. Check out our guide on SPF, DKIM, and DMARC for the full details.",
+          "Mailmark handles authentication setup automatically when you add your domain. Check out our guide on SPF, DKIM, and DMARC for the full details.",
         ],
       },
       {
@@ -238,7 +238,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "Authenticate your domain",
         content: [
           "SPF, DKIM, and DMARC are non-negotiable in 2026. Google and Yahoo both require proper authentication for senders sending more than 5,000 emails per day, and other providers are following suit.",
-          "RemindMe sets up authentication automatically when you add your domain. If you're using multiple sending services, make sure each one is included in your SPF record and has its own DKIM key configured.",
+          "Mailmark sets up authentication automatically when you add your domain. If you're using multiple sending services, make sure each one is included in your SPF record and has its own DKIM key configured.",
         ],
       },
       {
@@ -253,14 +253,14 @@ const articles: Record<string, ArticleContent> = {
         heading: "Monitor your metrics",
         content: [
           "Watch your bounce rate (should be under 2%), spam complaint rate (should be under 0.1%), and engagement metrics closely. A sudden drop in open rates or a spike in complaints is an early warning sign.",
-          "RemindMe's analytics dashboard tracks these metrics in real time. Set up alerts to notify you when any metric crosses a threshold so you can investigate before it impacts your reputation.",
+          "Mailmark's analytics dashboard tracks these metrics in real time. Set up alerts to notify you when any metric crosses a threshold so you can investigate before it impacts your reputation.",
         ],
       },
     ],
   },
 
-  "remindme-1-0-whats-new": {
-    title: "RemindMe 1.0: What's New",
+  "mailmark-1-0-whats-new": {
+    title: "Mailmark 1.0: What's New",
     category: "Product Updates",
     date: "Dec 20, 2025",
     readTime: "4 min read",
@@ -270,21 +270,21 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "We're live",
         content: [
-          "After months of building and testing with early users, RemindMe 1.0 is officially available to everyone. We set out to build the email hosting platform we wished existed — simple to set up, powerful under the hood, and priced fairly.",
+          "After months of building and testing with early users, Mailmark 1.0 is officially available to everyone. We set out to build the email hosting platform we wished existed — simple to set up, powerful under the hood, and priced fairly.",
           "Here's a look at everything included in this first release.",
         ],
       },
       {
         heading: "Custom domain email hosting",
         content: [
-          "Add your own domain and create unlimited mailboxes. RemindMe handles all the technical complexity — DNS record generation, domain verification, SPF/DKIM/DMARC setup — so you can go from zero to sending in under 10 minutes.",
+          "Add your own domain and create unlimited mailboxes. Mailmark handles all the technical complexity — DNS record generation, domain verification, SPF/DKIM/DMARC setup — so you can go from zero to sending in under 10 minutes.",
           "Every mailbox gets full send and receive capabilities, with no per-mailbox fees. Whether you need one address or a hundred, the pricing stays simple.",
         ],
       },
       {
         heading: "Email campaigns",
         content: [
-          "Send newsletters, product updates, and marketing emails directly from RemindMe. Our campaign builder supports rich HTML templates, audience segmentation, and A/B testing for subject lines.",
+          "Send newsletters, product updates, and marketing emails directly from Mailmark. Our campaign builder supports rich HTML templates, audience segmentation, and A/B testing for subject lines.",
           "Track opens, clicks, and engagement in real time with our built-in analytics. No need to integrate a separate marketing platform.",
         ],
       },
@@ -298,7 +298,7 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "Team collaboration",
         content: [
-          "Invite team members to your RemindMe workspace. Assign mailboxes, set permissions, and collaborate without sharing passwords. Each team member gets their own login with role-based access controls.",
+          "Invite team members to your Mailmark workspace. Assign mailboxes, set permissions, and collaborate without sharing passwords. Each team member gets their own login with role-based access controls.",
           "Shared mailboxes let multiple team members read and respond to the same address — perfect for support@ or sales@ inboxes.",
         ],
       },
@@ -306,7 +306,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "What's coming next",
         content: [
           "This is just the beginning. We're already working on webhook integrations, an API for programmatic access, automated sequences, and contact management. We'll share more details in the coming weeks.",
-          "Thank you to everyone who tested RemindMe during our beta. Your feedback shaped this release, and we're excited to keep building with you.",
+          "Thank you to everyone who tested Mailmark during our beta. Your feedback shaped this release, and we're excited to keep building with you.",
         ],
       },
     ],
@@ -318,19 +318,19 @@ const articles: Record<string, ArticleContent> = {
     date: "Dec 12, 2025",
     readTime: "5 min read",
     excerpt:
-      "Assign mailboxes to team members, set permissions, and collaborate without sharing passwords. A deep dive into RemindMe's team features.",
+      "Assign mailboxes to team members, set permissions, and collaborate without sharing passwords. A deep dive into Mailmark's team features.",
     sections: [
       {
         heading: "The problem with shared credentials",
         content: [
           "Many small teams start by sharing a single email account password among team members. This works until it doesn't — you can't track who sent what, you can't revoke access for one person without changing the password for everyone, and it's a security risk.",
-          "RemindMe takes a different approach. Every team member gets their own login, and mailbox access is managed through permissions. No shared passwords, no ambiguity about who did what.",
+          "Mailmark takes a different approach. Every team member gets their own login, and mailbox access is managed through permissions. No shared passwords, no ambiguity about who did what.",
         ],
       },
       {
         heading: "Setting up your team",
         content: [
-          "Navigate to Settings → Team and invite members by email address. Each person receives an invitation to create their own RemindMe account. You can assign one of three roles: Admin (full access), Member (can use assigned mailboxes and campaigns), or Viewer (read-only access).",
+          "Navigate to Settings → Team and invite members by email address. Each person receives an invitation to create their own Mailmark account. You can assign one of three roles: Admin (full access), Member (can use assigned mailboxes and campaigns), or Viewer (read-only access).",
           "Admins can add and remove domains, create mailboxes, manage billing, and invite other team members. Members can send and receive email from their assigned mailboxes and create campaigns. Viewers can see analytics and read emails but can't send.",
         ],
       },
@@ -338,20 +338,20 @@ const articles: Record<string, ArticleContent> = {
         heading: "Shared mailboxes vs. personal mailboxes",
         content: [
           "A personal mailbox is assigned to one person — their individual work email. A shared mailbox (like support@ or info@) can be accessed by multiple team members simultaneously.",
-          "When multiple people are working in a shared mailbox, RemindMe shows real-time indicators of who is viewing or composing a reply to each conversation. This prevents the classic \"two people reply to the same email\" problem.",
+          "When multiple people are working in a shared mailbox, Mailmark shows real-time indicators of who is viewing or composing a reply to each conversation. This prevents the classic \"two people reply to the same email\" problem.",
         ],
       },
       {
         heading: "Organizing at scale",
         content: [
-          "As your team grows, organization becomes critical. Use naming conventions for your mailboxes that make their purpose obvious. Group related addresses under the same domain. Use RemindMe's labels and filters to automatically categorize incoming messages.",
+          "As your team grows, organization becomes critical. Use naming conventions for your mailboxes that make their purpose obvious. Group related addresses under the same domain. Use Mailmark's labels and filters to automatically categorize incoming messages.",
           "For larger organizations, consider creating separate domains for different functions — marketing.yourcompany.com for campaigns, support.yourcompany.com for customer service. Each domain can have its own set of mailboxes and team member assignments.",
         ],
       },
       {
         heading: "Audit trail and accountability",
         content: [
-          "Every action in RemindMe is logged — who sent what, when, and from which mailbox. Admins can review the activity log to track email volume, response times, and team member activity.",
+          "Every action in Mailmark is logged — who sent what, when, and from which mailbox. Admins can review the activity log to track email volume, response times, and team member activity.",
           "This audit trail is invaluable for compliance, quality control, and understanding your team's email workflow. Export logs at any time for your records.",
         ],
       },
@@ -434,7 +434,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "Reason 1: Missing or broken authentication",
         content: [
           "If your domain doesn't have proper SPF, DKIM, and DMARC records, you're immediately at a disadvantage. Major providers like Gmail now flag unauthenticated emails as suspicious by default.",
-          "The fix: Add all three authentication records to your DNS. RemindMe generates these automatically when you add your domain. Check your dashboard to confirm all records are verified and showing green checkmarks.",
+          "The fix: Add all three authentication records to your DNS. Mailmark generates these automatically when you add your domain. Check your dashboard to confirm all records are verified and showing green checkmarks.",
         ],
       },
       {
@@ -469,14 +469,14 @@ const articles: Record<string, ArticleContent> = {
         heading: "Reason 6: No unsubscribe link",
         content: [
           "Legally required in most countries and now technically enforced by major providers, a missing unsubscribe link is both a compliance violation and a spam signal. Google requires one-click unsubscribe headers for senders sending more than 5,000 messages per day.",
-          "The fix: Include a visible, working unsubscribe link in every marketing and bulk email. RemindMe adds the required List-Unsubscribe header and one-click unsubscribe link automatically to all campaign emails.",
+          "The fix: Include a visible, working unsubscribe link in every marketing and bulk email. Mailmark adds the required List-Unsubscribe header and one-click unsubscribe link automatically to all campaign emails.",
         ],
       },
       {
         heading: "Reason 7: You're on a blocklist",
         content: [
           "IP and domain blocklists are maintained by organizations that track sources of spam. If your domain or sending IP appears on a major blocklist (Spamhaus, Barracuda, etc.), your deliverability will plummet.",
-          "The fix: Check your domain and IP against major blocklists using free tools like MXToolbox. If you're listed, follow the blocklist's removal process — which usually requires demonstrating that you've fixed the underlying problem. RemindMe monitors blocklist status for your domains automatically.",
+          "The fix: Check your domain and IP against major blocklists using free tools like MXToolbox. If you're listed, follow the blocklist's removal process — which usually requires demonstrating that you've fixed the underlying problem. Mailmark monitors blocklist status for your domains automatically.",
         ],
       },
       {
@@ -501,9 +501,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const article = articles[slug];
-  if (!article) return { title: "Article Not Found - RemindMe" };
+  if (!article) return { title: "Article Not Found - Mailmark" };
   return {
-    title: `${article.title} - RemindMe Blog`,
+    title: `${article.title} - Mailmark Blog`,
     description: article.excerpt,
   };
 }

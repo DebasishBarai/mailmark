@@ -5,7 +5,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Doc, Id } from "../../../convex/_generated/dataModel";
 
-const CONVEX_SITE_URL = process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? "https://api.remindme.me";
+const CONVEX_SITE_URL = process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? "https://api.mailmark.dev";
 
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -98,19 +98,19 @@ export default function DeveloperPage() {
   -d '{
     "from": "hello@yourdomain.com",
     "to": ["recipient@example.com"],
-    "subject": "Hello from RemindMe",
-    "html": "<h1>Hello!</h1><p>This was sent via the RemindMe API.</p>"
+    "subject": "Hello from Mailmark",
+    "html": "<h1>Hello!</h1><p>This was sent via the Mailmark API.</p>"
   }'`;
 
-  const npmExample = `import { RemindMe } from 'remindme-sdk';
+  const npmExample = `import { Mailmark } from 'mailmark-sdk';
 
-const client = new RemindMe('${exampleKey}');
+const client = new Mailmark('${exampleKey}');
 
 await client.send({
   from: 'hello@yourdomain.com',
   to: ['recipient@example.com'],
-  subject: 'Hello from RemindMe',
-  html: '<h1>Hello!</h1><p>Sent via the RemindMe npm SDK.</p>',
+  subject: 'Hello from Mailmark',
+  html: '<h1>Hello!</h1><p>Sent via the Mailmark npm SDK.</p>',
 });`;
 
   return (
@@ -119,7 +119,7 @@ await client.send({
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Developer</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Manage API keys and integrate RemindMe into your application.
+          Manage API keys and integrate Mailmark into your application.
         </p>
       </div>
 
@@ -268,7 +268,7 @@ await client.send({
                     : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 }`}
               >
-                {tab === "curl" ? "cURL" : "npm (remindme)"}
+                {tab === "curl" ? "cURL" : "npm (mailmark)"}
               </button>
             ))}
           </div>
@@ -279,7 +279,7 @@ await client.send({
             <div className="space-y-4">
               <div>
                 <p className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">Install</p>
-                <CodeBlock code="npm install remindme-sdk" />
+                <CodeBlock code="npm install mailmark-sdk" />
               </div>
               <div>
                 <p className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">Usage</p>
