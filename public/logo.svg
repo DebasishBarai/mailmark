@@ -7,28 +7,27 @@
     <clipPath id="envClip">
       <rect x="4" y="16" width="66" height="50" rx="8"/>
     </clipPath>
+    <style>
+      .inner { fill: white; }
+      @media (prefers-color-scheme: dark) {
+        .inner { fill: #0f172a; }
+      }
+    </style>
   </defs>
 
-  <!-- White fill so M lines read cleanly -->
-  <rect x="4" y="16" width="66" height="50" rx="8" fill="white"/>
+  <rect x="4" y="16" width="66" height="50" rx="8" class="inner"/>
 
-  <!-- Envelope body outline -->
   <rect x="4" y="16" width="66" height="50" rx="8"
         fill="none" stroke="url(#grad)" stroke-width="7" stroke-linejoin="round"/>
 
-  <!-- M-letter fold lines: V from top-left and top-right corners to center point -->
   <line x1="4"  y1="16" x2="37" y2="44"
         stroke="url(#grad)" stroke-width="7" stroke-linecap="round" clip-path="url(#envClip)"/>
   <line x1="70" y1="16" x2="37" y2="44"
         stroke="url(#grad)" stroke-width="7" stroke-linecap="round" clip-path="url(#envClip)"/>
 
-  <!-- White cutout ring so badge sits cleanly over envelope -->
-  <circle cx="67" cy="62" r="20" fill="white"/>
-
-  <!-- Badge circle — inset into envelope -->
+  <circle cx="67" cy="62" r="20" class="inner"/>
   <circle cx="67" cy="62" r="18" fill="url(#grad)"/>
 
-  <!-- White checkmark inside badge -->
   <polyline points="58,62 65,69 77,53"
             fill="none" stroke="white" stroke-width="4"
             stroke-linecap="round" stroke-linejoin="round"/>
