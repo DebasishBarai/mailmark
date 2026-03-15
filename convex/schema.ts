@@ -113,6 +113,39 @@ export default defineSchema({
   })
     .index("by_user_id", ["userId"]),
 
+  affiliates: defineTable({
+    userId: v.id("users"),
+    code: v.string(),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+    payoutEmail: v.string(),
+    website: v.optional(v.string()),
+    audienceDescription: v.string(),
+    totalEarnedCents: v.number(),
+    totalPaidCents: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_code", ["code"]),
+
+  referrals: defineTable({
+    affiliateId: v.id("affiliates"),
+    referredUserId: v.id("users"),
+    plan: v.optional(v.union(v.literal("starter"), v.literal("pro"), v.literal("business"))),
+    commissionCents: v.number(),
+    status: v.union(v.literal("pending"), v.literal("active"), v.literal("paid"), v.literal("canceled")),
+    polarSubscriptionId: v.optional(v.string()),
+  })
+    .index("by_affiliateId", ["affiliateId"])
+    .index("by_referredUserId", ["referredUserId"])
+    .index("by_polarSubscriptionId", ["polarSubscriptionId"]),
+
+  affiliatePayouts: defineTable({
+    affiliateId: v.id("affiliates"),
+    amountCents: v.number(),
+    status: v.union(v.literal("pending"), v.literal("processed")),
+    processedAt: v.optional(v.number()),
+    note: v.optional(v.string()),
+  }).index("by_affiliateId", ["affiliateId"]),
+
   api_keys: defineTable({
     userId: v.id("users"),
     domainId: v.id("domains"),
