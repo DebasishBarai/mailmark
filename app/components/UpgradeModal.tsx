@@ -8,20 +8,20 @@ const plans = [
   {
     key: "starter" as const,
     name: "Starter",
-    price: "$9",
+    price: "$10",
     features: ["1,000 emails / month", "1 domain", "3 mailboxes", "5 GB storage"],
   },
   {
     key: "pro" as const,
     name: "Pro",
-    price: "$29",
+    price: "$25",
     features: ["25,000 emails / month", "5 domains", "Unlimited mailboxes", "Campaigns & analytics"],
     highlighted: true,
   },
   {
     key: "business" as const,
     name: "Business",
-    price: "$99",
+    price: "$75",
     features: ["100,000 emails / month", "Unlimited domains", "Advanced campaigns", "Dedicated support"],
   },
 ];
