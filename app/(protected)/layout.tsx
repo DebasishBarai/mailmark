@@ -62,12 +62,12 @@ function LoadingSpinner() {
 }
 
 function SignInRedirect() {
-  const { redirectToSignIn } = useClerk();
+  const { openSignIn } = useClerk();
   const pathname = usePathname();
 
   useEffect(() => {
-    redirectToSignIn({ redirectUrl: pathname });
-  }, [redirectToSignIn, pathname]);
+    openSignIn({ redirectUrl: pathname });
+  }, [openSignIn, pathname]);
 
   return null;
 }
