@@ -3,7 +3,7 @@ import CTAButton from "./CTAButton";
 const plans = [
   {
     name: "Starter",
-    price: "$9",
+    price: "$10",
     period: "per month",
     description: "Perfect for individuals getting started with custom domain email.",
     features: [
@@ -19,7 +19,7 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "$29",
+    price: "$25",
     period: "per month",
     description: "For growing teams that need more power and campaign tools.",
     features: [
@@ -36,7 +36,7 @@ const plans = [
   },
   {
     name: "Business",
-    price: "$99",
+    price: "$75",
     period: "per month",
     description: "Unlimited scale with white-glove onboarding for your whole team.",
     features: [
