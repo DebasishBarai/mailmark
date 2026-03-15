@@ -54,7 +54,7 @@ const faqs = [
 ];
 
 const tiers = [
-  { plan: "Starter", price: "$0", commission: "$0", note: "Free plan — no commission" },
+  { plan: "Starter", price: "$10/mo", commission: "$3.00/mo", note: "30% recurring" },
   { plan: "Pro", price: "$25/mo", commission: "$7.50/mo", note: "30% recurring", highlight: true },
   { plan: "Business", price: "$75/mo", commission: "$22.50/mo", note: "30% recurring", highlight: false },
 ];
@@ -79,7 +79,7 @@ export default function AffiliatePage() {
           </p>
           <div className="mt-8 flex justify-center gap-4">
             <a
-              href="/contact"
+              href="/affiliate"
               className="rounded-full bg-violet-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700 dark:shadow-violet-900/30"
             >
               Apply now — it&apos;s free
@@ -178,7 +178,7 @@ export default function AffiliatePage() {
             Join hundreds of creators, bloggers, and agencies already earning with Mailmark.
           </p>
           <Link
-            href="/contact"
+            href="/affiliate"
             className="mt-6 inline-block rounded-full bg-white px-8 py-3.5 text-sm font-semibold text-violet-700 shadow-lg transition-colors hover:bg-violet-50"
           >
             Apply to the affiliate program →

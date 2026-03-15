@@ -603,6 +603,20 @@ http.route({
         plan,
         status,
       });
+
+      // Record or cancel affiliate commission
+      if (event === "subscription.created" && status === "active") {
+        const user = await ctx.runQuery(internal.users.getUser, { subject: clerkId });
+        if (user) {
+          await ctx.runMutation(internal.affiliates.recordCommission, {
+            referredUserId: user._id,
+            plan,
+            polarSubscriptionId,
+          });
+        }
+      } else if (event === "subscription.canceled") {
+        await ctx.runMutation(internal.affiliates.cancelCommission, { polarSubscriptionId });
+      }
     }
 
     return new Response(JSON.stringify({ received: true }), {
