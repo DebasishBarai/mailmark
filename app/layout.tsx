@@ -3,10 +3,10 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Suspense } from "react";
 import ConvexClientProvider from "./components/ConvexClientProvider";
 import ThemeProvider from "./components/ThemeProvider";
+import ClerkThemeProvider from "./components/ClerkThemeProvider";
 import RefCapture from "./components/RefCapture";
 import "./globals.css";
 
@@ -37,12 +37,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider>
-          <ClerkProvider signInFallbackRedirectUrl="/dashboard" signUpFallbackRedirectUrl="/dashboard">
+          <ClerkThemeProvider>
             <ConvexClientProvider>
-                <Suspense fallback={null}><RefCapture /></Suspense>
-                {children}
-              </ConvexClientProvider>
-          </ClerkProvider>
+              <Suspense fallback={null}><RefCapture /></Suspense>
+              {children}
+            </ConvexClientProvider>
+          </ClerkThemeProvider>
         </ThemeProvider>
       </body>
     </html>
