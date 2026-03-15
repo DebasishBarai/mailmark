@@ -3,7 +3,7 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useClerk } from "@clerk/nextjs";
 import { Authenticated, Unauthenticated, AuthLoading, useAction, useQuery, useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import ThemeToggle from "../components/ThemeToggle";
@@ -62,9 +62,13 @@ function LoadingSpinner() {
 }
 
 function SignInRedirect() {
-  if (typeof window !== "undefined") {
-    window.location.href = "/";
-  }
+  const { redirectToSignIn } = useClerk();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    redirectToSignIn({ redirectUrl: pathname });
+  }, [redirectToSignIn, pathname]);
+
   return null;
 }
 
