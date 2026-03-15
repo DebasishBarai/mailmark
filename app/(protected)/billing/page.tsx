@@ -168,7 +168,7 @@ export default function BillingPage() {
           {isActive ? "Change Plan" : "Upgrade your plan"}
         </h2>
 
-        <div className="grid gap-8 md:grid-cols-3">
+        <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-3">
           {plans.map((p) => (
             <div
               key={p.key}
