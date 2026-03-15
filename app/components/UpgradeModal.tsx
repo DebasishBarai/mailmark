@@ -9,20 +9,20 @@ const plans = [
     key: "starter" as const,
     name: "Starter",
     price: "$10",
-    features: ["1,000 emails / month", "1 domain", "3 mailboxes", "5 GB storage"],
+    features: ["1,000 emails / month", "1 domain", "3 mailboxes", "Full email UI", "Email campaigns", "Campaign analytics"],
   },
   {
     key: "pro" as const,
     name: "Pro",
     price: "$25",
-    features: ["25,000 emails / month", "5 domains", "Unlimited mailboxes", "Campaigns & analytics"],
+    features: ["25,000 emails / month", "5 domains", "Unlimited mailboxes", "Full email UI", "Email campaigns", "Campaign analytics"],
     highlighted: true,
   },
   {
     key: "business" as const,
     name: "Business",
     price: "$75",
-    features: ["100,000 emails / month", "Unlimited domains", "Advanced campaigns", "Dedicated support"],
+    features: ["100,000 emails / month", "Unlimited domains", "Full email UI", "Email campaigns", "Campaign analytics", "Dedicated support"],
   },
 ];
 
