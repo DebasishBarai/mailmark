@@ -2,6 +2,7 @@
 
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { UserButton, useClerk } from "@clerk/nextjs";
 import { Authenticated, Unauthenticated, AuthLoading, useAction, useQuery, useConvexAuth } from "convex/react";
@@ -144,11 +145,12 @@ function AppShell({ children }: { children: ReactNode }) {
       >
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4 dark:border-gray-700/50">
-          {!sidebarCollapsed && (
-            <Link href="/dashboard" className="text-xl font-bold text-violet-600">
-              Mailmark
-            </Link>
-          )}
+          <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
+            <Image src="/logo.svg" alt="Mailmark logo" width={32} height={32} priority />
+            {!sidebarCollapsed && (
+              <span className="text-xl font-bold text-violet-600 truncate">Mailmark</span>
+            )}
+          </Link>
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
@@ -214,8 +216,9 @@ function AppShell({ children }: { children: ReactNode }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
           </svg>
         </button>
-        <Link href="/dashboard" className="ml-3 text-lg font-bold text-violet-600">
-          Mailmark
+        <Link href="/dashboard" className="ml-3 flex items-center gap-2">
+          <Image src="/logo.svg" alt="Mailmark logo" width={28} height={28} priority />
+          <span className="text-lg font-bold text-violet-600">Mailmark</span>
         </Link>
       </div>
 
