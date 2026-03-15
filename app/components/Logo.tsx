@@ -1,8 +1,16 @@
+"use client";
+
+import { useId } from "react";
+
 interface LogoProps {
   size?: number;
 }
 
 export default function Logo({ size = 36 }: LogoProps) {
+  const id = useId();
+  const gradId = `logo-grad-${id}`;
+  const clipId = `logo-clip-${id}`;
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -13,26 +21,26 @@ export default function Logo({ size = 36 }: LogoProps) {
       aria-label="Mailmark logo"
     >
       <defs>
-        <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#8b5cf6" />
           <stop offset="100%" stopColor="#5b21b6" />
         </linearGradient>
-        <clipPath id="logo-envClip">
+        <clipPath id={clipId}>
           <rect x="4" y="16" width="66" height="50" rx="8" />
         </clipPath>
       </defs>
 
-      {/* Inner fill — white in light, dark page bg in dark mode */}
+      {/* Inner fill — white in light mode, dark in dark mode */}
       <rect
         x="4" y="16" width="66" height="50" rx="8"
-        className="fill-white dark:fill-gray-900"
+        className="fill-white dark:fill-[#0f172a]"
       />
 
       {/* Envelope body outline */}
       <rect
         x="4" y="16" width="66" height="50" rx="8"
         fill="none"
-        stroke="url(#logo-grad)"
+        stroke={`url(#${gradId})`}
         strokeWidth="7"
         strokeLinejoin="round"
       />
@@ -40,20 +48,20 @@ export default function Logo({ size = 36 }: LogoProps) {
       {/* M-letter fold lines */}
       <line
         x1="4" y1="16" x2="37" y2="44"
-        stroke="url(#logo-grad)" strokeWidth="7" strokeLinecap="round"
-        clipPath="url(#logo-envClip)"
+        stroke={`url(#${gradId})`} strokeWidth="7" strokeLinecap="round"
+        clipPath={`url(#${clipId})`}
       />
       <line
         x1="70" y1="16" x2="37" y2="44"
-        stroke="url(#logo-grad)" strokeWidth="7" strokeLinecap="round"
-        clipPath="url(#logo-envClip)"
+        stroke={`url(#${gradId})`} strokeWidth="7" strokeLinecap="round"
+        clipPath={`url(#${clipId})`}
       />
 
       {/* Ring behind badge */}
-      <circle cx="67" cy="62" r="20" className="fill-white dark:fill-gray-900" />
+      <circle cx="67" cy="62" r="20" className="fill-white dark:fill-[#0f172a]" />
 
       {/* Badge circle */}
-      <circle cx="67" cy="62" r="18" fill="url(#logo-grad)" />
+      <circle cx="67" cy="62" r="18" fill={`url(#${gradId})`} />
 
       {/* Checkmark inside badge */}
       <polyline
