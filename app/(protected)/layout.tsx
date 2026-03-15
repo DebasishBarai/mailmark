@@ -2,12 +2,12 @@
 
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { UserButton, useClerk } from "@clerk/nextjs";
 import { Authenticated, Unauthenticated, AuthLoading, useAction, useQuery, useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import ThemeToggle from "../components/ThemeToggle";
+import Logo from "../components/Logo";
 import { SidebarProvider, useSidebar } from "../components/SidebarContext";
 import UpgradeModal from "../components/UpgradeModal";
 import ReferralTracker from "../components/ReferralTracker";
@@ -146,7 +146,7 @@ function AppShell({ children }: { children: ReactNode }) {
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4 dark:border-gray-700/50">
           <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
-            <Image src="/logo.svg" alt="Mailmark logo" width={32} height={32} priority />
+            <Logo size={32} />
             {!sidebarCollapsed && (
               <span className="text-xl font-bold text-violet-600 truncate">Mailmark</span>
             )}
@@ -217,7 +217,7 @@ function AppShell({ children }: { children: ReactNode }) {
           </svg>
         </button>
         <Link href="/dashboard" className="ml-3 flex items-center gap-2">
-          <Image src="/logo.svg" alt="Mailmark logo" width={28} height={28} priority />
+          <Logo size={28} />
           <span className="text-lg font-bold text-violet-600">Mailmark</span>
         </Link>
       </div>

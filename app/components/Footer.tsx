@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import Logo from "./Logo";
 
 const footerLinks = {
   Product: [
@@ -36,7 +36,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
-              <Image src="/logo.svg" alt="Mailmark logo" width={32} height={32} />
+              <Logo size={32} />
               <span className="text-2xl font-bold text-violet-600">Mailmark</span>
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
