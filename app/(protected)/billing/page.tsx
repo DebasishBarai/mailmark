@@ -11,10 +11,76 @@ const PLAN_LABELS: Record<string, string> = {
 };
 
 const PLAN_PRICES: Record<string, string> = {
-  starter: "$10/mo",
-  pro: "$25/mo",
-  business: "$75/mo",
+  starter: "$10",
+  pro: "$25",
+  business: "$75",
 };
+
+const plans = [
+  {
+    key: "starter" as const,
+    name: "Starter",
+    price: "$10",
+    period: "per month",
+    description: "Perfect for individuals getting started with custom domain email.",
+    features: [
+      "1,000 emails / month",
+      "1 custom domain",
+      "3 mailboxes",
+      "Full email UI",
+      "Email campaigns",
+      "Campaign analytics",
+      "Basic support",
+    ],
+    highlighted: false,
+  },
+  {
+    key: "pro" as const,
+    name: "Pro",
+    price: "$25",
+    period: "per month",
+    description: "For growing teams that need more power and campaign tools.",
+    features: [
+      "25,000 emails / month",
+      "5 custom domains",
+      "Unlimited mailboxes",
+      "Full email UI",
+      "Email campaigns",
+      "Campaign analytics",
+      "Priority support",
+    ],
+    highlighted: true,
+  },
+  {
+    key: "business" as const,
+    name: "Business",
+    price: "$75",
+    period: "per month",
+    description: "Unlimited scale with white-glove onboarding for your whole team.",
+    features: [
+      "100,000 emails / month",
+      "Unlimited domains",
+      "Unlimited mailboxes",
+      "Full email UI",
+      "Email campaigns",
+      "Campaign analytics",
+      "Dedicated support",
+    ],
+    highlighted: false,
+  },
+];
+
+function CheckIcon() {
+  return (
+    <svg className="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path
+        fillRule="evenodd"
+        d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
 
 export default function BillingPage() {
   const status = useQuery(api.subscriptions.currentStatus);
@@ -45,7 +111,6 @@ export default function BillingPage() {
   }
 
   const plan = status?.subscription?.plan;
-  const subStatus = status?.subscription?.status;
   const isActive = status?.hasActiveSubscription;
   const trialEndsAt = status?.trialEndsAt;
   const trialExpired = status?.trialExpired;
@@ -67,27 +132,18 @@ export default function BillingPage() {
         </div>
         <div className="px-6 py-6">
           {isActive && plan ? (
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-3">
-                  <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {PLAN_LABELS[plan] ?? plan}
-                  </span>
-                  <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                    Active
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {PLAN_PRICES[plan] ?? ""} · billed monthly
-                </p>
-              </div>
+            <div className="flex items-center gap-3">
+              <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                {PLAN_LABELS[plan] ?? plan} — {PLAN_PRICES[plan] ?? ""}/mo
+              </span>
+              <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                Active
+              </span>
             </div>
           ) : trialExpired ? (
-            <div>
-              <p className="text-sm font-medium text-red-600 dark:text-red-400">
-                Your trial has expired. Choose a plan below to continue.
-              </p>
-            </div>
+            <p className="text-sm font-medium text-red-600 dark:text-red-400">
+              Your trial has expired. Choose a plan below to continue.
+            </p>
           ) : (
             <div>
               <div className="flex items-center gap-3">
@@ -106,45 +162,81 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Plans */}
-      {!isActive && (
-        <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-          <div className="border-b border-gray-100 px-6 py-4 dark:border-gray-700/50">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">Upgrade your plan</h2>
-          </div>
-          <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-3">
-            {(["starter", "pro", "business"] as const).map((p) => (
-              <div
-                key={p}
-                className={`flex flex-col rounded-xl border p-5 ${
-                  p === "pro"
-                    ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30"
-                    : "border-gray-200 dark:border-gray-700"
-                }`}
-              >
-                {p === "pro" && (
-                  <span className="mb-3 self-start rounded-full bg-violet-600 px-3 py-0.5 text-xs font-semibold text-white">
-                    Most popular
+      {/* Plans — always shown so users can switch */}
+      <div>
+        <h2 className="mb-6 text-base font-semibold text-gray-900 dark:text-white">
+          {isActive ? "Change Plan" : "Upgrade your plan"}
+        </h2>
+
+        <div className="grid gap-8 md:grid-cols-3">
+          {plans.map((p) => (
+            <div
+              key={p.key}
+              className={`relative flex flex-col rounded-2xl p-8 shadow-sm transition-shadow hover:shadow-md ${
+                p.highlighted
+                  ? "bg-violet-600 text-white ring-2 ring-violet-600"
+                  : "border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+              }`}
+            >
+              {p.highlighted && (
+                <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-violet-900 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow">
+                  Most Popular
+                </span>
+              )}
+
+              <div>
+                <h3 className={`text-lg font-semibold ${p.highlighted ? "text-white" : "text-gray-900 dark:text-white"}`}>
+                  {p.name}
+                </h3>
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className={`text-4xl font-bold tracking-tight ${p.highlighted ? "text-white" : "text-gray-900 dark:text-white"}`}>
+                    {p.price}
                   </span>
-                )}
-                <p className="text-base font-semibold text-gray-900 dark:text-white">{PLAN_LABELS[p]}</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{PLAN_PRICES[p]}</p>
-                <button
-                  onClick={() => handleUpgrade(p)}
-                  disabled={loading !== null}
-                  className={`mt-4 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
-                    p === "pro"
-                      ? "bg-violet-600 text-white hover:bg-violet-700"
-                      : "border border-violet-600 text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-900/20"
-                  }`}
-                >
-                  {loading === p ? "Redirecting..." : `Choose ${PLAN_LABELS[p]}`}
-                </button>
+                  <span className={`text-sm ${p.highlighted ? "text-violet-200" : "text-gray-500 dark:text-gray-400"}`}>
+                    /{p.period}
+                  </span>
+                </div>
+                <p className={`mt-3 text-sm ${p.highlighted ? "text-violet-100" : "text-gray-600 dark:text-gray-400"}`}>
+                  {p.description}
+                </p>
               </div>
-            ))}
-          </div>
+
+              <ul className="mt-8 flex-1 space-y-3">
+                {p.features.map((feature) => (
+                  <li key={feature} className="flex items-center gap-3">
+                    <span className={p.highlighted ? "text-violet-200" : "text-violet-600"}>
+                      <CheckIcon />
+                    </span>
+                    <span className={`text-sm ${p.highlighted ? "text-violet-100" : "text-gray-600 dark:text-gray-400"}`}>
+                      {feature}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-8">
+                {p.highlighted ? (
+                  <button
+                    onClick={() => handleUpgrade(p.key)}
+                    disabled={loading !== null || (isActive && plan === p.key)}
+                    className="inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-violet-700 shadow transition-all hover:bg-gray-50 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loading === p.key ? "Redirecting..." : isActive && plan === p.key ? "Current plan" : "Choose Pro"}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleUpgrade(p.key)}
+                    disabled={loading !== null || (isActive && plan === p.key)}
+                    className="inline-flex w-full items-center justify-center rounded-full border border-violet-600 bg-white px-6 py-3 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-700 dark:text-violet-300 dark:hover:bg-violet-900/30"
+                  >
+                    {loading === p.key ? "Redirecting..." : isActive && plan === p.key ? "Current plan" : `Choose ${p.name}`}
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }
