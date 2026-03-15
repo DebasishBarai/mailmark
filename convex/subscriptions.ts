@@ -5,9 +5,9 @@ import { v } from "convex/values";
 const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const PLANS = {
-  starter: { priceMonthly: 900 },
-  pro: { priceMonthly: 2900 },
-  business: { priceMonthly: 9900 },
+  starter: { priceMonthly: 1000 },
+  pro: { priceMonthly: 2500 },
+  business: { priceMonthly: 7500 },
 } as const;
 
 export type PlanName = keyof typeof PLANS;
