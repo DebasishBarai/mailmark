@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { UserButton, useClerk } from "@clerk/nextjs";
 import { Authenticated, Unauthenticated, AuthLoading, useAction, useQuery, useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import ThemeToggle from "../components/ThemeToggle";
 import Logo from "../components/Logo";
 import { SidebarProvider, useSidebar } from "../components/SidebarContext";
@@ -117,11 +118,54 @@ function TrialGate({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+const MB_COLORS = ["#7c3aed", "#0891b2", "#059669", "#d97706", "#db2777", "#4f46e5"];
+
+function DomainSubNav({ domainId, collapsed }: { domainId: Id<"domains">; collapsed: boolean }) {
+  const domain = useQuery(api.domains.getById, { domainId });
+  const mailboxes = useQuery(api.mailboxes.listByDomain, domain ? { domainId: domain._id } : "skip");
+
+  if (!domain || collapsed) return null;
+
+  return (
+    <div className="px-3 pb-1">
+      <div className="ml-3 border-l border-gray-200 pl-2 dark:border-gray-700">
+        {/* Domain name row */}
+        <div className="flex items-center gap-1.5 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
+          <svg className="h-3 w-3 shrink-0" viewBox="0 0 8 8" fill="currentColor">
+            <path d="M0 2l4 4 4-4H0z" />
+          </svg>
+          <span className="truncate">{domain.domain}</span>
+        </div>
+        {/* Mailbox sub-items */}
+        {mailboxes?.map((mb, i) => (
+          <Link
+            key={mb._id}
+            href={`/mailbox/${mb._id}`}
+            className="flex items-center gap-2 rounded-md px-1 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-700/60 dark:hover:text-gray-200"
+          >
+            <div
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+              style={{ background: MB_COLORS[i % MB_COLORS.length] }}
+            >
+              {mb.address[0].toUpperCase()}
+            </div>
+            <span className="truncate">{mb.address}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { folderSection, setCloseMobile } = useSidebar();
+
+  // Extract domainId when browsing a domain page: /domains/[domainId]/...
+  const domainPageMatch = pathname.match(/^\/domains\/([^/]+)/);
+  const activeDomainId = domainPageMatch ? (domainPageMatch[1] as Id<"domains">) : null;
 
   const closeMobile = useCallback(() => setMobileOpen(false), []);
   useEffect(() => {
@@ -174,9 +218,9 @@ function AppShell({ children }: { children: ReactNode }) {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive
-                    ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+                  className={`flex items-center gap-3 rounded-r-lg border-l-2 py-2.5 pl-[10px] pr-3 text-sm font-medium transition-colors ${isActive
+                    ? "border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-400 dark:bg-violet-900/30 dark:text-violet-300"
+                    : "border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
                     }`}
                   title={sidebarCollapsed ? link.label : undefined}
                 >
@@ -188,6 +232,11 @@ function AppShell({ children }: { children: ReactNode }) {
               );
             })}
           </nav>
+
+          {/* Domain sub-nav: shows active domain + its mailboxes */}
+          {activeDomainId && (
+            <DomainSubNav domainId={activeDomainId} collapsed={sidebarCollapsed} />
+          )}
 
           {/* Injected folder section (e.g. from mailbox page) */}
           {folderSection && folderSection.render(sidebarCollapsed)}

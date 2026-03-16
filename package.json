@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "remotion": "bunx remotion studio remotion/index.ts",
+    "remotion:render": "bunx remotion render remotion/index.ts MailmarkPromo out/mailmark-promo.mp4"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.995.0",
@@ -15,6 +17,7 @@
     "@aws-sdk/client-sns": "^3.996.0",
     "@clerk/nextjs": "^6.38.1",
     "@clerk/themes": "^2.4.57",
+    "@remotion/player": "^4.0.435",
     "@xmldom/xmldom": "^0.8.11",
     "convex": "^1.32.0",
     "geist": "^1.7.0",
@@ -24,9 +27,11 @@
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "recharts": "^3.7.0"
+    "recharts": "^3.7.0",
+    "remotion": "^4.0.435"
   },
   "devDependencies": {
+    "@remotion/cli": "^4.0.435",
     "@tailwindcss/postcss": "^4",
     "@types/mailparser": "^3.4.6",
     "@types/node": "^20",

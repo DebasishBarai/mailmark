@@ -465,6 +465,7 @@ const handleRemoveDomain = async () => {
         </div>
         {mailboxes.length === 0 ? (
           <div className="px-6 py-12 text-center">
+            <div className="mb-4 text-5xl">📬</div>
             <p className="text-sm font-medium text-gray-900 dark:text-white">No mailboxes yet</p>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {domain.verified
