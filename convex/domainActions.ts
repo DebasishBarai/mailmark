@@ -250,27 +250,44 @@ export const verifyDns = action({
 
     const dkimStatus = result.DkimAttributes?.Status;
     const dkimVerified = dkimStatus === "SUCCESS";
+    // VerifiedForSendingStatus is the authoritative "can this domain send email" flag from SES.
+    // It is more stable than DkimAttributes.Status which can transiently flap.
     const sesVerified = result.VerifiedForSendingStatus === true;
+
+    // Sticky verification: once a record is verified, never flip it back to false
+    // from a user-triggered check. DNS propagation and SES internal state are
+    // eventually consistent — transient failures should not undo a prior success.
+    const sticky = (fresh: boolean, existing: boolean) => fresh || existing;
 
     const status = {
       domainId,
-      verified: dkimVerified,
-      mxVerified,
-      spfVerified,
-      dkimVerified,
-      dmarcVerified,
-      dkimRecordStatus,
-      actualMxValue,
-      actualSpfValue,
-      actualDmarcValue,
-      mailFromMxVerified,
-      mailFromSpfVerified,
+      // Use sesVerified (VerifiedForSendingStatus) as the primary verified flag — it is
+      // what SES actually uses to gate outgoing email, and it is stickied so a transient
+      // SES response can't unexpectedly lock users out of their mailboxes.
+      verified: sticky(sesVerified, domain.verified),
+      mxVerified: sticky(mxVerified, domain.mxVerified),
+      spfVerified: sticky(spfVerified, domain.spfVerified),
+      dkimVerified: sticky(dkimVerified, domain.dkimVerified),
+      dmarcVerified: sticky(dmarcVerified, domain.dmarcVerified),
+      // Sticky per-DKIM-token: preserve any token that was verified before
+      dkimRecordStatus: dkimRecordStatus.map((fresh, i) =>
+        fresh || (domain.dkimRecordStatus?.[i] ?? false)
+      ),
+      // Only update actual DNS values when the record is not yet verified
+      // (once verified we no longer need to show the "current DNS value" hint)
+      actualMxValue: domain.mxVerified ? undefined : actualMxValue,
+      actualSpfValue: domain.spfVerified ? undefined : actualSpfValue,
+      actualDmarcValue: domain.dmarcVerified ? undefined : actualDmarcValue,
+      mailFromMxVerified: sticky(mailFromMxVerified, domain.mailFromMxVerified ?? false),
+      mailFromSpfVerified: sticky(mailFromSpfVerified, domain.mailFromSpfVerified ?? false),
     };
 
     await ctx.runMutation(internal.domains.updateVerification, status);
 
-    // Create or recreate receipt rule with SNS notification
-    if (sesVerified) {
+    // Create or recreate receipt rule with SNS notification.
+    // Run whenever SES reports the domain is verified for sending (either
+    // freshly verified this check, or was already verified before).
+    if (status.verified) {
       try {
         await ensureReceiptRuleWithSns(domain.domain);
         await ctx.runMutation(internal.domains.markReceiptRuleCreated, {
