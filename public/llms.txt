@@ -1,0 +1,641 @@
+# Mailmark
+
+> Mailmark is an all-in-one email hosting and campaign platform for custom domains. Businesses connect their own domain, create mailboxes like support@yourco.com or sales@yourco.com, and manage all email activity — day-to-day communication, bulk outreach campaigns, and transactional sending via API — from a single dashboard. Mailmark is trusted by 10,000+ businesses.
+
+---
+
+## Table of Contents
+
+1. [What Mailmark Is](#what-mailmark-is)
+2. [How Mailmark Works](#how-mailmark-works)
+3. [Features](#features)
+4. [Pricing & Plans](#pricing--plans)
+5. [Quotas & Limits](#quotas--limits)
+6. [Getting Started](#getting-started)
+7. [Domain Setup & DNS](#domain-setup--dns)
+8. [Mailboxes](#mailboxes)
+9. [Email UI](#email-ui)
+10. [Email Campaigns](#email-campaigns)
+11. [REST API](#rest-api)
+12. [npm SDK](#npm-sdk)
+13. [Billing & Subscriptions](#billing--subscriptions)
+14. [Affiliate Program](#affiliate-program)
+15. [Frequently Asked Questions](#frequently-asked-questions)
+16. [Key URLs](#key-urls)
+
+---
+
+## What Mailmark Is
+
+Mailmark combines three things that businesses previously needed separate tools for:
+
+1. **Custom domain email hosting** — Receive and send email from addresses on your own domain (e.g. hello@acme.com) without managing mail servers. Mailmark handles the infrastructure using Amazon SES.
+2. **A full email client** — An inbox, sent folder, outbox, drafts, and trash for every mailbox you create, accessible from any browser. Similar to Gmail but for your custom domain.
+3. **Email campaign tools** — Send bulk outreach and marketing emails from any of your mailboxes with mail merge, personalization, open/click tracking, automated follow-up sequences, and real-time analytics.
+
+Mailmark is not a shared email provider (like Gmail or Outlook). You bring your own domain. Mailmark does not provide domain registration — you must already own the domain you want to use.
+
+---
+
+## How Mailmark Works
+
+### Step 1 — Add Your Domain
+Go to Dashboard → Domains and click "Add domain". Enter your domain name (e.g. acme.com). Mailmark registers the domain with Amazon SES and returns the DNS records you need to add to your domain registrar: DKIM CNAME records, SPF TXT record, DMARC TXT record, and MX record for inbound email.
+
+### Step 2 — Verify DNS
+Add the DNS records at your registrar (Cloudflare, Namecheap, GoDaddy, etc.). Click "Verify" in Mailmark. DNS propagation usually completes within minutes but can take up to 48 hours. Mailmark checks MX, SPF, DKIM (three CNAME records), and DMARC individually and shows live verification status for each.
+
+### Step 3 — Create Mailboxes
+Once your domain is verified, create mailboxes under Dashboard → Mailboxes. Each mailbox gets its own inbox, sent folder, and settings. You only enter the local part (e.g. "sales") and Mailmark appends your domain automatically.
+
+### Step 4 — Send Email
+Use the dashboard UI to compose and send emails, or use the REST API / npm SDK to send programmatically. Inbound emails arrive in the mailbox inbox automatically via the configured MX record.
+
+---
+
+## Features
+
+### Custom Domain Setup
+- Connect any domain you own — Mailmark does not provide domain registration
+- Guided DNS configuration with exact record values to copy-paste
+- Auto-verification of MX, SPF, DKIM (3 records), and DMARC
+- Custom MAIL FROM domain (mail.yourdomain.com) for SPF/DMARC alignment
+- Full email deliverability from day one — emails land in inboxes, not spam
+
+### Mailboxes
+- Create mailboxes for any role: support@, sales@, info@, ceo@, hello@, etc.
+- Per-mailbox display name (e.g. "Support Team <support@acme.com>")
+- Per-mailbox email signature
+- Instantly switch between mailboxes in the UI
+- One-click mailbox creation from the dashboard or via API
+
+### Full Email UI
+- Familiar Gmail-like interface accessible from any browser
+- Folders: Inbox, Sent, Outbox, Drafts, Trash
+- Rich HTML email composer with attachments
+- Full-text search across all mail
+- Read/unread status, starring, and conversation threading
+- Open tracking — see when recipients open your emails
+- Delivery status tracking (delivered, bounced, failed)
+
+### Email Campaigns
+- Compose rich HTML campaign emails from any mailbox
+- Import recipient list via CSV or build it with the contact manager
+- Mail merge with personalization tags (first name, company, custom fields)
+- Multi-stage automated follow-up sequences (Stage 1 → Stage 2 → Stage 3)
+- Schedule campaigns for a future date and time
+- Real-time analytics: sent count, open rate, click rate, reply rate, bounce rate
+- Individual recipient tracking — see who opened, who clicked, who replied
+- Campaign send from a "sender group" — distribute sending across multiple mailboxes
+
+### Sender Groups
+- Group multiple mailboxes as senders for a campaign
+- Assign a list of recipient emails to the group
+- Campaign sends are distributed across all senders in the group
+- Manageable via dashboard or API
+
+### Campaign Analytics
+- Per-campaign dashboard: sent, opened, clicked, replied, bounced
+- Per-recipient event timeline
+- Open tracking via invisible 1x1 pixel
+- Click tracking via redirect links
+- Bounce and complaint notifications from Amazon SES
+
+### REST API
+- Full programmatic control: send emails, manage mailboxes, manage sender groups, list emails
+- API keys scoped per domain
+- Supports transactional (one email to all recipients) and campaign (individual email per recipient) send modes
+- Scheduled sending (future unix timestamp)
+- Key prefix format: `dm_live_...`
+
+### Developer Experience
+- npm SDK (`mailmark-sdk`) for Node.js / TypeScript / Bun
+- Interactive API playground in the dashboard docs page
+- Live cURL and npm code generation in the API explorer
+- Webhook notifications for inbound email via Amazon SNS
+
+### Team Collaboration
+- Invite team members to your account
+- Assign mailboxes to specific team members
+- Manage permissions from one dashboard
+- Everyone works from the same unified dashboard
+
+---
+
+## Pricing & Plans
+
+All plans include a **7-day free trial** with full feature access. No credit card required. After the trial, the account pauses until a plan is selected.
+
+Billing is monthly. You can upgrade, downgrade, or cancel at any time. Upgrades mid-cycle are prorated. There are no long-term contracts or cancellation fees.
+
+| Plan       | Price       | Emails/month | Domains   | Mailboxes  | Support          |
+|------------|-------------|--------------|-----------|------------|------------------|
+| Starter    | $10/month   | 1,000        | 1         | 3          | Basic            |
+| Pro        | $25/month   | 25,000       | 5         | Unlimited  | Priority         |
+| Business   | $75/month   | 100,000      | Unlimited | Unlimited  | Dedicated        |
+
+All plans include:
+- Full email UI (Inbox, Sent, Outbox, Drafts)
+- Email campaigns
+- Campaign analytics
+- REST API access
+- 7-day free trial
+
+---
+
+## Quotas & Limits
+
+Quotas are enforced server-side on the Convex backend. Users without an active subscription (free trial or expired) receive Starter plan limits.
+
+| Resource          | Free / Starter | Pro        | Business   |
+|-------------------|---------------|------------|------------|
+| Domains           | 1             | 5          | Unlimited  |
+| Mailboxes         | 3             | Unlimited  | Unlimited  |
+| Emails per month  | 1,000         | 25,000     | 100,000    |
+
+Quota is checked before:
+- Adding a new domain
+- Creating a new mailbox
+- Sending an email (UI, API, or scheduled)
+
+Errors returned when limit is reached:
+- `"Domain limit reached. Your plan allows N domain(s). Please upgrade to add more."`
+- `"Mailbox limit reached. Your plan allows N mailbox(es). Please upgrade to add more."`
+- `"Monthly email limit reached (N emails). Please upgrade your plan."`
+
+Email quota resets at the start of each calendar month.
+
+---
+
+## Getting Started
+
+### Sign Up
+Visit https://mailmark.dev/sign-up. Sign up with email or Google account. No credit card required.
+
+### Quick Start (4 steps)
+1. Create a Mailmark account at mailmark.dev/sign-up
+2. Go to Dashboard → Domains → Add domain. Follow the DNS instructions.
+3. Go to Dashboard → Mailboxes → Create a mailbox (e.g. hello@yourdomain.com)
+4. Send your first email from the composer, the REST API, or the npm SDK
+
+### Send via npm SDK
+```bash
+npm install mailmark-sdk
+# or
+bun add mailmark-sdk
+```
+
+```typescript
+import { Mailmark } from 'mailmark-sdk';
+
+const client = new Mailmark('dm_live_your_api_key');
+
+await client.send({
+  from: 'hello@yourdomain.com',
+  to: 'recipient@example.com',
+  subject: 'Hello from Mailmark!',
+  html: '<h1>It works!</h1>',
+});
+```
+
+### Send via cURL
+```bash
+curl -X POST https://api.mailmark.dev/v1/send \
+  -H "Authorization: Bearer dm_live_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "hello@yourdomain.com",
+    "to": ["recipient@example.com"],
+    "subject": "Hello from Mailmark!",
+    "html": "<h1>It works!</h1>"
+  }'
+```
+
+API keys are available in Dashboard → Developer.
+
+---
+
+## Domain Setup & DNS
+
+Mailmark requires four types of DNS records to fully verify a domain:
+
+### MX Record (inbound email routing)
+- Type: MX
+- Host: @ (root domain)
+- Value: `inbound-smtp.ap-south-1.amazonaws.com`
+- Priority: 10
+- Required for receiving email in your Mailmark mailboxes
+
+### SPF Record (sender authentication)
+- Type: TXT
+- Host: @ (root domain)
+- Value: `v=spf1 include:amazonses.com ~all`
+- Prevents spoofing of your domain in email headers
+
+### DKIM Records (cryptographic signing)
+- Type: CNAME (3 records)
+- Host: `<token>._domainkey.yourdomain.com`
+- Value: `<token>.dkim.amazonses.com`
+- Mailmark generates three DKIM tokens per domain; all three must be added
+
+### DMARC Record (policy enforcement)
+- Type: TXT
+- Host: `_dmarc.yourdomain.com`
+- Value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com`
+- Instructs receiving servers how to handle unauthenticated mail from your domain
+
+### Custom MAIL FROM (SPF/DMARC alignment)
+Mailmark also configures a custom MAIL FROM domain (`mail.yourdomain.com`) for better deliverability alignment:
+- MX record on `mail.yourdomain.com` pointing to `feedback-smtp.ap-south-1.amazonaws.com`
+- SPF TXT record on `mail.yourdomain.com` including `amazonses.com`
+
+Verification status for each record is shown in real time in Dashboard → Domains → [your domain].
+
+---
+
+## Mailboxes
+
+A mailbox is a sending and receiving email address on your domain.
+
+### Creating a Mailbox
+- Go to Dashboard → Domains → [your domain] → Add Mailbox
+- Enter the local part only (e.g. "support" — not "support@yourdomain.com")
+- Optionally set a display name (e.g. "Support Team")
+- The mailbox is created instantly
+
+### Mailbox Settings
+- **Display name**: shown as the "From" name in email clients
+- **Signature**: HTML or plain text appended to outgoing emails
+- **Full address**: the complete email address (local@domain.com)
+
+### Deleting a Mailbox
+Deleting a mailbox permanently removes all emails stored in it (both in Convex and Amazon S3). This action is irreversible. Sender group memberships are automatically cleaned up.
+
+### Limits
+- Starter plan: 3 mailboxes (across 1 domain)
+- Pro plan: Unlimited mailboxes (across 5 domains)
+- Business plan: Unlimited mailboxes (across unlimited domains)
+
+---
+
+## Email UI
+
+Every mailbox has a full email client accessible from the Mailmark dashboard.
+
+### Folders
+- **Inbox** — received emails
+- **Sent** — emails you have sent
+- **Outbox** — scheduled emails awaiting delivery
+- **Drafts** — saved but unsent emails
+- **Trash** — deleted emails
+
+### Composing Email
+- Rich HTML editor
+- To, CC, BCC fields
+- Subject line
+- File attachments
+- Schedule for later (choose date/time)
+- Per-mailbox signature auto-inserted
+
+### Email Tracking
+- **Open tracking**: a 1×1 invisible pixel is embedded in outgoing sent emails. When the recipient loads the email, the pixel fires and Mailmark records the open time.
+- **Delivery status**: Amazon SES sends delivery, bounce, and complaint notifications back to Mailmark via SNS webhook. Emails show "Delivered", "Bounced", or "Failed" status.
+
+---
+
+## Email Campaigns
+
+Campaigns let you send bulk emails to a large list of recipients from any of your mailboxes.
+
+### Campaign Types
+- **Transactional**: one email sent to all recipients simultaneously (standard BCC-style)
+- **Campaign**: one individually addressed email per recipient, each tracked separately under a shared `batchId`
+
+### Personalization
+Use merge tags in the subject or body to personalize emails per recipient:
+- `{{firstName}}`, `{{lastName}}`, `{{company}}`, and any custom fields from your CSV import
+
+### Follow-up Sequences
+Configure multi-stage automated follow-ups:
+- Stage 1: Initial email
+- Stage 2: Follow-up if no reply after N days
+- Stage 3: Second follow-up if still no reply
+
+### Campaign Analytics
+Real-time metrics per campaign:
+- **Sent**: total emails dispatched
+- **Opened**: recipients who loaded the tracking pixel
+- **Clicked**: recipients who clicked a tracked link
+- **Replied**: recipients who replied
+- **Bounced**: emails that bounced
+
+### Sender Groups
+For large campaigns, use sender groups to distribute sending across multiple mailboxes. Create a sender group, assign mailboxes as senders, add recipient emails, and launch the campaign. Mailmark rotates sends across all mailboxes in the group.
+
+---
+
+## REST API
+
+**Base URL**: `https://api.mailmark.dev`
+
+**Authentication**: Pass your API key in the `Authorization` header:
+```
+Authorization: Bearer dm_live_your_api_key
+```
+
+API keys are scoped per domain. Generate and manage keys in Dashboard → Developer.
+
+---
+
+### Mailboxes
+
+#### GET /v1/mailboxes
+List all mailboxes on the domain scoped to your API key.
+
+**Response**: Array of Mailbox objects
+```json
+[
+  {
+    "_id": "jd7abc...",
+    "address": "hello",
+    "fullAddress": "hello@yourdomain.com",
+    "displayName": "Hello Team"
+  }
+]
+```
+
+#### POST /v1/mailboxes
+Create a new mailbox.
+
+**Body**:
+```json
+{
+  "address": "hello",
+  "displayName": "Hello Team"
+}
+```
+**Notes**: Pass only the local part (`hello`, not `hello@domain.com`). Returns 409 if already exists.
+
+#### DELETE /v1/mailboxes/:address
+Permanently delete a mailbox and all its emails. Pass local part or full address.
+
+**Response**: `{ "deleted": true }`
+
+**Warning**: Irreversible. All emails are permanently deleted.
+
+---
+
+### Sender Groups
+
+#### GET /v1/sender-groups
+List all sender groups for the domain.
+
+#### POST /v1/sender-groups
+Create a sender group.
+
+**Body**:
+```json
+{
+  "name": "Marketing Team",
+  "mailboxes": "all",
+  "emails": ["user1@example.com", "user2@example.com"]
+}
+```
+Pass `"all"` for mailboxes to include every mailbox on the domain.
+
+#### PATCH /v1/sender-groups/:id
+Update a sender group. All fields optional.
+
+**Body fields**:
+- `name` — rename the group
+- `addEmails` — add recipients to the list
+- `removeEmails` — remove recipients from the list
+- `emails` — replace the entire recipient list
+- `mailboxes` — replace sender mailbox list (comma-separated or `"all"`)
+
+#### DELETE /v1/sender-groups/:id
+Delete a sender group. Mailboxes are not affected.
+
+---
+
+### Send Email
+
+#### POST /v1/send
+Send an email immediately or schedule it for later.
+
+**Body**:
+```json
+{
+  "from": "hello@yourdomain.com",
+  "to": ["recipient@example.com"],
+  "subject": "Hello!",
+  "html": "<h1>Hello!</h1><p>Sent via Mailmark API.</p>",
+  "type": "transactional",
+  "scheduledAt": 1750000000000
+}
+```
+
+**Fields**:
+- `from` (required) — full address of an existing mailbox on your domain
+- `to` (required) — array of recipient addresses
+- `subject` (required) — email subject
+- `html` — HTML body (required if `text` not provided)
+- `text` — plain text body (required if `html` not provided)
+- `type` — `"transactional"` (default) or `"campaign"` (one email per recipient)
+- `scheduledAt` — future unix millisecond timestamp for scheduled sending
+
+**Response (transactional)**:
+```json
+{ "messageId": "abc123", "status": "queued" }
+```
+
+**Response (campaign)**:
+```json
+{ "messageIds": ["abc123", "def456"], "batchId": "batch_xyz", "status": "queued" }
+```
+
+**Notes**:
+- `from` must be an existing mailbox created under this API key's domain
+- For campaign sends, each recipient gets a separate individually tracked email
+- `scheduledAt` must be a future timestamp
+
+---
+
+### Emails
+
+#### GET /v1/emails
+List sent emails for the domain.
+
+---
+
+## npm SDK
+
+The official Mailmark SDK for Node.js, TypeScript, and Bun.
+
+**Package**: `mailmark-sdk`
+
+**Install**:
+```bash
+npm install mailmark-sdk
+bun add mailmark-sdk
+```
+
+**Usage**:
+```typescript
+import { Mailmark } from 'mailmark-sdk';
+
+const client = new Mailmark('dm_live_your_api_key');
+
+// Send email
+await client.send({
+  from: 'hello@yourdomain.com',
+  to: 'user@example.com',
+  subject: 'Hello!',
+  html: '<p>Hello from Mailmark!</p>',
+});
+
+// List mailboxes
+const mailboxes = await client.listMailboxes();
+
+// Create mailbox
+const mailbox = await client.createMailbox({
+  address: 'support',
+  displayName: 'Support Team',
+});
+
+// Delete mailbox
+await client.deleteMailbox('support');
+
+// Sender groups
+const groups = await client.listSenderGroups();
+const group = await client.createSenderGroup({
+  name: 'Marketing Team',
+  mailboxes: 'all',
+  emails: ['user@example.com'],
+});
+await client.updateSenderGroup('GROUP_ID', { addEmails: ['new@example.com'] });
+await client.deleteSenderGroup('GROUP_ID');
+```
+
+---
+
+## Billing & Subscriptions
+
+- All plans billed **monthly**
+- **7-day free trial** on every plan — no credit card required
+- After trial: account pauses until a plan is chosen
+- Upgrade / downgrade / cancel any time from Dashboard → Settings → Billing
+- Mid-cycle upgrades are **prorated** — you only pay for what you use
+- Cancellations take effect at the end of the current billing period
+- No long-term contracts, no cancellation fees
+
+**Payment processing**: Polar (stripe-backed)
+
+**Plan IDs** (for reference):
+- `starter` — $10/month
+- `pro` — $25/month
+- `business` — $75/month
+
+---
+
+## Affiliate Program
+
+Mailmark runs a **30% recurring commission** affiliate program.
+
+### How It Works
+1. Apply at https://mailmark.dev/affiliate-program — applications reviewed within 48 hours
+2. Get your unique referral link and marketing assets (banners, email copy, social posts)
+3. Earn 30% of every payment made by referred customers — every month, for the lifetime of their account
+
+### Commission Rates
+| Plan     | Customer pays | You earn   |
+|----------|---------------|------------|
+| Starter  | $10/month     | $3.00/month |
+| Pro      | $25/month     | $7.50/month |
+| Business | $75/month     | $22.50/month |
+
+### Payout Details
+- Processed on the **15th of each month** for the prior month's commissions
+- Payment via PayPal or bank transfer (SWIFT/SEPA)
+- Minimum payout threshold: **$50** (earnings below this roll over)
+- Referral cookie duration: **90 days**
+- Paid search on branded terms (e.g. "Mailmark") is not allowed
+
+---
+
+## Frequently Asked Questions
+
+**What is Mailmark?**
+Mailmark is an all-in-one email hosting and campaign platform for custom domains. You connect your own domain, create as many mailboxes as you need, and manage everything — from day-to-day email to mass outreach campaigns — in a single dashboard.
+
+**Can I use my own custom domain?**
+Yes. Mailmark is built around custom domains. You add your domain, configure the required DNS records (Mailmark provides step-by-step instructions), and your mailboxes go live in minutes. You can add multiple domains on paid plans.
+
+**How many mailboxes can I create?**
+The Starter plan supports up to 3 mailboxes on a single domain. The Pro plan gives you unlimited mailboxes across 5 domains. The Business plan lifts all limits.
+
+**Does Mailmark support email campaigns?**
+Yes. All plans include the campaign suite — compose rich HTML emails, import or build a recipient list, schedule sends, and track opens, clicks, and deliverability in real time. Auto follow-up sequences are also supported.
+
+**Is there a free trial?**
+Yes. Every plan comes with a 7-day free trial — no credit card required. You get full access to all features during the trial. After 7 days, the account pauses until a paid plan is chosen.
+
+**How does billing work?**
+All plans are billed monthly after the 7-day free trial ends. You can upgrade, downgrade, or cancel at any time. Upgrades mid-cycle are prorated.
+
+**Can I cancel at any time?**
+Yes. No long-term contracts or cancellation fees. Cancel from Dashboard → Settings → Billing. Your plan stays active until the end of the current billing period.
+
+**What email clients can I use?**
+You can use the built-in Mailmark web UI (works in any modern browser). IMAP and SMTP access are also supported, so you can connect Mailmark mailboxes to Apple Mail, Thunderbird, Outlook, or any standard email client.
+
+**Does Mailmark provide domain registration?**
+No. You must already own the domain you want to use. Mailmark only handles email hosting and delivery — not domain registration.
+
+**What happens if I exceed my email limit?**
+All further sends are blocked until the next calendar month (when the quota resets) or until you upgrade to a higher plan. Attempting to send will return an error: "Monthly email limit reached."
+
+---
+
+## Key URLs
+
+| Page | URL |
+|---|---|
+| Homepage | https://mailmark.dev |
+| Sign up | https://mailmark.dev/sign-up |
+| Sign in | https://mailmark.dev/sign-in |
+| Dashboard | https://mailmark.dev/dashboard |
+| Documentation home | https://mailmark.dev/docs |
+| Getting started | https://mailmark.dev/docs/getting-started |
+| Domain setup guide | https://mailmark.dev/docs/domain-setup |
+| Mailboxes guide | https://mailmark.dev/docs/mailboxes |
+| Email campaigns guide | https://mailmark.dev/docs/email-campaigns |
+| API reference | https://mailmark.dev/docs/api |
+| Troubleshooting | https://mailmark.dev/docs/troubleshooting |
+| Pricing | https://mailmark.dev/#pricing |
+| Billing (dashboard) | https://mailmark.dev/billing |
+| Developer (API keys) | https://mailmark.dev/developer |
+| Affiliate program | https://mailmark.dev/affiliate-program |
+| Blog | https://mailmark.dev/blog |
+| About | https://mailmark.dev/about |
+| Careers | https://mailmark.dev/careers |
+| Contact | https://mailmark.dev/contact |
+| Privacy policy | https://mailmark.dev/privacy |
+| Terms of service | https://mailmark.dev/terms |
+| Security | https://mailmark.dev/security |
+| Email deliverability guide | https://mailmark.dev/guides/email-deliverability |
+| DNS setup guide | https://mailmark.dev/guides/dns-setup |
+| REST API base URL | https://api.mailmark.dev |
+
+---
+
+## Technical Stack
+
+- **Frontend**: Next.js (React), TypeScript, Tailwind CSS
+- **Backend**: Convex (real-time serverless backend)
+- **Authentication**: Clerk (Google, GitHub, email sign-in)
+- **Email delivery & receiving**: Amazon SES (Simple Email Service)
+- **Email storage**: Amazon S3
+- **Event notifications**: Amazon SNS (webhook delivery for inbound/outbound events)
+- **Payments**: Polar (subscription management and billing)
+- **Deployment**: Vercel (frontend), Convex cloud (backend)
