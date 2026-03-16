@@ -11,6 +11,7 @@ if (typeof globalThis.DOMParser === "undefined") {
 import { v } from "convex/values";
 import { action, internalAction, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { PLAN_LIMITS } from "./quotas";
 import { Id } from "./_generated/dataModel";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
@@ -106,6 +107,19 @@ export const sendEmail = action({
     });
 
     if (!mailbox) throw new Error("Mailbox not found");
+
+    // Email quota check
+    const emailLimits = await ctx.runQuery(internal.quotas.getUserLimits, {
+      userId: mailbox.userId,
+    });
+    const sentThisMonth = await ctx.runQuery(internal.quotas.countSentEmailsThisMonth, {
+      userId: mailbox.userId,
+    });
+    if (sentThisMonth >= emailLimits.emailsPerMonth) {
+      throw new Error(
+        `Monthly email limit reached (${emailLimits.emailsPerMonth.toLocaleString()} emails). Please upgrade your plan.`
+      );
+    }
 
     const fromAddress = mailbox.displayName
       ? `${mailbox.displayName} <${mailbox.fullAddress}>`
@@ -276,6 +290,19 @@ export const scheduleEmail = action({
 
     const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
     if (!mailbox) throw new Error("Mailbox not found");
+
+    // Email quota check
+    const schedLimits = await ctx.runQuery(internal.quotas.getUserLimits, {
+      userId: mailbox.userId,
+    });
+    const schedSentThisMonth = await ctx.runQuery(internal.quotas.countSentEmailsThisMonth, {
+      userId: mailbox.userId,
+    });
+    if (schedSentThisMonth >= schedLimits.emailsPerMonth) {
+      throw new Error(
+        `Monthly email limit reached (${schedLimits.emailsPerMonth.toLocaleString()} emails). Please upgrade your plan.`
+      );
+    }
 
     const fromAddress = mailbox.displayName
       ? `${mailbox.displayName} <${mailbox.fullAddress}>`
@@ -484,6 +511,19 @@ export const sendEmailViaApi = internalAction({
   handler: async (ctx, { mailboxId, to, subject, html, batchId }) => {
     const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
     if (!mailbox) throw new Error("Mailbox not found");
+
+    // Email quota check
+    const apiLimits = await ctx.runQuery(internal.quotas.getUserLimits, {
+      userId: mailbox.userId,
+    });
+    const apiSentThisMonth = await ctx.runQuery(internal.quotas.countSentEmailsThisMonth, {
+      userId: mailbox.userId,
+    });
+    if (apiSentThisMonth >= apiLimits.emailsPerMonth) {
+      throw new Error(
+        `Monthly email limit reached (${apiLimits.emailsPerMonth.toLocaleString()} emails). Please upgrade your plan.`
+      );
+    }
 
     const fromAddress = mailbox.displayName
       ? `${mailbox.displayName} <${mailbox.fullAddress}>`

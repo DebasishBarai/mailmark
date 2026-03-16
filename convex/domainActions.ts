@@ -103,6 +103,21 @@ export const add = action({
     });
     if (!user) throw new Error("User not found");
 
+    // Quota check
+    const limits = await ctx.runQuery(internal.quotas.getUserLimits, {
+      userId: user._id,
+    });
+    if (limits.domains !== null) {
+      const userDomains = await ctx.runQuery(internal.domains.listForCurrentUserInternal, {
+        userId: user._id,
+      });
+      if (userDomains.length >= limits.domains) {
+        throw new Error(
+          `Domain limit reached. Your plan allows ${limits.domains} domain(s). Please upgrade to add more.`
+        );
+      }
+    }
+
     const existing = await ctx.runQuery(internal.domains.getDomainByName, {
       domain,
     });

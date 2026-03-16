@@ -104,6 +104,16 @@ export const markReceiptRuleCreated = internalMutation({
   },
 });
 
+export const listForCurrentUserInternal = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    return await ctx.db
+      .query("domains")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .collect();
+  },
+});
+
 export const getUserByClerkId = internalQuery({
   args: { clerkId: v.string() },
   handler: async (ctx, { clerkId }) => {

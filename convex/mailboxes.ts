@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, action, internalMutation, internalQuery, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { PLAN_LIMITS } from "./quotas";
 import { S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 
 export const listByDomain = query({
@@ -73,6 +74,25 @@ export const create = mutation({
       .unique();
 
     if (!user) throw new Error("User not found");
+
+    // Quota check
+    const subscription = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .first();
+    const plan = subscription?.status === "active" ? subscription.plan : "free";
+    const mailboxLimit = PLAN_LIMITS[plan].mailboxes;
+    if (mailboxLimit !== null) {
+      const mailboxCount = await ctx.db
+        .query("mailboxes")
+        .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+        .collect();
+      if (mailboxCount.length >= mailboxLimit) {
+        throw new Error(
+          `Mailbox limit reached. Your plan allows ${mailboxLimit} mailbox(es). Please upgrade to add more.`
+        );
+      }
+    }
 
     const domain = await ctx.db.get(domainId);
     if (!domain || domain.userId !== user._id) {
