@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import ConvexClientProvider from "./components/ConvexClientProvider";
 import ThemeProvider from "./components/ThemeProvider";
 import ClerkThemeProvider from "./components/ClerkThemeProvider";
+import PreferenceSync from "./components/PreferenceSync";
 import RefCapture from "./components/RefCapture";
 import "./globals.css";
 
@@ -39,6 +40,7 @@ export default function RootLayout({
         <ThemeProvider>
           <ClerkThemeProvider>
             <ConvexClientProvider>
+              <PreferenceSync />
               <Suspense fallback={null}><RefCapture /></Suspense>
               {children}
             </ConvexClientProvider>

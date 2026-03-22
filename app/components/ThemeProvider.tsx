@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 
 export const THEMES = [
   { id: "clean-white", name: "Clean White", dark: false, group: "Professional" },
@@ -43,6 +43,8 @@ export const WALLPAPERS = [
 
 export type WallpaperId = (typeof WALLPAPERS)[number]["id"];
 
+type SaveToDbFn = (prefs: { prefTheme?: string; prefDensity?: string; prefWallpaper?: string }) => void;
+
 const ThemeContext = createContext<{
   theme: ThemeId;
   setTheme: (id: ThemeId) => void;
@@ -51,6 +53,8 @@ const ThemeContext = createContext<{
   setDensity: (id: DensityId) => void;
   wallpaper: WallpaperId;
   setWallpaper: (id: WallpaperId) => void;
+  _applyFromDb: (prefs: { prefTheme?: string; prefDensity?: string; prefWallpaper?: string }) => void;
+  _setSaveToDb: (fn: SaveToDbFn) => void;
 }>({
   theme: "clean-white",
   setTheme: () => {},
@@ -59,9 +63,17 @@ const ThemeContext = createContext<{
   setDensity: () => {},
   wallpaper: "none",
   setWallpaper: () => {},
+  _applyFromDb: () => {},
+  _setSaveToDb: () => {},
 });
 
 export function useTheme() {
+  const { _applyFromDb, _setSaveToDb, ...rest } = useContext(ThemeContext);
+  return rest;
+}
+
+// Internal hook used only by PreferenceSync
+export function useThemeInternal() {
   return useContext(ThemeContext);
 }
 
@@ -86,65 +98,90 @@ function applyWallpaper(id: WallpaperId) {
   }
 }
 
+export function isValidTheme(id: string): id is ThemeId {
+  return THEMES.some((t) => t.id === id);
+}
+export function isValidDensity(id: string): id is DensityId {
+  return DENSITIES.some((d) => d.id === id);
+}
+export function isValidWallpaper(id: string): id is WallpaperId {
+  return WALLPAPERS.some((w) => w.id === id);
+}
+
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeId>("clean-white");
   const [density, setDensityState] = useState<DensityId>("default");
   const [wallpaper, setWallpaperState] = useState<WallpaperId>("none");
+  const saveToDbRef = useRef<SaveToDbFn | null>(null);
 
+  // On mount: apply from localStorage immediately (no flash)
   useEffect(() => {
-    // Theme
-    const storedTheme = localStorage.getItem("mailmark-theme") as ThemeId | null;
-    if (storedTheme && THEMES.some((t) => t.id === storedTheme)) {
-      setThemeState(storedTheme);
-      applyTheme(storedTheme);
-    } else {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const initial = prefersDark ? "enterprise-dark" : "clean-white";
-      setThemeState(initial as ThemeId);
-      applyTheme(initial as ThemeId);
-    }
+    const storedTheme = localStorage.getItem("mailmark-theme");
+    const storedDensity = localStorage.getItem("mailmark-density");
+    const storedWallpaper = localStorage.getItem("mailmark-wallpaper");
 
-    // Density
-    const storedDensity = localStorage.getItem("mailmark-density") as DensityId | null;
-    if (storedDensity && DENSITIES.some((d) => d.id === storedDensity)) {
-      setDensityState(storedDensity);
-      applyDensity(storedDensity);
-    } else {
-      applyDensity("default");
-    }
+    const t = storedTheme && isValidTheme(storedTheme) ? storedTheme : (
+      window.matchMedia("(prefers-color-scheme: dark)").matches ? "enterprise-dark" as ThemeId : "clean-white" as ThemeId
+    );
+    const d = storedDensity && isValidDensity(storedDensity) ? storedDensity : "default" as DensityId;
+    const w = storedWallpaper && isValidWallpaper(storedWallpaper) ? storedWallpaper : "none" as WallpaperId;
 
-    // Wallpaper
-    const storedWallpaper = localStorage.getItem("mailmark-wallpaper") as WallpaperId | null;
-    if (storedWallpaper && WALLPAPERS.some((w) => w.id === storedWallpaper)) {
-      setWallpaperState(storedWallpaper);
-      applyWallpaper(storedWallpaper);
-    } else {
-      applyWallpaper("none");
+    setThemeState(t);
+    setDensityState(d);
+    setWallpaperState(w);
+    applyTheme(t);
+    applyDensity(d);
+    applyWallpaper(w);
+  }, []);
+
+  // Called by PreferenceSync when DB user data loads
+  const _applyFromDb = useCallback((prefs: { prefTheme?: string; prefDensity?: string; prefWallpaper?: string }) => {
+    if (prefs.prefTheme && isValidTheme(prefs.prefTheme)) {
+      setThemeState(prefs.prefTheme);
+      applyTheme(prefs.prefTheme);
+      localStorage.setItem("mailmark-theme", prefs.prefTheme);
+    }
+    if (prefs.prefDensity && isValidDensity(prefs.prefDensity)) {
+      setDensityState(prefs.prefDensity);
+      applyDensity(prefs.prefDensity);
+      localStorage.setItem("mailmark-density", prefs.prefDensity);
+    }
+    if (prefs.prefWallpaper && isValidWallpaper(prefs.prefWallpaper)) {
+      setWallpaperState(prefs.prefWallpaper);
+      applyWallpaper(prefs.prefWallpaper);
+      localStorage.setItem("mailmark-wallpaper", prefs.prefWallpaper);
     }
   }, []);
 
-  function setTheme(id: ThemeId) {
+  const _setSaveToDb = useCallback((fn: SaveToDbFn) => {
+    saveToDbRef.current = fn;
+  }, []);
+
+  const setTheme = useCallback((id: ThemeId) => {
     setThemeState(id);
     localStorage.setItem("mailmark-theme", id);
     applyTheme(id);
-  }
+    saveToDbRef.current?.({ prefTheme: id });
+  }, []);
 
-  function setDensity(id: DensityId) {
+  const setDensity = useCallback((id: DensityId) => {
     setDensityState(id);
     localStorage.setItem("mailmark-density", id);
     applyDensity(id);
-  }
+    saveToDbRef.current?.({ prefDensity: id });
+  }, []);
 
-  function setWallpaper(id: WallpaperId) {
+  const setWallpaper = useCallback((id: WallpaperId) => {
     setWallpaperState(id);
     localStorage.setItem("mailmark-wallpaper", id);
     applyWallpaper(id);
-  }
+    saveToDbRef.current?.({ prefWallpaper: id });
+  }, []);
 
   const isDark = THEMES.find((t) => t.id === theme)?.dark ?? false;
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, isDark, density, setDensity, wallpaper, setWallpaper }}>
+    <ThemeContext.Provider value={{ theme, setTheme, isDark, density, setDensity, wallpaper, setWallpaper, _applyFromDb, _setSaveToDb }}>
       {children}
     </ThemeContext.Provider>
   );

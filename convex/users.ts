@@ -1,4 +1,4 @@
-import { action, internalMutation, internalQuery, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Doc } from "./_generated/dataModel";
@@ -107,6 +107,32 @@ export const addUser = action({
       imageUrl: identity.pictureUrl,
       polarCustomerId: polarCustomer.id,
     });
+  },
+});
+
+export const updatePreferences = mutation({
+  args: {
+    prefTheme: v.optional(v.string()),
+    prefDensity: v.optional(v.string()),
+    prefWallpaper: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) throw new Error("User not found");
+
+    const patch: Record<string, string | undefined> = {};
+    if (args.prefTheme !== undefined) patch.prefTheme = args.prefTheme;
+    if (args.prefDensity !== undefined) patch.prefDensity = args.prefDensity;
+    if (args.prefWallpaper !== undefined) patch.prefWallpaper = args.prefWallpaper;
+
+    await ctx.db.patch(user._id, patch);
   },
 });
 

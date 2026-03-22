@@ -8,6 +8,10 @@ export default defineSchema({
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     polarCustomerId: v.optional(v.string()),
+    // Appearance preferences
+    prefTheme: v.optional(v.string()),
+    prefDensity: v.optional(v.string()),
+    prefWallpaper: v.optional(v.string()),
   }).index("by_clerk_id", ["clerkId"]),
 
   domains: defineTable({
