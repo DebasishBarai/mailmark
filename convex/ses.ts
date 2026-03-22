@@ -27,6 +27,19 @@ function getSESClient() {
   });
 }
 
+// Generate unsubscribe headers and footer for RFC 8058 compliance
+// (Gmail/Yahoo 2024 one-click unsubscribe requirement)
+function buildUnsubscribeHeaders(unsubUrl: string, unsubPostUrl: string): string[] {
+  return [
+    `List-Unsubscribe: <${unsubUrl}>, <${unsubPostUrl}>`,
+    `List-Unsubscribe-Post: List-Unsubscribe=One-Click`,
+  ];
+}
+
+function buildUnsubscribeFooter(unsubUrl: string): string {
+  return `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#9ca3af;font-family:sans-serif">If you no longer wish to receive these emails, <a href="${unsubUrl}" style="color:#7c3aed;text-decoration:underline">unsubscribe here</a>.</div>`;
+}
+
 function buildRawMimeEmail(
   from: string,
   to: string[],
@@ -36,7 +49,8 @@ function buildRawMimeEmail(
   body: string,
   attachments: Array<{ filename: string; contentType: string; data: string }>,
   cc?: string[],
-  bcc?: string[]
+  bcc?: string[],
+  unsubHeaders?: string[]
 ): string {
   const boundary = `----=_Part_${messageId}`;
   const lines: string[] = [
@@ -48,6 +62,7 @@ function buildRawMimeEmail(
     `Subject: ${subject}`,
     `Date: ${new Date().toUTCString()}`,
     `Message-ID: <${messageId}@${domain}>`,
+    ...(unsubHeaders ?? []),
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     ``,
     `--${boundary}`,
@@ -120,6 +135,21 @@ export const sendEmail = action({
       );
     }
 
+    // Filter out unsubscribed recipients (campaign emails)
+    if (batchId) {
+      const unsubscribed = await ctx.runQuery(
+        internal.unsubscribe.checkUnsubscribedRecipients,
+        { domainId: mailbox.domainId, emails: to }
+      );
+      if (unsubscribed.length > 0) {
+        const filtered = to.filter((e) => !unsubscribed.includes(e));
+        if (filtered.length === 0) {
+          return { success: true, messageId: "skipped-all-unsubscribed" };
+        }
+        to = filtered;
+      }
+    }
+
     // Email quota check
     const emailLimits = await ctx.runQuery(internal.quotas.getUserLimits, {
       userId: mailbox.userId,
@@ -146,12 +176,22 @@ export const sendEmail = action({
     const trackingPixel = emailFolder === "sent"
       ? `<img src="${convexSiteUrl}/track/open/${messageId}.gif" width="1" height="1" style="display:none" alt="" />`
       : "";
-    const bodyWithTracking = body + trackingPixel;
+
+    // Build unsubscribe headers and footer for campaign emails (RFC 8058 / Gmail & Yahoo 2024 compliance)
+    const isCampaign = !!batchId;
+    const appUrl = process.env.APP_URL ?? "";
+    const recipientEmail = to[0] ?? "";
+    const unsubToken = `${messageId}-${Buffer.from(recipientEmail).toString("base64url")}`;
+    const unsubUrl = `${convexSiteUrl}/unsubscribe/${unsubToken}?email=${encodeURIComponent(recipientEmail)}&domain=${encodeURIComponent(mailbox.domain)}`;
+    const unsubPostUrl = `${convexSiteUrl}/unsubscribe/${unsubToken}`;
+    const unsubHeaders = isCampaign ? buildUnsubscribeHeaders(unsubUrl, unsubPostUrl) : [];
+    const unsubFooter = isCampaign ? buildUnsubscribeFooter(unsubUrl) : "";
+    const bodyWithTracking = body + unsubFooter + trackingPixel;
 
     // Build raw MIME email for both paths — SES rejects Message-ID as a
     // custom header in Simple content, so always send via Content.Raw.
     const rawEmail = hasAttachments
-      ? buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, bodyWithTracking, attachments!, cc, bcc)
+      ? buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, bodyWithTracking, attachments!, cc, bcc, unsubHeaders)
       : [
           `From: ${fromAddress}`,
           `To: ${to.join(", ")}`,
@@ -160,6 +200,7 @@ export const sendEmail = action({
           `Subject: ${subject}`,
           `Date: ${new Date().toUTCString()}`,
           `Message-ID: <${messageId}@${mailbox.domain}>`,
+          ...unsubHeaders,
           `Content-Type: text/html; charset=UTF-8`,
           "",
           bodyWithTracking,
@@ -484,7 +525,16 @@ export const scheduleEmailViaApi = internalAction({
     const messageId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? "";
     const trackingPixel = `<img src="${convexSiteUrl}/track/open/${messageId}.gif" width="1" height="1" style="display:none" alt="" />`;
-    const bodyWithTracking = html + trackingPixel;
+
+    // Unsubscribe headers + footer for campaign emails
+    const sIsCampaign = !!batchId;
+    const sRecipient = to[0] ?? "";
+    const sUnsubToken = `${messageId}-${Buffer.from(sRecipient).toString("base64url")}`;
+    const sUnsubUrl = `${convexSiteUrl}/unsubscribe/${sUnsubToken}?email=${encodeURIComponent(sRecipient)}&domain=${encodeURIComponent(mailbox.domain)}`;
+    const sUnsubPostUrl = `${convexSiteUrl}/unsubscribe/${sUnsubToken}`;
+    const sUnsubHeaders = sIsCampaign ? buildUnsubscribeHeaders(sUnsubUrl, sUnsubPostUrl) : [];
+    const sUnsubFooter = sIsCampaign ? buildUnsubscribeFooter(sUnsubUrl) : "";
+    const bodyWithTracking = html + sUnsubFooter + trackingPixel;
 
     const rawEmail = [
       `From: ${fromAddress}`,
@@ -492,6 +542,7 @@ export const scheduleEmailViaApi = internalAction({
       `Subject: ${subject}`,
       `Date: ${new Date(scheduledAt).toUTCString()}`,
       `Message-ID: <${messageId}@${mailbox.domain}>`,
+      ...sUnsubHeaders,
       `Content-Type: text/html; charset=UTF-8`,
       "",
       bodyWithTracking,
@@ -558,6 +609,18 @@ export const sendEmailViaApi = internalAction({
       );
     }
 
+    // Filter out unsubscribed recipients (campaign emails)
+    if (batchId) {
+      const apiUnsubs = await ctx.runQuery(
+        internal.unsubscribe.checkUnsubscribedRecipients,
+        { domainId: mailbox.domainId, emails: to }
+      );
+      if (apiUnsubs.length > 0) {
+        to = to.filter((e) => !apiUnsubs.includes(e));
+        if (to.length === 0) return { messageId: "skipped-all-unsubscribed" };
+      }
+    }
+
     // Email quota check
     const apiLimits = await ctx.runQuery(internal.quotas.getUserLimits, {
       userId: mailbox.userId,
@@ -580,7 +643,16 @@ export const sendEmailViaApi = internalAction({
 
     const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? "";
     const trackingPixel = `<img src="${convexSiteUrl}/track/open/${messageId}.gif" width="1" height="1" style="display:none" alt="" />`;
-    const bodyWithTracking = html + trackingPixel;
+
+    // Unsubscribe headers + footer for campaign emails
+    const apiIsCampaign = !!batchId;
+    const apiRecipient = to[0] ?? "";
+    const apiUnsubToken = `${messageId}-${Buffer.from(apiRecipient).toString("base64url")}`;
+    const apiUnsubUrl = `${convexSiteUrl}/unsubscribe/${apiUnsubToken}?email=${encodeURIComponent(apiRecipient)}&domain=${encodeURIComponent(mailbox.domain)}`;
+    const apiUnsubPostUrl = `${convexSiteUrl}/unsubscribe/${apiUnsubToken}`;
+    const apiUnsubHeaders = apiIsCampaign ? buildUnsubscribeHeaders(apiUnsubUrl, apiUnsubPostUrl) : [];
+    const apiUnsubFooter = apiIsCampaign ? buildUnsubscribeFooter(apiUnsubUrl) : "";
+    const bodyWithTracking = html + apiUnsubFooter + trackingPixel;
 
     const rawEmail = [
       `From: ${fromAddress}`,
@@ -588,6 +660,7 @@ export const sendEmailViaApi = internalAction({
       `Subject: ${subject}`,
       `Date: ${new Date().toUTCString()}`,
       `Message-ID: <${messageId}@${mailbox.domain}>`,
+      ...apiUnsubHeaders,
       `Content-Type: text/html; charset=UTF-8`,
       "",
       bodyWithTracking,

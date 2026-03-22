@@ -184,6 +184,18 @@ export default defineSchema({
     .index("by_domain_id", ["domainId"])
     .index("by_user_id", ["userId"]),
 
+  unsubscribes: defineTable({
+    domainId: v.id("domains"),
+    email: v.string(),
+    token: v.string(),
+    unsubscribedAt: v.number(),
+    source: v.union(v.literal("one-click"), v.literal("link"), v.literal("manual")),
+    mailboxAddress: v.optional(v.string()),
+  })
+    .index("by_domain_email", ["domainId", "email"])
+    .index("by_token", ["token"])
+    .index("by_domain_id", ["domainId"]),
+
   emailVerifications: defineTable({
     email: v.string(),
     isValid: v.boolean(),

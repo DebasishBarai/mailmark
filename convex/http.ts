@@ -148,6 +148,121 @@ http.route({
   }),
 });
 
+// ── Unsubscribe: GET handler (browser one-click / link click) ─────────────────
+// Renders a confirmation page and processes the unsubscribe
+http.route({
+  pathPrefix: "/unsubscribe/",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const token = url.pathname.replace("/unsubscribe/", "");
+    const email = url.searchParams.get("email");
+    const domainName = url.searchParams.get("domain");
+
+    if (!email || !domainName) {
+      return new Response(unsubscribeHtml("Missing parameters", false), {
+        status: 400,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+
+    // Look up domain
+    const domain = await ctx.runQuery(internal.domains.getDomainByName, { domain: domainName });
+    if (!domain) {
+      return new Response(unsubscribeHtml("Domain not found", false), {
+        status: 404,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+
+    // Process unsubscribe
+    await ctx.runMutation(internal.unsubscribe.processUnsubscribe, {
+      domainId: domain._id,
+      email: email.toLowerCase(),
+      source: "link",
+    });
+
+    return new Response(unsubscribeHtml(email, true), {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+  }),
+});
+
+// ── Unsubscribe: POST handler (RFC 8058 one-click from mail clients) ─────────
+http.route({
+  pathPrefix: "/unsubscribe/",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const token = url.pathname.replace("/unsubscribe/", "");
+
+    // RFC 8058: body should contain List-Unsubscribe=One-Click
+    let email: string | null = null;
+    let domainName: string | null = null;
+
+    // Try to get from form body (mail clients send form-urlencoded)
+    try {
+      const text = await request.text();
+      const params = new URLSearchParams(text);
+      email = params.get("email") ?? url.searchParams.get("email");
+      domainName = params.get("domain") ?? url.searchParams.get("domain");
+    } catch {
+      email = url.searchParams.get("email");
+      domainName = url.searchParams.get("domain");
+    }
+
+    // Try to decode email from the token (base64url after the messageId prefix)
+    if (!email && token.includes("-")) {
+      const parts = token.split("-");
+      const encoded = parts[parts.length - 1];
+      try {
+        email = Buffer.from(encoded, "base64url").toString("utf-8");
+      } catch { /* ignore */ }
+    }
+
+    if (!email || !domainName) {
+      // Try getting domain from referrer or just return success for RFC compliance
+      return new Response("", { status: 200 });
+    }
+
+    const domain = await ctx.runQuery(internal.domains.getDomainByName, { domain: domainName });
+    if (!domain) {
+      return new Response("", { status: 200 });
+    }
+
+    await ctx.runMutation(internal.unsubscribe.processUnsubscribe, {
+      domainId: domain._id,
+      email: email.toLowerCase(),
+      source: "one-click",
+    });
+
+    return new Response("", { status: 200 });
+  }),
+});
+
+function unsubscribeHtml(emailOrError: string, success: boolean): string {
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${success ? "Unsubscribed" : "Error"}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;background:#f9fafb;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}
+.card{background:#fff;border-radius:1rem;box-shadow:0 1px 3px rgba(0,0,0,.1);padding:3rem;max-width:28rem;text-align:center;width:100%}
+.icon{width:4rem;height:4rem;margin:0 auto 1.5rem;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.success .icon{background:#ecfdf5;color:#059669}.error .icon{background:#fef2f2;color:#dc2626}
+h1{font-size:1.5rem;font-weight:700;color:#111827;margin-bottom:.5rem}
+p{color:#6b7280;font-size:.875rem;line-height:1.5}</style></head>
+<body><div class="card ${success ? "success" : "error"}">
+<div class="icon">${success
+    ? '<svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>'
+    : '<svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>'
+}</div>
+<h1>${success ? "You've been unsubscribed" : "Something went wrong"}</h1>
+<p>${success
+    ? `<strong>${emailOrError}</strong> has been removed from our mailing list. You will no longer receive campaign emails from this sender.`
+    : emailOrError
+}</p></div></body></html>`;
+}
+
 // ─── Public REST API ─────────────────────────────────────────────────────────
 
 async function sha256Hex(input: string): Promise<string> {
