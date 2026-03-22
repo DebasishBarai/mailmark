@@ -108,6 +108,18 @@ export const sendEmail = action({
 
     if (!mailbox) throw new Error("Mailbox not found");
 
+    // Verify recipient emails before sending
+    const allRecipients = [...to, ...(cc ?? []), ...(bcc ?? [])];
+    const verification = await ctx.runAction(
+      internal.emailVerification.verifyRecipientsBeforeSend,
+      { emails: allRecipients }
+    );
+    if (!verification.allValid) {
+      throw new Error(
+        `Invalid recipient(s): ${verification.invalid.join(", ")}. Please remove or correct them before sending.`
+      );
+    }
+
     // Email quota check
     const emailLimits = await ctx.runQuery(internal.quotas.getUserLimits, {
       userId: mailbox.userId,
@@ -291,6 +303,18 @@ export const scheduleEmail = action({
     const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
     if (!mailbox) throw new Error("Mailbox not found");
 
+    // Verify recipient emails before scheduling
+    const schedAllRecipients = [...to, ...(cc ?? []), ...(bcc ?? [])];
+    const schedVerification = await ctx.runAction(
+      internal.emailVerification.verifyRecipientsBeforeSend,
+      { emails: schedAllRecipients }
+    );
+    if (!schedVerification.allValid) {
+      throw new Error(
+        `Invalid recipient(s): ${schedVerification.invalid.join(", ")}. Please remove or correct them before sending.`
+      );
+    }
+
     // Email quota check
     const schedLimits = await ctx.runQuery(internal.quotas.getUserLimits, {
       userId: mailbox.userId,
@@ -442,6 +466,17 @@ export const scheduleEmailViaApi = internalAction({
     const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
     if (!mailbox) throw new Error("Mailbox not found");
 
+    // Verify recipient emails before scheduling
+    const schedApiVerification = await ctx.runAction(
+      internal.emailVerification.verifyRecipientsBeforeSend,
+      { emails: to }
+    );
+    if (!schedApiVerification.allValid) {
+      throw new Error(
+        `Invalid recipient(s): ${schedApiVerification.invalid.join(", ")}. Please remove or correct them before sending.`
+      );
+    }
+
     const fromAddress = mailbox.displayName
       ? `${mailbox.displayName} <${mailbox.fullAddress}>`
       : mailbox.fullAddress;
@@ -511,6 +546,17 @@ export const sendEmailViaApi = internalAction({
   handler: async (ctx, { mailboxId, to, subject, html, batchId }) => {
     const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
     if (!mailbox) throw new Error("Mailbox not found");
+
+    // Verify recipient emails before sending
+    const apiVerification = await ctx.runAction(
+      internal.emailVerification.verifyRecipientsBeforeSend,
+      { emails: to }
+    );
+    if (!apiVerification.allValid) {
+      throw new Error(
+        `Invalid recipient(s): ${apiVerification.invalid.join(", ")}. Please remove or correct them before sending.`
+      );
+    }
 
     // Email quota check
     const apiLimits = await ctx.runQuery(internal.quotas.getUserLimits, {

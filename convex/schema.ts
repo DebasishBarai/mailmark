@@ -184,6 +184,16 @@ export default defineSchema({
     .index("by_domain_id", ["domainId"])
     .index("by_user_id", ["userId"]),
 
+  emailVerifications: defineTable({
+    email: v.string(),
+    isValid: v.boolean(),
+    syntaxValid: v.boolean(),
+    mxValid: v.boolean(),
+    reason: v.optional(v.string()),
+    checkedAt: v.number(),
+  })
+    .index("by_email", ["email"]),
+
   api_keys: defineTable({
     userId: v.id("users"),
     domainId: v.id("domains"),

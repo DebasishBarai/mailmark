@@ -212,6 +212,7 @@ export default function MailboxPage() {
   const toggleStar = useMutation(api.emails.toggleStar);
   const moveToFolder = useMutation(api.emails.moveToFolder);
   const sendEmail = useAction(api.ses.sendEmail);
+  const verifyEmailsAction = useAction(api.emailVerification.verifyEmails);
   const scheduleEmailAction = useAction(api.ses.scheduleEmail);
   const cancelScheduledEmailMutation = useMutation(api.emails.cancelScheduledEmail);
   const fetchEmailBody = useAction(api.ses.fetchEmailBody);
@@ -513,6 +514,9 @@ export default function MailboxPage() {
   const isAnyUploading = composeAttachments.some((att) => att.status === "uploading");
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [verificationResults, setVerificationResults] = useState<Record<string, { isValid: boolean; reason?: string }>>({});
+  const [isVerifying, setIsVerifying] = useState(false);
+  const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showRecipientBreakdown, setShowRecipientBreakdown] = useState(false);
   const [scheduledSendAt, setScheduledSendAt] = useState<number | null>(null);
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
@@ -665,6 +669,7 @@ export default function MailboxPage() {
     setMergeColumns([]);
     setMergeEmailColumn("");
     setMergePreviewIndex(0);
+    setVerificationResults({});
   };
 
   const hasMergeData = mergeRecipients.length > 0;
@@ -683,6 +688,37 @@ export default function MailboxPage() {
       setSendMode("send");
     }
   }, [usesMergeFields, hasMergeData]);
+
+  // Auto-verify recipients when they change (debounced)
+  useEffect(() => {
+    const emailsToVerify = [...composeTo, ...(hasMergeData ? mergeRecipients.map((r) => r.email) : [])];
+    // Only verify emails not already in cache
+    const unverified = emailsToVerify.filter((e) => !(e.toLowerCase() in verificationResults));
+    if (unverified.length === 0) return;
+
+    if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current);
+    verifyTimeoutRef.current = setTimeout(async () => {
+      setIsVerifying(true);
+      try {
+        const result = await verifyEmailsAction({ emails: unverified });
+        setVerificationResults((prev) => {
+          const next = { ...prev };
+          for (const r of result.results) {
+            next[r.email.toLowerCase()] = { isValid: r.isValid, reason: r.reason };
+          }
+          return next;
+        });
+      } catch {
+        // Verification failure shouldn't block compose
+      } finally {
+        setIsVerifying(false);
+      }
+    }, 800);
+
+    return () => {
+      if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current);
+    };
+  }, [composeTo, mergeRecipients, hasMergeData]);
 
   const handleSend = async () => {
     // Normal send: one email with all recipients in the To field
@@ -1806,13 +1842,27 @@ export default function MailboxPage() {
                         </span>
                       );
                     })}
-                    {composeTo.map((email, i) => (
-                      <span key={i} className="flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-900/40 py-0.5 pl-2.5 pr-1 text-xs font-medium text-violet-800 dark:text-violet-200">
+                    {composeTo.map((email, i) => {
+                      const v = verificationResults[email.toLowerCase()];
+                      const chipBg = v === undefined
+                        ? "bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-200"
+                        : v.isValid
+                          ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200"
+                          : "bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200";
+                      return (
+                      <span key={i} className={`flex items-center gap-1 rounded-full py-0.5 pl-2.5 pr-1 text-xs font-medium ${chipBg}`} title={v?.reason ?? (v?.isValid ? "Verified" : undefined)}>
+                        {v !== undefined && (
+                          v.isValid ? (
+                            <svg className="h-3 w-3 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                          ) : (
+                            <svg className="h-3 w-3 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                          )
+                        )}
                         {email}
                         <button
                           type="button"
-                          onClick={() => setComposeTo((prev) => prev.filter((_, j) => j !== i))}
-                          className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-violet-500 dark:text-violet-400 hover:bg-violet-200 dark:hover:bg-violet-800 hover:text-violet-700"
+                          onClick={() => { setComposeTo((prev) => prev.filter((_, j) => j !== i)); setVerificationResults((prev) => { const next = { ...prev }; delete next[email.toLowerCase()]; return next; }); }}
+                          className={`flex h-3.5 w-3.5 items-center justify-center rounded-full ${v?.isValid === false ? "text-red-500 hover:bg-red-200 dark:hover:bg-red-800" : "text-violet-500 dark:text-violet-400 hover:bg-violet-200 dark:hover:bg-violet-800"} hover:text-violet-700`}
                           title="Remove"
                         >
                           <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
@@ -1820,7 +1870,14 @@ export default function MailboxPage() {
                           </svg>
                         </button>
                       </span>
-                    ))}
+                      );
+                    })}
+                    {isVerifying && (
+                      <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
+                        <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        Verifying...
+                      </span>
+                    )}
                     <input
                       type="text"
                       value={composeToInput}
@@ -2249,8 +2306,18 @@ export default function MailboxPage() {
                 </div>
               )}
             </div>
+            {(() => {
+              const invalidRecipients = composeTo.filter((e) => verificationResults[e.toLowerCase()]?.isValid === false);
+              if (invalidRecipients.length > 0) return (
+                <div className="mt-3 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                  <span className="font-medium">{invalidRecipients.length} invalid recipient{invalidRecipients.length > 1 ? "s" : ""} detected.</span>{" "}
+                  {invalidRecipients.map((e) => verificationResults[e.toLowerCase()]?.reason ?? "Invalid").join("; ")}. Remove them to avoid bounces.
+                </div>
+              );
+              return null;
+            })()}
             {sendError && (
-              <div className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+              <div className="mt-3 rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-700 dark:text-red-300">
                 {sendError}
               </div>
             )}
