@@ -260,6 +260,7 @@ export default function MailboxPage() {
   const [composeQuote, setComposeQuote] = useState("");
   const [signatureText, setSignatureText] = useState("");
   const [showSignatureEditor, setShowSignatureEditor] = useState(false);
+  const signatureEditorRef = useRef<HTMLTextAreaElement>(null);
   type AttachmentEntry = {
     id: number;
     filename: string;
@@ -626,7 +627,7 @@ export default function MailboxPage() {
       bodyHtml = composeBody.replace(/\n/g, "<br>");
     }
     const signaturePart = composeSignature
-      ? `<br><br>-- <br>${composeSignature.replace(/\n/g, "<br>")}`
+      ? `<br><br>-- <br>${marked.parse(composeSignature) as string}`
       : "";
     const quotePart = composeQuote ? `<br><br>${composeQuote}` : "";
     return bodyHtml + signaturePart + quotePart;
@@ -1063,44 +1064,17 @@ export default function MailboxPage() {
                 <button
                   onClick={() => {
                     setSignatureText(mailbox?.signature ?? "");
-                    setShowSignatureEditor((v) => !v);
+                    setShowSignatureEditor(true);
                   }}
                   className="flex h-4 w-4 items-center justify-center rounded text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-violet-600 dark:hover:text-violet-400"
-                  title={showSignatureEditor ? "Close editor" : "Edit signature"}
+                  title="Edit signature"
                 >
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
                   </svg>
                 </button>
               </div>
-              {showSignatureEditor ? (
-                <div className="px-1 space-y-2">
-                  <textarea
-                    rows={4}
-                    value={signatureText}
-                    onChange={(e) => setSignatureText(e.target.value)}
-                    className="w-full resize-none rounded-md border border-gray-200 dark:border-gray-600 dark:bg-gray-700 px-2 py-1.5 text-xs text-gray-700 dark:text-gray-300 outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-100 dark:focus:border-violet-500 placeholder-gray-400 dark:placeholder-gray-500"
-                    placeholder="Enter your signature..."
-                  />
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={async () => {
-                        await updateSignature({ mailboxId: mbId, signature: signatureText });
-                        setShowSignatureEditor(false);
-                      }}
-                      className="flex-1 rounded-md bg-violet-600 py-1 text-[10px] font-semibold text-white hover:bg-violet-700 transition-colors"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setShowSignatureEditor(false)}
-                      className="flex-1 rounded-md border border-gray-200 dark:border-gray-700 py-1 text-[10px] font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : mailbox?.signature ? (
+              {mailbox?.signature ? (
                 <p className="line-clamp-2 px-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-pre-wrap">{mailbox.signature}</p>
               ) : (
                 <p className="px-1 text-[10px] italic text-gray-400 dark:text-gray-500">No signature set</p>
@@ -1132,7 +1106,7 @@ export default function MailboxPage() {
       ),
     });
     return () => setFolderSection(null);
-  }, [activeFolder, unreadCount, domainMailboxes, senderGroups, mbId, handleOpenCompose, setFolderSection, closeMobile, mailbox, showSignatureEditor, signatureText, updateSignature]);
+  }, [activeFolder, unreadCount, domainMailboxes, senderGroups, mbId, handleOpenCompose, setFolderSection, closeMobile, mailbox, updateSignature]);
 
   const handleReply = () => {
     if (!selectedEmail || !emailBody) return;
@@ -2196,7 +2170,7 @@ export default function MailboxPage() {
                 />
               )}
               {/* Signature */}
-              {composeSignature && (
+              {composeSignature ? (
                 <div className="border-t border-gray-100 dark:border-gray-700/50 pt-2">
                   <div className="mb-1 flex items-center justify-between">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Signature</span>
@@ -2208,13 +2182,25 @@ export default function MailboxPage() {
                       Remove
                     </button>
                   </div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 whitespace-pre-wrap">
-                    {"-- "}
-                    {"\n"}
-                    {composeSignature}
+                  <div className="text-xs text-gray-400 dark:text-gray-500">
+                    <p className="mb-0.5">--</p>
+                    <div
+                      className="[&_strong]:font-semibold [&_em]:italic [&_a]:text-violet-500 [&_a]:underline [&_hr]:my-1 [&_hr]:border-gray-200 dark:[&_hr]:border-gray-600 [&_p]:mb-0.5"
+                      dangerouslySetInnerHTML={{ __html: marked.parse(composeSignature) as string }}
+                    />
                   </div>
                 </div>
-              )}
+              ) : mailbox?.signature ? (
+                <div className="border-t border-gray-100 dark:border-gray-700/50 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setComposeSignature(mailbox.signature ?? "")}
+                    className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-violet-500 transition-colors"
+                  >
+                    + Add signature
+                  </button>
+                </div>
+              ) : null}
               {/* Selected attachments */}
               {composeAttachments.length > 0 && (
                 <div className="border-t border-gray-100 dark:border-gray-700/50 pt-2">
@@ -2707,6 +2693,174 @@ export default function MailboxPage() {
                   className="rounded-md bg-violet-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
                 >
                   {editingGroup ? "Save Changes" : "Create Group"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Signature Editor Modal */}
+      {showSignatureEditor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-lg rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700/50 px-5 py-3">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Edit Signature</h2>
+              <button
+                onClick={() => setShowSignatureEditor(false)}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {/* Templates */}
+              <div>
+                <p className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">Start from a template</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSignatureText("Best regards,\n" + (mailbox?.displayName || mailbox?.address || ""))}
+                    className="rounded-md border border-gray-200 dark:border-gray-600 px-3 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Minimal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSignatureText((mailbox?.displayName || mailbox?.address || "") + "\n" + (mailbox?.fullAddress || "") + "\n\nSent via Mailmark")}
+                    className="rounded-md border border-gray-200 dark:border-gray-600 px-3 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Professional
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSignatureText((mailbox?.displayName || mailbox?.address || "") + "\n" + (mailbox?.fullAddress || "") + "\n---\nThis email and any attachments are confidential.")}
+                    className="rounded-md border border-gray-200 dark:border-gray-600 px-3 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Corporate
+                  </button>
+                </div>
+              </div>
+
+              {/* Formatting toolbar */}
+              <div className="flex items-center gap-1 rounded-t-md border border-b-0 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 px-2 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ta = signatureEditorRef.current;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const sel = signatureText.substring(start, end);
+                    const replacement = sel ? `**${sel}**` : "**bold**";
+                    setSignatureText(signatureText.substring(0, start) + replacement + signatureText.substring(end));
+                  }}
+                  className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-gray-200"
+                  title="Bold (**text**)"
+                >
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6V4zm0 8h9a4 4 0 014 4 4 4 0 01-4 4H6v-8z" stroke="currentColor" strokeWidth="1.5" fill="none"/></svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ta = signatureEditorRef.current;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const sel = signatureText.substring(start, end);
+                    const replacement = sel ? `_${sel}_` : "_italic_";
+                    setSignatureText(signatureText.substring(0, start) + replacement + signatureText.substring(end));
+                  }}
+                  className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-gray-200"
+                  title="Italic (_text_)"
+                >
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ta = signatureEditorRef.current;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const sel = signatureText.substring(start, end);
+                    const replacement = sel ? `[${sel}](url)` : "[link text](url)";
+                    setSignatureText(signatureText.substring(0, start) + replacement + signatureText.substring(end));
+                  }}
+                  className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-gray-200"
+                  title="Link [text](url)"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.874a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.34 8.374" /></svg>
+                </button>
+                <div className="mx-1 h-4 w-px bg-gray-300 dark:bg-gray-600" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ta = signatureEditorRef.current;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    setSignatureText(signatureText.substring(0, start) + "\n---\n" + signatureText.substring(start));
+                  }}
+                  className="rounded p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-gray-200"
+                  title="Horizontal rule"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" d="M3 12h18"/></svg>
+                </button>
+                <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">Markdown supported</span>
+              </div>
+
+              {/* Editor textarea */}
+              <textarea
+                ref={signatureEditorRef}
+                rows={8}
+                value={signatureText}
+                onChange={(e) => setSignatureText(e.target.value)}
+                className="-mt-4 w-full resize-none rounded-b-md border border-gray-200 dark:border-gray-600 dark:bg-gray-700 px-3 py-2.5 text-sm font-mono text-gray-700 dark:text-gray-300 outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-100 dark:focus:border-violet-500 placeholder-gray-400 dark:placeholder-gray-500"
+                placeholder="Enter your email signature..."
+              />
+
+              {/* Live preview */}
+              {signatureText.trim() && (
+                <div>
+                  <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Preview</p>
+                  <div className="rounded-md border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/30 px-3 py-2.5">
+                    <p className="mb-1 text-[10px] text-gray-400 dark:text-gray-500">--</p>
+                    <div
+                      className="text-sm text-gray-600 dark:text-gray-300 [&_strong]:font-semibold [&_em]:italic [&_a]:text-violet-600 [&_a]:underline [&_hr]:my-2 [&_hr]:border-gray-200 dark:[&_hr]:border-gray-600 [&_p]:mb-1"
+                      dangerouslySetInnerHTML={{ __html: marked.parse(signatureText) as string }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700/50 px-5 py-3">
+              {mailbox?.signature && (
+                <button
+                  onClick={async () => {
+                    await updateSignature({ mailboxId: mbId, signature: "" });
+                    setShowSignatureEditor(false);
+                  }}
+                  className="rounded-md px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  Remove Signature
+                </button>
+              )}
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  onClick={() => setShowSignatureEditor(false)}
+                  className="rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    await updateSignature({ mailboxId: mbId, signature: signatureText });
+                    setShowSignatureEditor(false);
+                  }}
+                  className="rounded-md bg-violet-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 transition-colors"
+                >
+                  Save Signature
                 </button>
               </div>
             </div>

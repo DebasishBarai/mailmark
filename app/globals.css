@@ -623,6 +623,125 @@ a[aria-disabled="true"],
 }
 
 /* ==============================
+   UI Density
+   ============================== */
+
+:root,
+[data-density="default"] {
+  --density-px: 1rem;
+  --density-py: 0.625rem;
+  --density-gap: 1rem;
+  --density-text: 0.875rem;
+  --density-text-sm: 0.75rem;
+  --density-card-p: 1.5rem;
+  --density-row-py: 0.75rem;
+  --density-header-py: 1rem;
+}
+
+[data-density="compact"] {
+  --density-px: 0.625rem;
+  --density-py: 0.375rem;
+  --density-gap: 0.5rem;
+  --density-text: 0.8125rem;
+  --density-text-sm: 0.6875rem;
+  --density-card-p: 1rem;
+  --density-row-py: 0.375rem;
+  --density-header-py: 0.625rem;
+}
+
+[data-density="comfortable"] {
+  --density-px: 1.25rem;
+  --density-py: 0.875rem;
+  --density-gap: 1.25rem;
+  --density-text: 0.9375rem;
+  --density-text-sm: 0.8125rem;
+  --density-card-p: 2rem;
+  --density-row-py: 1rem;
+  --density-header-py: 1.25rem;
+}
+
+/* Apply density to key layout areas */
+[data-density="compact"] main,
+[data-density="comfortable"] main {
+  font-size: var(--density-text);
+}
+
+/* Dashboard cards */
+[data-density="compact"] main .rounded-xl {
+  padding: var(--density-card-p);
+}
+
+[data-density="comfortable"] main .rounded-xl {
+  padding: var(--density-card-p);
+}
+
+/* Sidebar nav items */
+[data-density="compact"] nav a,
+[data-density="compact"] nav button {
+  padding-top: var(--density-py);
+  padding-bottom: var(--density-py);
+  font-size: var(--density-text-sm);
+}
+
+[data-density="comfortable"] nav a,
+[data-density="comfortable"] nav button {
+  padding-top: var(--density-py);
+  padding-bottom: var(--density-py);
+}
+
+/* Table/list rows in main content */
+[data-density="compact"] main tr td,
+[data-density="compact"] main tr th {
+  padding-top: var(--density-row-py);
+  padding-bottom: var(--density-row-py);
+}
+
+[data-density="comfortable"] main tr td,
+[data-density="comfortable"] main tr th {
+  padding-top: var(--density-row-py);
+  padding-bottom: var(--density-row-py);
+}
+
+/* Content sections padding */
+[data-density="compact"] main > div > div {
+  gap: var(--density-gap);
+}
+
+[data-density="comfortable"] main > div > div {
+  gap: var(--density-gap);
+}
+
+/* ==============================
+   Background Wallpapers (Image-based)
+   ============================== */
+
+[data-wallpaper]:not([data-wallpaper="none"]) main {
+  position: relative;
+}
+
+[data-wallpaper]:not([data-wallpaper="none"]) main::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: var(--wallpaper-url);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dark[data-wallpaper]:not([data-wallpaper="none"]) main::before {
+  opacity: 0.35;
+}
+
+[data-wallpaper]:not([data-wallpaper="none"]) main > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ==============================
    Dracula — Subtle purple glow
    ============================== */
 
