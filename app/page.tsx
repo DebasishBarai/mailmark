@@ -3,6 +3,7 @@ import Hero from "./components/Hero";
 import VideoDemo from "./components/VideoDemo";
 import Features from "./components/Features";
 import FeatureShowcase from "./components/FeatureShowcase";
+import PersonalizationDemo from "./components/PersonalizationDemo";
 import FeatureGrid from "./components/FeatureGrid";
 import Testimonials from "./components/Testimonials";
 import Pricing from "./components/Pricing";
@@ -18,6 +19,7 @@ export default function Home() {
       <VideoDemo />
       <Features />
       <FeatureShowcase />
+      <PersonalizationDemo />
       <FeatureGrid />
       <Testimonials />
       <Pricing />
