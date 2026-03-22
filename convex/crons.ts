@@ -11,4 +11,20 @@ crons.daily(
   { olderThanDays: 7 }
 );
 
+// Every day at 6am UTC: advance warming schedules to next day
+crons.daily(
+  "advance warming schedules",
+  { hourUTC: 6, minuteUTC: 0 },
+  internal.warmingActions.advanceAllSchedules,
+  {}
+);
+
+// Every 12 hours: run domain health checks
+crons.interval(
+  "domain health checks",
+  { hours: 12 },
+  internal.domainHealth.runHealthCheckForAllDomains,
+  {}
+);
+
 export default crons;
