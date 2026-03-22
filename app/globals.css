@@ -2,28 +2,499 @@
 
 @variant dark (&:where(.dark, .dark *));
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-.dark {
-  --background: #0f172a;
-  --foreground: #f1f5f9;
-}
+/* ==============================
+   Tailwind Theme Token Mapping
+   ============================== */
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border-theme: var(--border);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-text: var(--accent-text);
+  --color-input-bg: var(--input-bg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
+
+/* ==============================
+   Default / Clean White (no overrides needed — uses Tailwind defaults)
+   ============================== */
+
+:root,
+[data-theme="clean-white"] {
+  --background: #ffffff;
+  --foreground: #111827;
+  --surface: #f9fafb;
+  --surface-hover: #f3f4f6;
+  --border: #e5e7eb;
+  --muted: #6b7280;
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-text: #ffffff;
+  --input-bg: #ffffff;
+}
+
+/* ==============================
+   Enterprise Dark
+   Overrides: gray → slate-blue, violet → blue
+   ============================== */
+
+[data-theme="enterprise-dark"] {
+  --background: #0f172a;
+  --foreground: #e2e8f0;
+  --surface: #1e293b;
+  --surface-hover: #334155;
+  --border: #334155;
+  --muted: #94a3b8;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-text: #ffffff;
+  --input-bg: #1e293b;
+
+  /* Remap gray scale → slate */
+  --color-gray-50: #f8fafc;
+  --color-gray-100: #f1f5f9;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-600: #475569;
+  --color-gray-700: #334155;
+  --color-gray-800: #1e293b;
+  --color-gray-900: #0f172a;
+  --color-gray-950: #020617;
+
+  /* Remap violet → blue */
+  --color-violet-50: #eff6ff;
+  --color-violet-100: #dbeafe;
+  --color-violet-200: #bfdbfe;
+  --color-violet-300: #93c5fd;
+  --color-violet-400: #60a5fa;
+  --color-violet-500: #3b82f6;
+  --color-violet-600: #3b82f6;
+  --color-violet-700: #2563eb;
+  --color-violet-800: #1e40af;
+  --color-violet-900: #1e3a5f;
+  --color-violet-950: #172554;
+}
+
+/* ==============================
+   Matrix Mode
+   Overrides: gray → black/green, violet → green
+   ============================== */
+
+[data-theme="matrix"] {
+  --background: #000000;
+  --foreground: #00ff9c;
+  --surface: #0a0a0a;
+  --surface-hover: #111111;
+  --border: #003d25;
+  --muted: #00b36b;
+  --accent: #00ff9c;
+  --accent-hover: #00cc7a;
+  --accent-text: #000000;
+  --input-bg: #0a0a0a;
+
+  /* Remap gray scale → green-black */
+  --color-gray-50: #061a10;
+  --color-gray-100: #0a2818;
+  --color-gray-200: #0d3320;
+  --color-gray-300: #00b36b;
+  --color-gray-400: #00cc7a;
+  --color-gray-500: #009e5c;
+  --color-gray-600: #00884e;
+  --color-gray-700: #003d25;
+  --color-gray-800: #060f09;
+  --color-gray-900: #000000;
+  --color-gray-950: #000000;
+
+  /* Remap violet → green */
+  --color-violet-50: #001a0f;
+  --color-violet-100: #002614;
+  --color-violet-200: #00401f;
+  --color-violet-300: #00cc7a;
+  --color-violet-400: #00e68a;
+  --color-violet-500: #00ff9c;
+  --color-violet-600: #00e68a;
+  --color-violet-700: #00cc7a;
+  --color-violet-800: #009e5c;
+  --color-violet-900: #001a0f;
+  --color-violet-950: #000d07;
+}
+
+/* ==============================
+   Dracula
+   Overrides: gray → dracula grays, violet → purple/pink
+   ============================== */
+
+[data-theme="dracula"] {
+  --background: #282a36;
+  --foreground: #f8f8f2;
+  --surface: #44475a;
+  --surface-hover: #555872;
+  --border: #6272a4;
+  --muted: #6272a4;
+  --accent: #bd93f9;
+  --accent-hover: #ff79c6;
+  --accent-text: #282a36;
+  --input-bg: #44475a;
+
+  /* Remap gray scale → dracula */
+  --color-gray-50: #353848;
+  --color-gray-100: #3c3f52;
+  --color-gray-200: #44475a;
+  --color-gray-300: #f8f8f2;
+  --color-gray-400: #bfc1cc;
+  --color-gray-500: #6272a4;
+  --color-gray-600: #6272a4;
+  --color-gray-700: #44475a;
+  --color-gray-800: #343746;
+  --color-gray-900: #282a36;
+  --color-gray-950: #21222c;
+
+  /* Remap violet → dracula purple/pink */
+  --color-violet-50: #2d2845;
+  --color-violet-100: #362e54;
+  --color-violet-200: #4a3872;
+  --color-violet-300: #ff79c6;
+  --color-violet-400: #bd93f9;
+  --color-violet-500: #bd93f9;
+  --color-violet-600: #bd93f9;
+  --color-violet-700: #a77bf5;
+  --color-violet-800: #8b5cf6;
+  --color-violet-900: #2d2845;
+  --color-violet-950: #1e1a30;
+}
+
+/* ==============================
+   Nord
+   Overrides: gray → nord polar night/snow, violet → frost
+   ============================== */
+
+[data-theme="nord"] {
+  --background: #2e3440;
+  --foreground: #eceff4;
+  --surface: #3b4252;
+  --surface-hover: #434c5e;
+  --border: #434c5e;
+  --muted: #d8dee9;
+  --accent: #88c0d0;
+  --accent-hover: #81a1c1;
+  --accent-text: #2e3440;
+  --input-bg: #3b4252;
+
+  /* Remap gray scale → nord */
+  --color-gray-50: #363c4a;
+  --color-gray-100: #3b4252;
+  --color-gray-200: #434c5e;
+  --color-gray-300: #eceff4;
+  --color-gray-400: #d8dee9;
+  --color-gray-500: #7b88a1;
+  --color-gray-600: #636e83;
+  --color-gray-700: #434c5e;
+  --color-gray-800: #3b4252;
+  --color-gray-900: #2e3440;
+  --color-gray-950: #242933;
+
+  /* Remap violet → nord frost */
+  --color-violet-50: #2e3a40;
+  --color-violet-100: #2e3e45;
+  --color-violet-200: #3d5866;
+  --color-violet-300: #81a1c1;
+  --color-violet-400: #88c0d0;
+  --color-violet-500: #88c0d0;
+  --color-violet-600: #88c0d0;
+  --color-violet-700: #81a1c1;
+  --color-violet-800: #5e81ac;
+  --color-violet-900: #2e3a40;
+  --color-violet-950: #232d33;
+}
+
+/* ==============================
+   Solarized Dark
+   Overrides: gray → solarized bases, violet → solarized accents
+   ============================== */
+
+[data-theme="solarized-dark"] {
+  --background: #002b36;
+  --foreground: #839496;
+  --surface: #073642;
+  --surface-hover: #0a4a5a;
+  --border: #586e75;
+  --muted: #657b83;
+  --accent: #268bd2;
+  --accent-hover: #2aa198;
+  --accent-text: #fdf6e3;
+  --input-bg: #073642;
+
+  /* Remap gray scale → solarized */
+  --color-gray-50: #0d4050;
+  --color-gray-100: #073642;
+  --color-gray-200: #586e75;
+  --color-gray-300: #93a1a1;
+  --color-gray-400: #839496;
+  --color-gray-500: #657b83;
+  --color-gray-600: #586e75;
+  --color-gray-700: #586e75;
+  --color-gray-800: #073642;
+  --color-gray-900: #002b36;
+  --color-gray-950: #001f27;
+
+  /* Remap violet → solarized blue/cyan */
+  --color-violet-50: #042e3e;
+  --color-violet-100: #063545;
+  --color-violet-200: #0a4a5a;
+  --color-violet-300: #2aa198;
+  --color-violet-400: #268bd2;
+  --color-violet-500: #268bd2;
+  --color-violet-600: #268bd2;
+  --color-violet-700: #2aa198;
+  --color-violet-800: #1a6d8a;
+  --color-violet-900: #042e3e;
+  --color-violet-950: #021e29;
+}
+
+/* ==============================
+   Cyberpunk
+   Overrides: gray → near-black, violet → neon pink/cyan
+   ============================== */
+
+[data-theme="cyberpunk"] {
+  --background: #0d0d0d;
+  --foreground: #e5e5e5;
+  --surface: #1a1a1a;
+  --surface-hover: #262626;
+  --border: #333333;
+  --muted: #a3a3a3;
+  --accent: #ff0080;
+  --accent-hover: #e6006e;
+  --accent-text: #ffffff;
+  --input-bg: #1a1a1a;
+
+  /* Remap gray scale → near-black */
+  --color-gray-50: #181818;
+  --color-gray-100: #1a1a1a;
+  --color-gray-200: #262626;
+  --color-gray-300: #e5e5e5;
+  --color-gray-400: #a3a3a3;
+  --color-gray-500: #666666;
+  --color-gray-600: #525252;
+  --color-gray-700: #333333;
+  --color-gray-800: #1a1a1a;
+  --color-gray-900: #0d0d0d;
+  --color-gray-950: #050505;
+
+  /* Remap violet → neon pink */
+  --color-violet-50: #1a0a12;
+  --color-violet-100: #2a0f1c;
+  --color-violet-200: #4a1a30;
+  --color-violet-300: #00f0ff;
+  --color-violet-400: #ff0080;
+  --color-violet-500: #ff0080;
+  --color-violet-600: #ff0080;
+  --color-violet-700: #e6006e;
+  --color-violet-800: #b30055;
+  --color-violet-900: #1a0a12;
+  --color-violet-950: #0d0509;
+}
+
+/* ==============================
+   Pastel Soft
+   Overrides: gray → warm pinks, violet → pink/mint
+   ============================== */
+
+[data-theme="pastel-soft"] {
+  --background: #fff7f7;
+  --foreground: #4b5563;
+  --surface: #fdecec;
+  --surface-hover: #fce0e0;
+  --border: #f9d4d4;
+  --muted: #9ca3af;
+  --accent: #f472b6;
+  --accent-hover: #ec4899;
+  --accent-text: #ffffff;
+  --input-bg: #ffffff;
+
+  /* Remap gray scale → warm pinks (light→dark preserved for text) */
+  --color-gray-50: #fff0f0;
+  --color-gray-100: #fdecec;
+  --color-gray-200: #f9d4d4;
+  --color-gray-300: #d1a3a3;
+  --color-gray-400: #b08888;
+  --color-gray-500: #9ca3af;
+  --color-gray-600: #6b5c5c;
+  --color-gray-700: #5a4a4a;
+  --color-gray-800: #4a3838;
+  --color-gray-900: #3a2828;
+  --color-gray-950: #2a1a1a;
+
+  /* Remap violet → pink/rose */
+  --color-violet-50: #fff0f5;
+  --color-violet-100: #ffe0ec;
+  --color-violet-200: #fcc0d8;
+  --color-violet-300: #34d399;
+  --color-violet-400: #f472b6;
+  --color-violet-500: #f472b6;
+  --color-violet-600: #f472b6;
+  --color-violet-700: #ec4899;
+  --color-violet-800: #db2777;
+  --color-violet-900: #fff0f5;
+  --color-violet-950: #ffe8f0;
+
+  /* Keep white as white for text on accent buttons */
+  --color-white: #fff7f7;
+}
+
+/* ==============================
+   Notion Style
+   Overrides: gray → warm beige, violet → notion blue
+   ============================== */
+
+[data-theme="notion"] {
+  --background: #fafaf9;
+  --foreground: #37352f;
+  --surface: #f1f1ef;
+  --surface-hover: #e8e8e5;
+  --border: #e0e0dc;
+  --muted: #787774;
+  --accent: #2f80ed;
+  --accent-hover: #2672d4;
+  --accent-text: #ffffff;
+  --input-bg: #ffffff;
+
+  /* Remap gray scale → warm beige (light→dark preserved for text) */
+  --color-gray-50: #f7f7f5;
+  --color-gray-100: #f1f1ef;
+  --color-gray-200: #e0e0dc;
+  --color-gray-300: #b8b8b4;
+  --color-gray-400: #9e9e9b;
+  --color-gray-500: #787774;
+  --color-gray-600: #5a5955;
+  --color-gray-700: #454440;
+  --color-gray-800: #37352f;
+  --color-gray-900: #2b2a25;
+  --color-gray-950: #1e1d19;
+
+  /* Remap violet → notion blue */
+  --color-violet-50: #edf4fd;
+  --color-violet-100: #d9e8fa;
+  --color-violet-200: #b0cff5;
+  --color-violet-300: #5b9def;
+  --color-violet-400: #2f80ed;
+  --color-violet-500: #2f80ed;
+  --color-violet-600: #2f80ed;
+  --color-violet-700: #2672d4;
+  --color-violet-800: #1c5aaa;
+  --color-violet-900: #edf4fd;
+  --color-violet-950: #e0edfa;
+
+  --color-white: #ffffff;
+}
+
+/* ==============================
+   High Contrast
+   Overrides: gray → pure black/white, violet → gold
+   ============================== */
+
+[data-theme="high-contrast"] {
+  --background: #000000;
+  --foreground: #ffffff;
+  --surface: #111111;
+  --surface-hover: #222222;
+  --border: #ffffff;
+  --muted: #cccccc;
+  --accent: #ffd700;
+  --accent-hover: #ffed4a;
+  --accent-text: #000000;
+  --input-bg: #111111;
+
+  /* Remap gray scale → extreme contrast */
+  --color-gray-50: #1a1a1a;
+  --color-gray-100: #111111;
+  --color-gray-200: #444444;
+  --color-gray-300: #ffffff;
+  --color-gray-400: #cccccc;
+  --color-gray-500: #999999;
+  --color-gray-600: #888888;
+  --color-gray-700: #444444;
+  --color-gray-800: #111111;
+  --color-gray-900: #000000;
+  --color-gray-950: #000000;
+
+  /* Remap violet → gold */
+  --color-violet-50: #1a1500;
+  --color-violet-100: #332a00;
+  --color-violet-200: #665400;
+  --color-violet-300: #ffed4a;
+  --color-violet-400: #ffd700;
+  --color-violet-500: #ffd700;
+  --color-violet-600: #ffd700;
+  --color-violet-700: #ccac00;
+  --color-violet-800: #998100;
+  --color-violet-900: #1a1500;
+  --color-violet-950: #0d0a00;
+}
+
+/* ==============================
+   Retro 90s
+   Overrides: gray → silver/win95, violet → classic blue/red
+   ============================== */
+
+[data-theme="retro-90s"] {
+  --background: #c0c0c0;
+  --foreground: #000000;
+  --surface: #d4d4d4;
+  --surface-hover: #e0e0e0;
+  --border: #808080;
+  --muted: #404040;
+  --accent: #0000ff;
+  --accent-hover: #0000cc;
+  --accent-text: #ffffff;
+  --input-bg: #ffffff;
+
+  /* Remap gray scale → win95 silver (light→dark preserved for text) */
+  --color-gray-50: #e0e0e0;
+  --color-gray-100: #d4d4d4;
+  --color-gray-200: #a0a0a0;
+  --color-gray-300: #808080;
+  --color-gray-400: #606060;
+  --color-gray-500: #505050;
+  --color-gray-600: #303030;
+  --color-gray-700: #202020;
+  --color-gray-800: #101010;
+  --color-gray-900: #000000;
+  --color-gray-950: #000000;
+
+  /* Remap violet → classic blue */
+  --color-violet-50: #d0d0ff;
+  --color-violet-100: #b0b0ff;
+  --color-violet-200: #8080ff;
+  --color-violet-300: #ff0000;
+  --color-violet-400: #0000ff;
+  --color-violet-500: #0000ff;
+  --color-violet-600: #0000ff;
+  --color-violet-700: #0000cc;
+  --color-violet-800: #000099;
+  --color-violet-900: #d0d0ff;
+  --color-violet-950: #c0c0ee;
+
+  --color-white: #c0c0c0;
+}
+
+/* ==============================
+   Base Styles
+   ============================== */
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
-  transition: background-color 0.2s, color 0.2s;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 html {
@@ -41,4 +512,129 @@ a[aria-disabled="true"],
 [role="button"][aria-disabled="true"] {
   cursor: not-allowed;
   pointer-events: none;
+}
+
+/* ==============================
+   Ensure text-white stays readable on accent buttons
+   (for themes that override --color-white)
+   ============================== */
+
+[data-theme="retro-90s"] .bg-violet-600,
+[data-theme="retro-90s"] .bg-violet-700,
+[data-theme="retro-90s"] .hover\:bg-violet-700:hover,
+[data-theme="pastel-soft"] .bg-violet-600,
+[data-theme="pastel-soft"] .bg-violet-700,
+[data-theme="pastel-soft"] .hover\:bg-violet-700:hover {
+  --color-white: #ffffff;
+}
+
+/* ==============================
+   Matrix Theme — Glow Effects
+   ============================== */
+
+[data-theme="matrix"] {
+  text-shadow: 0 0 4px rgba(0, 255, 156, 0.3);
+}
+
+[data-theme="matrix"] button,
+[data-theme="matrix"] a {
+  text-shadow: none;
+}
+
+[data-theme="matrix"] *:focus-visible {
+  outline-color: #00ff9c;
+  box-shadow: 0 0 8px rgba(0, 255, 156, 0.4);
+}
+
+/* Glowing borders on cards */
+[data-theme="matrix"] .border {
+  border-color: #003d25;
+  box-shadow: 0 0 3px rgba(0, 255, 156, 0.15);
+}
+
+/* ==============================
+   Cyberpunk Theme — Neon Effects
+   ============================== */
+
+[data-theme="cyberpunk"] *:focus-visible {
+  outline-color: #ff0080;
+  box-shadow: 0 0 8px rgba(255, 0, 128, 0.4);
+}
+
+[data-theme="cyberpunk"] button:hover,
+[data-theme="cyberpunk"] a:hover {
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.5);
+}
+
+/* Neon glow on accent buttons */
+[data-theme="cyberpunk"] .bg-violet-600 {
+  box-shadow: 0 0 12px rgba(255, 0, 128, 0.5), 0 0 24px rgba(255, 0, 128, 0.2);
+}
+
+/* ==============================
+   Retro 90s Theme — Windows 95 Style
+   ============================== */
+
+[data-theme="retro-90s"] {
+  font-family: "MS Sans Serif", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+[data-theme="retro-90s"] button {
+  border-radius: 0 !important;
+  border: 2px outset #dfdfdf !important;
+  box-shadow: none !important;
+}
+
+[data-theme="retro-90s"] button:active {
+  border-style: inset !important;
+}
+
+[data-theme="retro-90s"] input,
+[data-theme="retro-90s"] textarea,
+[data-theme="retro-90s"] select {
+  border-radius: 0 !important;
+  border: 2px inset #808080 !important;
+}
+
+/* Win95-style raised panels */
+[data-theme="retro-90s"] aside,
+[data-theme="retro-90s"] header {
+  border: 2px outset #dfdfdf !important;
+  box-shadow: none !important;
+}
+
+/* Title bar effect for header */
+[data-theme="retro-90s"] header {
+  background: #c0c0c0 !important;
+}
+
+/* ==============================
+   High Contrast Theme — Bold Borders
+   ============================== */
+
+[data-theme="high-contrast"] *:focus-visible {
+  outline: 3px solid #ffd700;
+  outline-offset: 2px;
+}
+
+[data-theme="high-contrast"] button {
+  border: 2px solid #ffffff !important;
+  font-weight: bold;
+}
+
+/* ==============================
+   Dracula — Subtle purple glow
+   ============================== */
+
+[data-theme="dracula"] .bg-violet-600 {
+  box-shadow: 0 0 10px rgba(189, 147, 249, 0.3);
+}
+
+/* ==============================
+   Nord — Soft frost borders
+   ============================== */
+
+[data-theme="nord"] .rounded-full.bg-violet-600,
+[data-theme="nord"] .rounded-full.bg-violet-500 {
+  box-shadow: 0 0 8px rgba(136, 192, 208, 0.3);
 }

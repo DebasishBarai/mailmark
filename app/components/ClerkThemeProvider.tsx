@@ -6,14 +6,14 @@ import { dark } from "@clerk/themes";
 import { useTheme } from "./ThemeProvider";
 
 export default function ClerkThemeProvider({ children }: { children: ReactNode }) {
-  const { theme } = useTheme();
+  const { isDark } = useTheme();
 
   return (
     <ClerkProvider
       signInFallbackRedirectUrl="/dashboard"
       signUpFallbackRedirectUrl="/dashboard"
       appearance={{
-        baseTheme: theme === "dark" ? dark : undefined,
+        baseTheme: isDark ? dark : undefined,
       }}
     >
       {children}
