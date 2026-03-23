@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 
 // ── Queries ──
 
@@ -20,7 +21,7 @@ export const listForCurrentUser = query({
       .withIndex("by_user_id", (q) => q.eq("userId", user._id))
       .collect();
 
-    const results = [];
+    const results: (Doc<"unsubscribes"> & { domainName: string })[] = [];
     for (const domain of domains) {
       const unsubs = await ctx.db
         .query("unsubscribes")
