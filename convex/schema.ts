@@ -150,6 +150,62 @@ export default defineSchema({
     note: v.optional(v.string()),
   }).index("by_affiliateId", ["affiliateId"]),
 
+  warmingSchedules: defineTable({
+    userId: v.id("users"),
+    domainId: v.id("domains"),
+    mailboxId: v.id("mailboxes"),
+    status: v.union(v.literal("active"), v.literal("paused"), v.literal("completed")),
+    currentDay: v.number(),
+    totalDays: v.number(),
+    dailyLimit: v.number(),
+    sentToday: v.number(),
+    lastSentAt: v.optional(v.number()),
+    startedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_domain_id", ["domainId"])
+    .index("by_mailbox_id", ["mailboxId"])
+    .index("by_status", ["status"]),
+
+  domainHealthChecks: defineTable({
+    userId: v.id("users"),
+    domainId: v.id("domains"),
+    checkedAt: v.number(),
+    overallScore: v.number(),
+    spfValid: v.boolean(),
+    dkimValid: v.boolean(),
+    dmarcValid: v.boolean(),
+    blacklisted: v.boolean(),
+    blacklistEntries: v.optional(v.array(v.string())),
+    bounceRate: v.number(),
+    complaintRate: v.number(),
+    reputationStatus: v.union(v.literal("healthy"), v.literal("warning"), v.literal("critical")),
+  })
+    .index("by_domain_id", ["domainId"])
+    .index("by_user_id", ["userId"]),
+
+  unsubscribes: defineTable({
+    domainId: v.id("domains"),
+    email: v.string(),
+    token: v.string(),
+    unsubscribedAt: v.number(),
+    source: v.union(v.literal("one-click"), v.literal("link"), v.literal("manual")),
+    mailboxAddress: v.optional(v.string()),
+  })
+    .index("by_domain_email", ["domainId", "email"])
+    .index("by_token", ["token"])
+    .index("by_domain_id", ["domainId"]),
+
+  emailVerifications: defineTable({
+    email: v.string(),
+    isValid: v.boolean(),
+    syntaxValid: v.boolean(),
+    mxValid: v.boolean(),
+    reason: v.optional(v.string()),
+    checkedAt: v.number(),
+  })
+    .index("by_email", ["email"]),
+
   api_keys: defineTable({
     userId: v.id("users"),
     domainId: v.id("domains"),
