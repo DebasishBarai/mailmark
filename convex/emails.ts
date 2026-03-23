@@ -444,7 +444,14 @@ export const markAsOpened = internalMutation({
       .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
       .unique();
     if (!email || email.openedAt) return; // Only record first open
-    await ctx.db.patch(email._id, { openedAt: Date.now() });
+    await ctx.db.patch(email._id, {
+      openedAt: Date.now(),
+      // If delivery status is still pending, upgrade to delivered since
+      // the recipient opening the email implies it was delivered.
+      ...(email.deliveryStatus === "pending"
+        ? { deliveryStatus: "delivered" as const, deliveredAt: Date.now() }
+        : {}),
+    });
   },
 });
 
