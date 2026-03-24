@@ -177,7 +177,7 @@ export default function ContactPage() {
               <div className="mt-8 rounded-2xl bg-violet-50 p-6 dark:bg-violet-900/20">
                 <p className="text-sm font-semibold text-violet-800 dark:text-violet-300">Business hours</p>
                 <p className="mt-1 text-sm text-violet-700 dark:text-violet-400">
-                  Monday – Friday, 9 am – 6 pm UTC
+                  Monday to Friday, 9 am to 6 pm UTC
                 </p>
                 <p className="mt-3 text-sm text-violet-700 dark:text-violet-400">
                   For urgent issues outside business hours, email{" "}

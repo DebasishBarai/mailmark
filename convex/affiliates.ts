@@ -133,7 +133,7 @@ export const getMyPayouts = query({
 });
 
 /**
- * Attribute a referral — called client-side after auth when the ref cookie is present.
+ * Attribute a referral - called client-side after auth when the ref cookie is present.
  * Silently no-ops if the code is invalid, not approved, or already attributed.
  */
 export const attributeReferral = mutation({

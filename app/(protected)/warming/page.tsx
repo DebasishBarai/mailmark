@@ -6,11 +6,11 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 const RAMP_SCHEDULE = [
-  { days: "1–3", limit: 5 },
-  { days: "4–7", limit: 15 },
-  { days: "8–14", limit: 40 },
-  { days: "15–21", limit: 100 },
-  { days: "22–28", limit: 250 },
+  { days: "1-3", limit: 5 },
+  { days: "4-7", limit: 15 },
+  { days: "8-14", limit: 40 },
+  { days: "15-21", limit: 100 },
+  { days: "22-28", limit: 250 },
 ];
 
 export default function WarmingPage() {

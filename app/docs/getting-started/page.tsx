@@ -5,7 +5,7 @@ import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
   title: "Getting Started - Mailmark Docs",
-  description: "Set up Mailmark in minutes — create your account, verify a domain, and send your first email.",
+  description: "Set up Mailmark in minutes. Create your account, verify a domain, and send your first email.",
 };
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {

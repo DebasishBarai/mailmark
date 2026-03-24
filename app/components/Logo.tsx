@@ -30,7 +30,7 @@ export default function Logo({ size = 36 }: LogoProps) {
         </clipPath>
       </defs>
 
-      {/* Inner fill — white in light mode, dark in dark mode */}
+      {/* Inner fill - white in light mode, dark in dark mode */}
       <rect
         x="4" y="16" width="66" height="50" rx="8"
         className="fill-white dark:fill-[#0f172a]"

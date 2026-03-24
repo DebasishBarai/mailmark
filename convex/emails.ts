@@ -385,7 +385,7 @@ export const getScheduledEmail = internalQuery({
   },
 });
 
-// Called after a scheduled email is sent — moves it to sent folder
+// Called after a scheduled email is sent - moves it to sent folder
 export const markScheduledAsSent = internalMutation({
   args: {
     emailId: v.id("emails"),
@@ -403,7 +403,7 @@ export const markScheduledAsSent = internalMutation({
   },
 });
 
-// Public mutation — user cancels a scheduled send
+// Public mutation - user cancels a scheduled send
 export const cancelScheduledEmail = mutation({
   args: { emailId: v.id("emails") },
   handler: async (ctx, { emailId }) => {
@@ -481,7 +481,7 @@ export const insertSent = internalMutation({
       read: true,
       starred: false,
       hasAttachments: hasAttachments ?? false,
-      // Start as "pending" — SES delivery/bounce SNS notifications will update
+      // Start as "pending" - SES delivery/bounce SNS notifications will update
       // this to "delivered", "bounced", or "failed" once the actual outcome is known.
       // ses.send() succeeding only means SES accepted the message, not that it
       // reached the recipient.

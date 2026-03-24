@@ -49,7 +49,7 @@ export default function VideoPlayer({ autoPlay = false }: { autoPlay?: boolean }
         loop
       />
 
-      {/* Play button overlay — disappears once started */}
+      {/* Play button overlay - disappears once started */}
       {!started && (
         <div
           className="absolute inset-0 flex cursor-pointer items-center justify-center"

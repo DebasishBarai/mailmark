@@ -56,7 +56,7 @@ export default function DnsSetupGuidePage() {
             <ul className="mt-3 space-y-1.5 text-sm text-amber-800 dark:text-amber-300">
               <li>• You must own the domain you want to configure.</li>
               <li>• You need access to your domain registrar&apos;s DNS settings (e.g., Namecheap, Cloudflare, GoDaddy).</li>
-              <li>• Mailmark will show you the exact values to copy — you don&apos;t need to calculate anything.</li>
+              <li>• Mailmark will show you the exact values to copy. You don&apos;t need to calculate anything.</li>
             </ul>
           </div>
 
@@ -152,7 +152,7 @@ export default function DnsSetupGuidePage() {
               Add DKIM record (email signing)
             </h2>
             <p className="mt-4 text-gray-600 dark:text-gray-300">
-              DKIM (DomainKeys Identified Mail) adds a cryptographic signature to your outgoing emails. Mailmark generates a unique DKIM key for your domain — find it in <strong>Dashboard → Domains → [your domain] → DNS records</strong>.
+              DKIM (DomainKeys Identified Mail) adds a cryptographic signature to your outgoing emails. Mailmark generates a unique DKIM key for your domain. Find it in <strong>Dashboard → Domains → [your domain] → DNS records</strong>.
             </p>
             <div className="mt-4 overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
               <table className="w-full text-sm">

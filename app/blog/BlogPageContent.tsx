@@ -53,7 +53,7 @@ const posts = [
     category: "Product Updates",
     title: "Mailmark 1.0: What's New",
     excerpt:
-      "We launched! Here's everything included in our first public release — domains, mailboxes, campaigns, analytics, and team collaboration.",
+      "We launched! Here's everything included in our first public release: domains, mailboxes, campaigns, analytics, and team collaboration.",
     date: "Dec 20, 2025",
     readTime: "4 min read",
     featured: false,
@@ -73,7 +73,7 @@ const posts = [
     category: "Campaigns",
     title: "Building a Winning Email Campaign Strategy",
     excerpt:
-      "Cold outreach, newsletters, or onboarding sequences — your strategy should match your goal. Here's how to think about it.",
+      "Cold outreach, newsletters, or onboarding sequences: your strategy should match your goal. Here's how to think about it.",
     date: "Dec 5, 2025",
     readTime: "9 min read",
     featured: false,

@@ -2,7 +2,7 @@ const showcaseItems = [
   {
     title: "Add Your Domain in Minutes",
     description:
-      "Connect any domain you already own. Mailmark walks you through the DNS setup step by step — MX records, SPF, DKIM, and DMARC. Your emails land in inboxes, not spam folders.",
+      "Connect any domain you already own. Mailmark walks you through the DNS setup step by step, including MX records, SPF, DKIM, and DMARC. Your emails land in inboxes, not spam folders.",
     bullets: [
       "Guided DNS configuration wizard",
       "Auto-verify MX, SPF, DKIM & DMARC",
@@ -46,7 +46,7 @@ const showcaseItems = [
   {
     title: "Create Unlimited Mailboxes",
     description:
-      "Spin up mailboxes for every role, team, or project. support@, sales@, hello@, ceo@ — each with its own inbox and settings. Switch between them instantly.",
+      "Spin up mailboxes for every role, team, or project. support@, sales@, hello@, ceo@, each with its own inbox and settings. Switch between them instantly.",
     bullets: [
       "One-click mailbox creation",
       "Per-mailbox signatures & settings",
@@ -55,7 +55,7 @@ const showcaseItems = [
     visual: (
       <div className="space-y-2">
         <div className="rounded-lg bg-white p-4 shadow-sm dark:bg-gray-700">
-          <p className="mb-3 text-xs font-semibold text-gray-700 dark:text-gray-300">Your Mailboxes — yourcompany.com</p>
+          <p className="mb-3 text-xs font-semibold text-gray-700 dark:text-gray-300">Your Mailboxes | yourcompany.com</p>
           {[
             { email: "sales@yourcompany.com", count: 24, active: true },
             { email: "support@yourcompany.com", count: 8, active: false },
@@ -82,7 +82,7 @@ const showcaseItems = [
   {
     title: "A Familiar Email Experience",
     description:
-      "Each mailbox comes with a full email UI you already know — Inbox, Sent, Outbox, Drafts, and Trash. Compose rich emails, manage conversations, and search across everything.",
+      "Each mailbox comes with a full email UI you already know: Inbox, Sent, Outbox, Drafts, and Trash. Compose rich emails, manage conversations, and search across everything.",
     bullets: [
       "Gmail-like inbox interface",
       "Rich text composer with attachments",
@@ -178,7 +178,7 @@ export default function FeatureShowcase() {
             How Mailmark works
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            From domain setup to email campaigns — four simple steps.
+            From domain setup to email campaigns in four simple steps.
           </p>
         </div>
 

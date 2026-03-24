@@ -129,7 +129,7 @@ await client.send({
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                Save your API key — it will only be shown once.
+                Save your API key. It will only be shown once.
               </p>
               <div className="mt-3 flex items-center rounded-lg border border-amber-200 bg-white px-3 py-2 font-mono text-sm dark:border-amber-700/40 dark:bg-gray-900">
                 <span className="flex-1 break-all text-gray-800 dark:text-gray-200">

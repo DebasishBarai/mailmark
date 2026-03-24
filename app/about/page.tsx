@@ -12,7 +12,7 @@ const values = [
   {
     title: "Own your infrastructure",
     description:
-      "We believe businesses should own their email infrastructure. Your domain, your data, your rules — no vendor lock-in.",
+      "We believe businesses should own their email infrastructure. Your domain, your data, your rules. No vendor lock-in.",
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z" />
@@ -22,7 +22,7 @@ const values = [
   {
     title: "Simplicity first",
     description:
-      "DNS, SPF, DKIM — these shouldn't require a systems administrator to configure. We automate the hard parts so you can focus on communication.",
+      "DNS, SPF, DKIM. These shouldn't require a systems administrator to configure. We automate the hard parts so you can focus on communication.",
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
@@ -100,15 +100,15 @@ export default function AboutPage() {
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Our story</h2>
           <div className="mt-6 space-y-5 text-gray-600 leading-relaxed dark:text-gray-300">
             <p>
-              Mailmark started in 2024 when our founders — a team of engineers
-              frustrated by fragmented email tooling — decided to build the
+              Mailmark started in 2024 when our founders, a team of engineers
+              frustrated by fragmented email tooling, decided to build the
               platform they always wanted. They had used Google Workspace,
               Postmark, Mailchimp, and half a dozen other tools, patching them
               together with APIs and custom scripts just to send an email from
               their company domain.
             </p>
             <p>
-              The insight was simple: every business needs three things — a
+              The insight was simple: every business needs three things. A
               professional email address (you@yourcompany.com), a way to read
               and send email, and a way to reach customers at scale. These
               should not require three subscriptions, three dashboards, and

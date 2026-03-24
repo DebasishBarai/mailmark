@@ -14,7 +14,7 @@ export default function VideoDemo() {
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
           Watch how easy it is to add your domain, create mailboxes, and send
-          campaigns — all from one dashboard.
+          campaigns, all from one dashboard.
         </p>
 
         <div className="mt-10">

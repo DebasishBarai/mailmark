@@ -33,14 +33,14 @@ const articles: Record<string, ArticleContent> = {
         heading: "Why use a custom domain for email?",
         content: [
           "Sending emails from yourname@gmail.com works fine for personal use, but it undermines trust when you're communicating on behalf of a business. A custom domain email like hello@yourcompany.com instantly signals professionalism and builds credibility with every message you send.",
-          "Beyond branding, custom domain emails give you full control over your mailboxes. You can create addresses for different purposes — support@, sales@, billing@ — and route them to the right team members without sharing credentials.",
+          "Beyond branding, custom domain emails give you full control over your mailboxes. You can create addresses for different purposes like support@, sales@, and billing@, then route them to the right team members without sharing credentials.",
         ],
       },
       {
         heading: "Step 1: Add your domain to Mailmark",
         content: [
           "Log in to your Mailmark dashboard and navigate to Domains → Add domain. Enter the domain you own (e.g., yourcompany.com). Mailmark will immediately generate the DNS records you need to configure at your domain registrar.",
-          "Don't have a domain yet? You can purchase one from registrars like Namecheap, Cloudflare, or Google Domains. Most domains cost between $10–$15 per year.",
+          "Don't have a domain yet? You can purchase one from registrars like Namecheap, Cloudflare, or Google Domains. Most domains cost between $10-$15 per year.",
         ],
       },
       {
@@ -54,7 +54,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "Step 3: Verify your domain",
         content: [
           "Once you've added the DNS records, return to your Mailmark dashboard and click Verify domain. The system will check for all required records. DNS changes usually propagate within minutes, but can take up to 48 hours in some cases.",
-          "You'll see a green checkmark next to each record type once it's verified. If a record fails verification, double-check the values at your registrar — a common mistake is adding extra spaces or missing the trailing dot in hostnames.",
+          "You'll see a green checkmark next to each record type once it's verified. If a record fails verification, double-check the values at your registrar. A common mistake is adding extra spaces or missing the trailing dot in hostnames.",
         ],
       },
       {
@@ -84,7 +84,7 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "Why email authentication matters",
         content: [
-          "Email was designed in an era when trust was assumed. The original SMTP protocol has no built-in way to verify that a sender is who they claim to be. This makes it trivially easy to spoof the From address on an email — which is exactly what spammers and phishers exploit every day.",
+          "Email was designed in an era when trust was assumed. The original SMTP protocol has no built-in way to verify that a sender is who they claim to be. This makes it trivially easy to spoof the From address on an email, which is exactly what spammers and phishers exploit every day.",
           "SPF, DKIM, and DMARC were developed to close this gap. Together, they form a layered authentication system that lets receiving mail servers verify your identity and protect your domain from abuse.",
         ],
       },
@@ -92,7 +92,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "SPF: Who is allowed to send?",
         content: [
           "SPF (Sender Policy Framework) is a DNS TXT record that lists the servers authorized to send email on behalf of your domain. When a receiving server gets an email claiming to be from your domain, it checks your SPF record to see if the sending server's IP address is on the approved list.",
-          "If the IP matches, the SPF check passes. If not, the receiving server knows something is off. Mailmark automatically generates the correct SPF record for your domain — you just need to add it to your DNS settings.",
+          "If the IP matches, the SPF check passes. If not, the receiving server knows something is off. Mailmark automatically generates the correct SPF record for your domain. You just need to add it to your DNS settings.",
           "A common pitfall is having multiple SPF records. Each domain can only have one SPF record. If you use multiple email services, combine them into a single record using the include: mechanism.",
         ],
       },
@@ -108,14 +108,14 @@ const articles: Record<string, ArticleContent> = {
         heading: "DMARC: What happens when checks fail?",
         content: [
           "DMARC (Domain-based Message Authentication, Reporting and Conformance) ties SPF and DKIM together and adds a policy layer. It tells receiving servers what to do when an email fails authentication: deliver it anyway (none), quarantine it (quarantine), or reject it outright (reject).",
-          "DMARC also introduces reporting. You can receive daily aggregate reports showing who is sending email using your domain — including unauthorized senders. This visibility is invaluable for catching abuse early.",
+          "DMARC also introduces reporting. You can receive daily aggregate reports showing who is sending email using your domain, including unauthorized senders. This visibility is invaluable for catching abuse early.",
           "We recommend starting with a policy of p=none to monitor without affecting delivery. Once you're confident that all legitimate email passes authentication, you can move to p=quarantine and eventually p=reject for maximum protection.",
         ],
       },
       {
         heading: "How Mailmark handles this for you",
         content: [
-          "When you add a domain to Mailmark, we generate all the records you need — SPF, DKIM, and a recommended DMARC record — and show them in your dashboard with copy-to-clipboard buttons. Just paste them into your DNS settings and verify.",
+          "When you add a domain to Mailmark, we generate all the records you need: SPF, DKIM, and a recommended DMARC record. They are shown in your dashboard with copy-to-clipboard buttons. Just paste them into your DNS settings and verify.",
           "Our system continuously monitors the health of your DNS records and alerts you if anything changes or expires. You don't need to be a DNS expert to maintain great deliverability.",
         ],
       },
@@ -141,13 +141,13 @@ const articles: Record<string, ArticleContent> = {
         heading: "2. Segment your audience ruthlessly",
         content: [
           "Sending the same email to your entire list is the fastest way to tank your engagement metrics. Segment by behavior (opened last 3 emails vs. haven't opened in 90 days), by interest (product category, content topic), and by stage (new subscriber vs. long-time customer).",
-          "Even basic segmentation — active vs. inactive subscribers — can improve your click-through rates by 50% or more. Mailmark's campaign tools make it easy to build segments based on engagement data.",
+          "Even basic segmentation like active vs. inactive subscribers can improve your click-through rates by 50% or more. Mailmark's campaign tools make it easy to build segments based on engagement data.",
         ],
       },
       {
         heading: "3. Personalize beyond the first name",
         content: [
-          "Everyone knows the {first_name} merge tag by now. True personalization means tailoring the content itself — recommending products based on past purchases, referencing their specific use case, or adjusting the send time based on their timezone.",
+          "Everyone knows the {first_name} merge tag by now. True personalization means tailoring the content itself: recommending products based on past purchases, referencing their specific use case, or adjusting the send time based on their timezone.",
           "The goal is to make each recipient feel like the email was written specifically for them. This doesn't require AI magic; it requires thoughtful segmentation and well-designed templates.",
         ],
       },
@@ -161,7 +161,7 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "5. Design for mobile first",
         content: [
-          "Over 60% of emails are opened on mobile devices. If your email looks broken on a phone, most readers won't bother scrolling to the desktop version — they'll just delete it.",
+          "Over 60% of emails are opened on mobile devices. If your email looks broken on a phone, most readers won't bother scrolling to the desktop version. They'll just delete it.",
           "Use a single-column layout, large tap targets (minimum 44x44 pixels for buttons), and keep your primary CTA above the fold. Test on actual devices, not just your desktop's responsive preview.",
         ],
       },
@@ -169,7 +169,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "6. Nail your preview text",
         content: [
           "Preview text (the snippet that appears after the subject line in most email clients) is free real estate. Don't waste it with \"View in browser\" or let it default to your first paragraph.",
-          "Use the preview text to complement your subject line — add context, create urgency, or tease the content inside. Think of subject line + preview text as a one-two punch.",
+          "Use the preview text to complement your subject line. Add context, create urgency, or tease the content inside. Think of subject line + preview text as a one-two punch.",
         ],
       },
       {
@@ -189,7 +189,7 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "9. Authenticate your sending domain",
         content: [
-          "If you haven't set up SPF, DKIM, and DMARC for your sending domain, do it before your next campaign. Authentication isn't optional in 2026 — major providers like Gmail and Yahoo now require it for bulk senders.",
+          "If you haven't set up SPF, DKIM, and DMARC for your sending domain, do it before your next campaign. Authentication isn't optional in 2026. Major providers like Gmail and Yahoo now require it for bulk senders.",
           "Mailmark handles authentication setup automatically when you add your domain. Check out our guide on SPF, DKIM, and DMARC for the full details.",
         ],
       },
@@ -197,7 +197,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "10. Measure what matters",
         content: [
           "Open rates and click rates are useful but don't tell the whole story. Track downstream metrics like replies, conversions, and revenue per email to understand true campaign performance.",
-          "Set up clear goals before each campaign and review the results honestly. The best email marketers iterate constantly — every send is an experiment that informs the next one.",
+          "Set up clear goals before each campaign and review the results honestly. The best email marketers iterate constantly. Every send is an experiment that informs the next one.",
         ],
       },
     ],
@@ -214,7 +214,7 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "What is email deliverability?",
         content: [
-          "Email deliverability is the percentage of your emails that actually reach the recipient's inbox — not their spam folder, and not a bounce. It's different from delivery rate, which only measures whether the receiving server accepted the message at all.",
+          "Email deliverability is the percentage of your emails that actually reach the recipient's inbox, not their spam folder, and not a bounce. It's different from delivery rate, which only measures whether the receiving server accepted the message at all.",
           "An email can be \"delivered\" but still land in spam. True deliverability means reaching the inbox, and it depends on a combination of technical setup, sender reputation, and content quality.",
         ],
       },
@@ -222,7 +222,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "Build and protect your sender reputation",
         content: [
           "Mailbox providers like Gmail, Outlook, and Yahoo assign a reputation score to your sending domain and IP address. This score is based on your sending history: bounce rates, spam complaints, engagement levels, and authentication status.",
-          "A new domain has no reputation, which is why you should warm it up gradually. Start by sending to your most engaged contacts — people who are certain to open and click. Over several weeks, slowly increase your volume as your reputation builds.",
+          "A new domain has no reputation, which is why you should warm it up gradually. Start by sending to your most engaged contacts, people who are certain to open and click. Over several weeks, slowly increase your volume as your reputation builds.",
           "Avoid sudden spikes in volume. Going from 100 emails per day to 10,000 overnight is a red flag that triggers spam filters. Consistent, gradual growth signals legitimacy.",
         ],
       },
@@ -230,7 +230,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "Keep your list clean",
         content: [
           "List hygiene is one of the most impactful things you can do for deliverability. Remove invalid addresses immediately after a hard bounce. Set up automated rules to suppress addresses that haven't engaged in 90 or 180 days.",
-          "Never purchase email lists. Bought lists contain spam traps — addresses specifically designed to catch unsolicited senders. Hitting even one spam trap can devastate your reputation.",
+          "Never purchase email lists. Bought lists contain spam traps, addresses specifically designed to catch unsolicited senders. Hitting even one spam trap can devastate your reputation.",
           "Use double opt-in for new subscribers when possible. It adds a small friction point, but it ensures that every address on your list belongs to someone who genuinely wants to hear from you.",
         ],
       },
@@ -265,19 +265,19 @@ const articles: Record<string, ArticleContent> = {
     date: "Dec 20, 2025",
     readTime: "4 min read",
     excerpt:
-      "We launched! Here's everything included in our first public release — domains, mailboxes, campaigns, analytics, and team collaboration.",
+      "We launched! Here's everything included in our first public release: domains, mailboxes, campaigns, analytics, and team collaboration.",
     sections: [
       {
         heading: "We're live",
         content: [
-          "After months of building and testing with early users, Mailmark 1.0 is officially available to everyone. We set out to build the email hosting platform we wished existed — simple to set up, powerful under the hood, and priced fairly.",
+          "After months of building and testing with early users, Mailmark 1.0 is officially available to everyone. We set out to build the email hosting platform we wished existed: simple to set up, powerful under the hood, and priced fairly.",
           "Here's a look at everything included in this first release.",
         ],
       },
       {
         heading: "Custom domain email hosting",
         content: [
-          "Add your own domain and create unlimited mailboxes. Mailmark handles all the technical complexity — DNS record generation, domain verification, SPF/DKIM/DMARC setup — so you can go from zero to sending in under 10 minutes.",
+          "Add your own domain and create unlimited mailboxes. Mailmark handles all the technical complexity, including DNS record generation, domain verification, and SPF/DKIM/DMARC setup, so you can go from zero to sending in under 10 minutes.",
           "Every mailbox gets full send and receive capabilities, with no per-mailbox fees. Whether you need one address or a hundred, the pricing stays simple.",
         ],
       },
@@ -291,7 +291,7 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "Analytics dashboard",
         content: [
-          "See exactly how your emails are performing. The analytics dashboard shows delivery rates, open rates, click rates, bounce rates, and spam complaints — all in real time.",
+          "See exactly how your emails are performing. The analytics dashboard shows delivery rates, open rates, click rates, bounce rates, and spam complaints, all in real time.",
           "Filter by domain, mailbox, or campaign to drill down into specific metrics. Export reports to CSV for deeper analysis or to share with your team.",
         ],
       },
@@ -299,7 +299,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "Team collaboration",
         content: [
           "Invite team members to your Mailmark workspace. Assign mailboxes, set permissions, and collaborate without sharing passwords. Each team member gets their own login with role-based access controls.",
-          "Shared mailboxes let multiple team members read and respond to the same address — perfect for support@ or sales@ inboxes.",
+          "Shared mailboxes let multiple team members read and respond to the same address, perfect for support@ or sales@ inboxes.",
         ],
       },
       {
@@ -323,7 +323,7 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "The problem with shared credentials",
         content: [
-          "Many small teams start by sharing a single email account password among team members. This works until it doesn't — you can't track who sent what, you can't revoke access for one person without changing the password for everyone, and it's a security risk.",
+          "Many small teams start by sharing a single email account password among team members. This works until it doesn't. You can't track who sent what, you can't revoke access for one person without changing the password for everyone, and it's a security risk.",
           "Mailmark takes a different approach. Every team member gets their own login, and mailbox access is managed through permissions. No shared passwords, no ambiguity about who did what.",
         ],
       },
@@ -337,7 +337,7 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "Shared mailboxes vs. personal mailboxes",
         content: [
-          "A personal mailbox is assigned to one person — their individual work email. A shared mailbox (like support@ or info@) can be accessed by multiple team members simultaneously.",
+          "A personal mailbox is assigned to one person, their individual work email. A shared mailbox (like support@ or info@) can be accessed by multiple team members simultaneously.",
           "When multiple people are working in a shared mailbox, Mailmark shows real-time indicators of who is viewing or composing a reply to each conversation. This prevents the classic \"two people reply to the same email\" problem.",
         ],
       },
@@ -345,13 +345,13 @@ const articles: Record<string, ArticleContent> = {
         heading: "Organizing at scale",
         content: [
           "As your team grows, organization becomes critical. Use naming conventions for your mailboxes that make their purpose obvious. Group related addresses under the same domain. Use Mailmark's labels and filters to automatically categorize incoming messages.",
-          "For larger organizations, consider creating separate domains for different functions — marketing.yourcompany.com for campaigns, support.yourcompany.com for customer service. Each domain can have its own set of mailboxes and team member assignments.",
+          "For larger organizations, consider creating separate domains for different functions, such as marketing.yourcompany.com for campaigns and support.yourcompany.com for customer service. Each domain can have its own set of mailboxes and team member assignments.",
         ],
       },
       {
         heading: "Audit trail and accountability",
         content: [
-          "Every action in Mailmark is logged — who sent what, when, and from which mailbox. Admins can review the activity log to track email volume, response times, and team member activity.",
+          "Every action in Mailmark is logged: who sent what, when, and from which mailbox. Admins can review the activity log to track email volume, response times, and team member activity.",
           "This audit trail is invaluable for compliance, quality control, and understanding your team's email workflow. Export logs at any time for your records.",
         ],
       },
@@ -364,7 +364,7 @@ const articles: Record<string, ArticleContent> = {
     date: "Dec 5, 2025",
     readTime: "9 min read",
     excerpt:
-      "Cold outreach, newsletters, or onboarding sequences — your strategy should match your goal. Here's how to think about it.",
+      "Cold outreach, newsletters, or onboarding sequences: your strategy should match your goal. Here's how to think about it.",
     sections: [
       {
         heading: "Start with the goal, not the tool",
@@ -384,7 +384,7 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "Onboarding sequences",
         content: [
-          "Onboarding emails guide new users from signup to their first success moment. The goal isn't to dump all your features on them — it's to get them to the point where they see value as quickly as possible.",
+          "Onboarding emails guide new users from signup to their first success moment. The goal isn't to dump all your features on them. It's to get them to the point where they see value as quickly as possible.",
           "Map out the critical path in your product. What does a user need to do to get their first win? Build your sequence around those actions. Each email should have exactly one call to action that moves them one step forward.",
           "Time your onboarding emails based on user behavior, not just calendar days. Send the next email when the user completes the previous step, or after a reasonable wait if they haven't.",
         ],
@@ -392,16 +392,16 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "Cold outreach",
         content: [
-          "Cold outreach has the lowest response rates but can be highly effective when done right. The key is relevance — every recipient should feel like you wrote the email specifically for them.",
+          "Cold outreach has the lowest response rates but can be highly effective when done right. The key is relevance. Every recipient should feel like you wrote the email specifically for them.",
           "Research your prospects before reaching out. Reference something specific about their company, their recent work, or a problem you know they face. Generic templates sent to thousands of addresses will only hurt your reputation.",
-          "Keep cold emails short — 3 to 5 sentences maximum. State who you are, why you're reaching out, and what you're asking for. Make it easy to say yes or no.",
+          "Keep cold emails short, 3 to 5 sentences maximum. State who you are, why you're reaching out, and what you're asking for. Make it easy to say yes or no.",
         ],
       },
       {
         heading: "Re-engagement campaigns",
         content: [
           "Every list has subscribers who stop opening your emails. Before you remove them, try a re-engagement campaign. Send a simple, honest email: \"We noticed you haven't opened our emails recently. Would you like to keep hearing from us?\"",
-          "Give them a clear choice — stay subscribed or unsubscribe with one click. People who choose to stay are now more engaged than before. People who leave improve your list health and deliverability.",
+          "Give them a clear choice: stay subscribed or unsubscribe with one click. People who choose to stay are now more engaged than before. People who leave improve your list health and deliverability.",
         ],
       },
       {
@@ -425,7 +425,7 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "How spam filters actually work",
         content: [
-          "Modern spam filters use a combination of reputation signals, content analysis, and engagement data to decide where your email lands. It's not a single check — it's hundreds of signals weighted together into a score.",
+          "Modern spam filters use a combination of reputation signals, content analysis, and engagement data to decide where your email lands. It's not a single check. It's hundreds of signals weighted together into a score.",
           "The three biggest factors are: sender reputation (is your domain and IP known for sending good email?), authentication (do your SPF, DKIM, and DMARC records check out?), and recipient engagement (do people who receive your emails open and interact with them?).",
           "Understanding these categories helps you diagnose which area is causing problems when your emails start landing in spam.",
         ],
@@ -448,7 +448,7 @@ const articles: Record<string, ArticleContent> = {
         heading: "Reason 3: Spammy content patterns",
         content: [
           "Spam filters look for patterns that correlate with unwanted email. Common triggers include: excessive use of capital letters, multiple exclamation marks, phrases like \"limited time offer\" or \"click here now,\" and emails that are mostly images with little text.",
-          "The fix: Write like a human. Use a conversational tone, avoid marketing clichés, and keep a healthy balance of text and images. If you're not sure whether your email sounds spammy, read it aloud — if it sounds like a used-car ad, rewrite it.",
+          "The fix: Write like a human. Use a conversational tone, avoid marketing clichés, and keep a healthy balance of text and images. If you're not sure whether your email sounds spammy, read it aloud. If it sounds like a used-car ad, rewrite it.",
         ],
       },
       {
@@ -461,7 +461,7 @@ const articles: Record<string, ArticleContent> = {
       {
         heading: "Reason 5: Sudden volume spikes",
         content: [
-          "If you normally send 500 emails a day and suddenly send 50,000, spam filters treat this as suspicious behavior — because that's exactly what compromised accounts do. Volume spikes are a strong indicator of either a hacked account or a purchased list.",
+          "If you normally send 500 emails a day and suddenly send 50,000, spam filters treat this as suspicious behavior because that's exactly what compromised accounts do. Volume spikes are a strong indicator of either a hacked account or a purchased list.",
           "The fix: Increase your sending volume gradually. If you need to send a large campaign, ramp up over several days. Start with your most engaged segment, then expand to broader lists as your volume increases.",
         ],
       },
@@ -476,14 +476,14 @@ const articles: Record<string, ArticleContent> = {
         heading: "Reason 7: You're on a blocklist",
         content: [
           "IP and domain blocklists are maintained by organizations that track sources of spam. If your domain or sending IP appears on a major blocklist (Spamhaus, Barracuda, etc.), your deliverability will plummet.",
-          "The fix: Check your domain and IP against major blocklists using free tools like MXToolbox. If you're listed, follow the blocklist's removal process — which usually requires demonstrating that you've fixed the underlying problem. Mailmark monitors blocklist status for your domains automatically.",
+          "The fix: Check your domain and IP against major blocklists using free tools like MXToolbox. If you're listed, follow the blocklist's removal process, which usually requires demonstrating that you've fixed the underlying problem. Mailmark monitors blocklist status for your domains automatically.",
         ],
       },
       {
         heading: "A step-by-step recovery plan",
         content: [
           "If your emails are consistently landing in spam, follow this order: First, fix your authentication records. Second, clean your list. Third, review your content for spam triggers. Fourth, check blocklists. Fifth, start sending only to your most engaged recipients and gradually expand.",
-          "Recovery takes time — usually 2 to 4 weeks of consistent good behavior before spam filters update their assessment of your domain. Be patient and consistent, and your inbox placement will improve.",
+          "Recovery takes time, usually 2 to 4 weeks of consistent good behavior before spam filters update their assessment of your domain. Be patient and consistent, and your inbox placement will improve.",
         ],
       },
     ],

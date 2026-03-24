@@ -1,4 +1,4 @@
-// Remotion entry point — registers all compositions
+// Remotion entry point - registers all compositions
 import { registerRoot } from "remotion";
 import { RemotionRoot } from "./Root";
 

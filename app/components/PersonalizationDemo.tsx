@@ -13,7 +13,7 @@ export default function PersonalizationDemo() {
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
           Choose from 11 themes, set background wallpapers, adjust UI density,
-          and craft professional email signatures — all synced across devices.
+          and craft professional email signatures, all synced across devices.
         </p>
 
         <div className="mt-10">

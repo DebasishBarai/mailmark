@@ -134,7 +134,7 @@ export default function BillingPage() {
           {isActive && plan ? (
             <div className="flex items-center gap-3">
               <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                {PLAN_LABELS[plan] ?? plan} — {PLAN_PRICES[plan] ?? ""}/mo
+                {PLAN_LABELS[plan] ?? plan} | {PLAN_PRICES[plan] ?? ""}/mo
               </span>
               <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
                 Active
@@ -162,7 +162,7 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Plans — always shown so users can switch */}
+      {/* Plans - always shown so users can switch */}
       <div>
         <h2 className="mb-6 text-base font-semibold text-gray-900 dark:text-white">
           {isActive ? "Change Plan" : "Upgrade your plan"}

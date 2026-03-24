@@ -4,7 +4,7 @@ import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
   title: "Terms of Service - Mailmark",
-  description: "Mailmark Terms of Service — the rules and guidelines for using our platform.",
+  description: "Mailmark Terms of Service. The rules and guidelines for using our platform.",
 };
 
 const sections = [

@@ -4,7 +4,7 @@ import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
   title: "Privacy Policy - Mailmark",
-  description: "Mailmark Privacy Policy — how we collect, use, and protect your data.",
+  description: "Mailmark Privacy Policy. How we collect, use, and protect your data.",
 };
 
 const sections = [

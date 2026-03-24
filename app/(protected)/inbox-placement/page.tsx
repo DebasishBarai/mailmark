@@ -259,7 +259,7 @@ export default function InboxPlacementPage() {
             </svg>
             <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">Test Your Email Placement</h3>
             <p className="mx-auto mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
-              Send a test campaign to seed mailboxes across Gmail, Outlook, Yahoo, and iCloud. Then report where each email landed — Primary, Promotions, or Spam — to identify deliverability issues before sending to real recipients.
+              Send a test campaign to seed mailboxes across Gmail, Outlook, Yahoo, and iCloud. Then report where each email landed (Primary, Promotions, or Spam) to identify deliverability issues before sending to real recipients.
             </p>
             <div className="mt-6 grid gap-4 text-left sm:grid-cols-3">
               <div className="rounded-xl bg-gray-50 p-4 dark:bg-gray-900">

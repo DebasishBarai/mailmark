@@ -210,7 +210,7 @@ export const reportPlacement = mutation({
       receivedAt: placement !== "not_received" ? Date.now() : undefined,
     });
 
-    // Check if all results are reported — auto-complete the test
+    // Check if all results are reported - auto-complete the test
     const allResults = await ctx.db
       .query("inboxPlacementResults")
       .withIndex("by_test_id", (q) => q.eq("testId", testId))

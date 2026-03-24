@@ -8,7 +8,7 @@ export default function CTABanner() {
           Ready to own your email?
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-lg text-violet-100">
-          Add your domain, create your mailboxes, and start sending campaigns —
+          Add your domain, create your mailboxes, and start sending campaigns,
           all in one place. Try free for 7 days, no credit card required.
         </p>
         <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">

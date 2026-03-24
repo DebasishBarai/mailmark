@@ -171,7 +171,7 @@ function AffiliateDashboard({ affiliate }: { affiliate: NonNullable<ReturnType<t
         </div>
       )}
 
-      {/* Referral link — only shown when approved */}
+      {/* Referral link - only shown when approved */}
       {affiliate!.status === "approved" && (
         <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Your referral link</p>
@@ -223,9 +223,9 @@ function AffiliateDashboard({ affiliate }: { affiliate: NonNullable<ReturnType<t
               {referrals.map((r) => (
                 <tr key={r._id} className="border-b border-gray-50 last:border-0 dark:border-gray-700/50">
                   <td className="px-5 py-3 font-mono text-xs text-gray-500 dark:text-gray-400">{r.referredUserId.slice(-8)}</td>
-                  <td className="px-5 py-3 capitalize text-gray-700 dark:text-gray-300">{r.plan ?? "—"}</td>
+                  <td className="px-5 py-3 capitalize text-gray-700 dark:text-gray-300">{r.plan ?? "-"}</td>
                   <td className="px-5 py-3 font-medium text-violet-700 dark:text-violet-400">
-                    {r.commissionCents > 0 ? `$${(r.commissionCents / 100).toFixed(2)}/mo` : "—"}
+                    {r.commissionCents > 0 ? `$${(r.commissionCents / 100).toFixed(2)}/mo` : "-"}
                   </td>
                   <td className="px-5 py-3"><StatusBadge status={r.status} /></td>
                 </tr>
@@ -260,9 +260,9 @@ function AffiliateDashboard({ affiliate }: { affiliate: NonNullable<ReturnType<t
                   <td className="px-5 py-3 font-semibold text-gray-900 dark:text-white">${(p.amountCents / 100).toFixed(2)}</td>
                   <td className="px-5 py-3"><StatusBadge status={p.status} /></td>
                   <td className="px-5 py-3 text-gray-500 dark:text-gray-400">
-                    {p.processedAt ? new Date(p.processedAt).toLocaleDateString() : "—"}
+                    {p.processedAt ? new Date(p.processedAt).toLocaleDateString() : "-"}
                   </td>
-                  <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{p.note ?? "—"}</td>
+                  <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{p.note ?? "-"}</td>
                 </tr>
               ))}
             </tbody>

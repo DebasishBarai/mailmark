@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       // beforeFiles runs before Next.js checks its own pages/filesystem,
-      // so api.mailmark.dev traffic is always proxied to Convex — never the UI.
+      // so api.mailmark.dev traffic is always proxied to Convex - never the UI.
       beforeFiles: [
         {
           source: "/:path*",

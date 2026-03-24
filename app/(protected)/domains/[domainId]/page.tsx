@@ -144,7 +144,7 @@ const handleRemoveDomain = async () => {
       purpose: "DMARC",
       verified: domain.dmarcVerified,
     },
-    // Custom MAIL FROM domain records — fixes MAIL FROM alignment in AWS SES
+    // Custom MAIL FROM domain records - fixes MAIL FROM alignment in AWS SES
     {
       type: "MX",
       name: `mail`,
@@ -372,7 +372,7 @@ const handleRemoveDomain = async () => {
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-6 py-3 font-mono text-xs text-gray-700 dark:text-gray-300">
-                        {"priority" in record ? record.priority : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                        {"priority" in record ? record.priority : <span className="text-gray-300 dark:text-gray-600">-</span>}
                       </td>
                       <td className="px-6 py-3">
                         <div className="flex flex-col gap-1">

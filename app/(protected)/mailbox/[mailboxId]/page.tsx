@@ -377,7 +377,7 @@ export default function MailboxPage() {
       setImportError(null);
       return;
     }
-    // Fallback: single-column or no headers — extract emails
+    // Fallback: single-column or no headers - extract emails
     const emails = parseEmailsFromCSV(text);
     if (emails.length === 0) {
       setImportError("No email addresses found in the CSV.");
@@ -1313,7 +1313,7 @@ export default function MailboxPage() {
               <span className="text-xs font-medium capitalize text-gray-500 dark:text-gray-400">{activeFolder}</span>
               {totalCount !== undefined && totalCount > 0 && (
                 <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                  {currentPage * 50 + 1}–{Math.min((currentPage + 1) * 50, totalCount)} of {totalCount}
+                  {currentPage * 50 + 1}-{Math.min((currentPage + 1) * 50, totalCount)} of {totalCount}
                 </span>
               )}
             </div>
@@ -1769,7 +1769,7 @@ export default function MailboxPage() {
           </div>
         )}
 
-        {/* Compose panel — inline in the right pane */}
+        {/* Compose panel - inline in the right pane */}
         {showCompose && (
           <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-800 p-4 md:p-8">
             <div className="mb-6 flex items-center justify-between">
@@ -2263,7 +2263,7 @@ export default function MailboxPage() {
                 <div className="border-t border-gray-100 dark:border-gray-700/50 pt-2">
                   <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
                     {composeAttachments.length} attachment{composeAttachments.length > 1 ? "s" : ""}
-                    {isAnyUploading && <span className="ml-1 text-amber-500">— processing...</span>}
+                    {isAnyUploading && <span className="ml-1 text-amber-500">(processing...)</span>}
                   </p>
                   <div className="flex flex-col gap-1.5">
                     {composeAttachments.map((att) => (
@@ -2321,7 +2321,7 @@ export default function MailboxPage() {
                 {sendError}
               </div>
             )}
-            {/* File input — not display:none so onChange fires reliably in all browsers */}
+            {/* File input - not display:none so onChange fires reliably in all browsers */}
             <input
               ref={fileInputRef}
               type="file"
@@ -2400,7 +2400,7 @@ export default function MailboxPage() {
                         <div className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 ${sendMode === "send" ? "border-violet-600 bg-violet-600" : "border-gray-300 dark:border-gray-600"}`} />
                         <div>
                           <p className={`font-medium ${sendMode === "send" ? "text-violet-700 dark:text-violet-300" : "text-gray-800 dark:text-gray-200"}`}>Send</p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">{usesMergeFields ? "Disabled — merge fields require Campaign" : "One email to all recipients"}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">{usesMergeFields ? "Disabled: merge fields require Campaign" : "One email to all recipients"}</p>
                         </div>
                       </button>
                       <button
@@ -2416,7 +2416,7 @@ export default function MailboxPage() {
                     </div>
                   )}
                 </div>
-                {/* Schedule tab — shows "Now" or the selected scheduled time */}
+                {/* Schedule tab - shows "Now" or the selected scheduled time */}
                 <div ref={schedulePickerRef} className="relative">
                   <button
                     type="button"
