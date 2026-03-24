@@ -35,7 +35,7 @@ export const create = action({
       createdAt: Date.now(),
     });
 
-    // Return the raw key ONCE — it is never stored in plaintext
+    // Return the raw key ONCE - it is never stored in plaintext
     return { key: rawKey, keyPrefix };
   },
 });

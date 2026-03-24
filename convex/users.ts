@@ -70,7 +70,7 @@ export const addUser = action({
     });
 
     if (existingUser) {
-      // Existing user — update profile fields only (no Polar API call)
+      // Existing user - update profile fields only (no Polar API call)
       return await ctx.runMutation(internal.users.updateUserProfile, {
         subject: identity.subject,
         email: identity.email,
@@ -79,7 +79,7 @@ export const addUser = action({
       });
     }
 
-    // New user — create a Polar customer first
+    // New user - create a Polar customer first
     const polarResponse = await fetch(`${process.env.POLAR_BASE_URL}/v1/customers`, {
       method: "POST",
       headers: {

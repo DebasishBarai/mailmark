@@ -1,6 +1,6 @@
 # Mailmark
 
-> Mailmark is an all-in-one email hosting and campaign platform for custom domains. Businesses connect their own domain, create mailboxes like support@yourco.com or sales@yourco.com, and manage all email activity — day-to-day communication, bulk outreach campaigns, and transactional sending via API — from a single dashboard. Mailmark is trusted by 10,000+ businesses.
+> Mailmark is an all-in-one email hosting and campaign platform for custom domains. Businesses connect their own domain, create mailboxes like support@yourco.com or sales@yourco.com, and manage all email activity - day-to-day communication, bulk outreach campaigns, and transactional sending via API - from a single dashboard. Mailmark is trusted by 10,000+ businesses.
 
 ---
 
@@ -29,26 +29,26 @@
 
 Mailmark combines three things that businesses previously needed separate tools for:
 
-1. **Custom domain email hosting** — Receive and send email from addresses on your own domain (e.g. hello@acme.com) without managing mail servers. Mailmark handles the infrastructure using Amazon SES.
-2. **A full email client** — An inbox, sent folder, outbox, drafts, and trash for every mailbox you create, accessible from any browser. Similar to Gmail but for your custom domain.
-3. **Email campaign tools** — Send bulk outreach and marketing emails from any of your mailboxes with mail merge, personalization, open/click tracking, automated follow-up sequences, and real-time analytics.
+1. **Custom domain email hosting** - Receive and send email from addresses on your own domain (e.g. hello@acme.com) without managing mail servers. Mailmark handles the infrastructure using Amazon SES.
+2. **A full email client** - An inbox, sent folder, outbox, drafts, and trash for every mailbox you create, accessible from any browser. Similar to Gmail but for your custom domain.
+3. **Email campaign tools** - Send bulk outreach and marketing emails from any of your mailboxes with mail merge, personalization, open/click tracking, automated follow-up sequences, and real-time analytics.
 
-Mailmark is not a shared email provider (like Gmail or Outlook). You bring your own domain. Mailmark does not provide domain registration — you must already own the domain you want to use.
+Mailmark is not a shared email provider (like Gmail or Outlook). You bring your own domain. Mailmark does not provide domain registration - you must already own the domain you want to use.
 
 ---
 
 ## How Mailmark Works
 
-### Step 1 — Add Your Domain
+### Step 1 - Add Your Domain
 Go to Dashboard → Domains and click "Add domain". Enter your domain name (e.g. acme.com). Mailmark registers the domain with Amazon SES and returns the DNS records you need to add to your domain registrar: DKIM CNAME records, SPF TXT record, DMARC TXT record, and MX record for inbound email.
 
-### Step 2 — Verify DNS
+### Step 2 - Verify DNS
 Add the DNS records at your registrar (Cloudflare, Namecheap, GoDaddy, etc.). Click "Verify" in Mailmark. DNS propagation usually completes within minutes but can take up to 48 hours. Mailmark checks MX, SPF, DKIM (three CNAME records), and DMARC individually and shows live verification status for each.
 
-### Step 3 — Create Mailboxes
+### Step 3 - Create Mailboxes
 Once your domain is verified, create mailboxes under Dashboard → Mailboxes. Each mailbox gets its own inbox, sent folder, and settings. You only enter the local part (e.g. "sales") and Mailmark appends your domain automatically.
 
-### Step 4 — Send Email
+### Step 4 - Send Email
 Use the dashboard UI to compose and send emails, or use the REST API / npm SDK to send programmatically. Inbound emails arrive in the mailbox inbox automatically via the configured MX record.
 
 ---
@@ -56,11 +56,11 @@ Use the dashboard UI to compose and send emails, or use the REST API / npm SDK t
 ## Features
 
 ### Custom Domain Setup
-- Connect any domain you own — Mailmark does not provide domain registration
+- Connect any domain you own - Mailmark does not provide domain registration
 - Guided DNS configuration with exact record values to copy-paste
 - Auto-verification of MX, SPF, DKIM (3 records), and DMARC
 - Custom MAIL FROM domain (mail.yourdomain.com) for SPF/DMARC alignment
-- Full email deliverability from day one — emails land in inboxes, not spam
+- Full email deliverability from day one - emails land in inboxes, not spam
 
 ### Mailboxes
 - Create mailboxes for any role: support@, sales@, info@, ceo@, hello@, etc.
@@ -75,7 +75,7 @@ Use the dashboard UI to compose and send emails, or use the REST API / npm SDK t
 - Rich HTML email composer with attachments
 - Full-text search across all mail
 - Read/unread status, starring, and conversation threading
-- Open tracking — see when recipients open your emails
+- Open tracking - see when recipients open your emails
 - Delivery status tracking (delivered, bounced, failed)
 
 ### Email Campaigns
@@ -85,8 +85,8 @@ Use the dashboard UI to compose and send emails, or use the REST API / npm SDK t
 - Multi-stage automated follow-up sequences (Stage 1 → Stage 2 → Stage 3)
 - Schedule campaigns for a future date and time
 - Real-time analytics: sent count, open rate, click rate, reply rate, bounce rate
-- Individual recipient tracking — see who opened, who clicked, who replied
-- Campaign send from a "sender group" — distribute sending across multiple mailboxes
+- Individual recipient tracking - see who opened, who clicked, who replied
+- Campaign send from a "sender group" - distribute sending across multiple mailboxes
 
 ### Sender Groups
 - Group multiple mailboxes as senders for a campaign
@@ -259,7 +259,7 @@ A mailbox is a sending and receiving email address on your domain.
 
 ### Creating a Mailbox
 - Go to Dashboard → Domains → [your domain] → Add Mailbox
-- Enter the local part only (e.g. "support" — not "support@yourdomain.com")
+- Enter the local part only (e.g. "support" - not "support@yourdomain.com")
 - Optionally set a display name (e.g. "Support Team")
 - The mailbox is created instantly
 
@@ -283,11 +283,11 @@ Deleting a mailbox permanently removes all emails stored in it (both in Convex a
 Every mailbox has a full email client accessible from the Mailmark dashboard.
 
 ### Folders
-- **Inbox** — received emails
-- **Sent** — emails you have sent
-- **Outbox** — scheduled emails awaiting delivery
-- **Drafts** — saved but unsent emails
-- **Trash** — deleted emails
+- **Inbox** - received emails
+- **Sent** - emails you have sent
+- **Outbox** - scheduled emails awaiting delivery
+- **Drafts** - saved but unsent emails
+- **Trash** - deleted emails
 
 ### Composing Email
 - Rich HTML editor
@@ -407,11 +407,11 @@ Pass `"all"` for mailboxes to include every mailbox on the domain.
 Update a sender group. All fields optional.
 
 **Body fields**:
-- `name` — rename the group
-- `addEmails` — add recipients to the list
-- `removeEmails` — remove recipients from the list
-- `emails` — replace the entire recipient list
-- `mailboxes` — replace sender mailbox list (comma-separated or `"all"`)
+- `name` - rename the group
+- `addEmails` - add recipients to the list
+- `removeEmails` - remove recipients from the list
+- `emails` - replace the entire recipient list
+- `mailboxes` - replace sender mailbox list (comma-separated or `"all"`)
 
 #### DELETE /v1/sender-groups/:id
 Delete a sender group. Mailboxes are not affected.
@@ -436,13 +436,13 @@ Send an email immediately or schedule it for later.
 ```
 
 **Fields**:
-- `from` (required) — full address of an existing mailbox on your domain
-- `to` (required) — array of recipient addresses
-- `subject` (required) — email subject
-- `html` — HTML body (required if `text` not provided)
-- `text` — plain text body (required if `html` not provided)
-- `type` — `"transactional"` (default) or `"campaign"` (one email per recipient)
-- `scheduledAt` — future unix millisecond timestamp for scheduled sending
+- `from` (required) - full address of an existing mailbox on your domain
+- `to` (required) - array of recipient addresses
+- `subject` (required) - email subject
+- `html` - HTML body (required if `text` not provided)
+- `text` - plain text body (required if `html` not provided)
+- `type` - `"transactional"` (default) or `"campaign"` (one email per recipient)
+- `scheduledAt` - future unix millisecond timestamp for scheduled sending
 
 **Response (transactional)**:
 ```json
@@ -522,19 +522,19 @@ await client.deleteSenderGroup('GROUP_ID');
 ## Billing & Subscriptions
 
 - All plans billed **monthly**
-- **7-day free trial** on every plan — no credit card required
+- **7-day free trial** on every plan - no credit card required
 - After trial: account pauses until a plan is chosen
 - Upgrade / downgrade / cancel any time from Dashboard → Settings → Billing
-- Mid-cycle upgrades are **prorated** — you only pay for what you use
+- Mid-cycle upgrades are **prorated** - you only pay for what you use
 - Cancellations take effect at the end of the current billing period
 - No long-term contracts, no cancellation fees
 
 **Payment processing**: Polar (stripe-backed)
 
 **Plan IDs** (for reference):
-- `starter` — $10/month
-- `pro` — $50/month
-- `business` — $100/month
+- `starter` - $10/month
+- `pro` - $50/month
+- `business` - $100/month
 
 ---
 
@@ -543,9 +543,9 @@ await client.deleteSenderGroup('GROUP_ID');
 Mailmark runs a **30% recurring commission** affiliate program.
 
 ### How It Works
-1. Apply at https://mailmark.dev/affiliate-program — applications reviewed within 48 hours
+1. Apply at https://mailmark.dev/affiliate-program - applications reviewed within 48 hours
 2. Get your unique referral link and marketing assets (banners, email copy, social posts)
-3. Earn 30% of every payment made by referred customers — every month, for the lifetime of their account
+3. Earn 30% of every payment made by referred customers - every month, for the lifetime of their account
 
 ### Commission Rates
 | Plan     | Customer pays | You earn   |
@@ -566,7 +566,7 @@ Mailmark runs a **30% recurring commission** affiliate program.
 ## Frequently Asked Questions
 
 **What is Mailmark?**
-Mailmark is an all-in-one email hosting and campaign platform for custom domains. You connect your own domain, create as many mailboxes as you need, and manage everything — from day-to-day email to mass outreach campaigns — in a single dashboard.
+Mailmark is an all-in-one email hosting and campaign platform for custom domains. You connect your own domain, create as many mailboxes as you need, and manage everything - from day-to-day email to mass outreach campaigns - in a single dashboard.
 
 **Can I use my own custom domain?**
 Yes. Mailmark is built around custom domains. You add your domain, configure the required DNS records (Mailmark provides step-by-step instructions), and your mailboxes go live in minutes. You can add multiple domains on paid plans.
@@ -575,10 +575,10 @@ Yes. Mailmark is built around custom domains. You add your domain, configure the
 The Starter plan supports up to 3 mailboxes on a single domain. The Pro plan gives you unlimited mailboxes across 5 domains. The Business plan lifts all limits.
 
 **Does Mailmark support email campaigns?**
-Yes. All plans include the campaign suite — compose rich HTML emails, import or build a recipient list, schedule sends, and track opens, clicks, and deliverability in real time. Auto follow-up sequences are also supported.
+Yes. All plans include the campaign suite - compose rich HTML emails, import or build a recipient list, schedule sends, and track opens, clicks, and deliverability in real time. Auto follow-up sequences are also supported.
 
 **Is there a free trial?**
-Yes. Every plan comes with a 7-day free trial — no credit card required. You get full access to all features during the trial. After 7 days, the account pauses until a paid plan is chosen.
+Yes. Every plan comes with a 7-day free trial - no credit card required. You get full access to all features during the trial. After 7 days, the account pauses until a paid plan is chosen.
 
 **How does billing work?**
 All plans are billed monthly after the 7-day free trial ends. You can upgrade, downgrade, or cancel at any time. Upgrades mid-cycle are prorated.
@@ -590,7 +590,7 @@ Yes. No long-term contracts or cancellation fees. Cancel from Dashboard → Sett
 You can use the built-in Mailmark web UI (works in any modern browser). IMAP and SMTP access are also supported, so you can connect Mailmark mailboxes to Apple Mail, Thunderbird, Outlook, or any standard email client.
 
 **Does Mailmark provide domain registration?**
-No. You must already own the domain you want to use. Mailmark only handles email hosting and delivery — not domain registration.
+No. You must already own the domain you want to use. Mailmark only handles email hosting and delivery - not domain registration.
 
 **What happens if I exceed my email limit?**
 All further sends are blocked until the next calendar month (when the quota resets) or until you upgrade to a higher plan. Attempting to send will return an error: "Monthly email limit reached."

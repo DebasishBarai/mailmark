@@ -135,7 +135,7 @@ await client.deleteMailbox('support@yourdomain.com');`}</Code>
               By default every mailbox on a domain is accessible to the domain owner. Sender Groups control which mailboxes can send as part of a group, allowing you to segment access without sharing credentials.
             </p>
             <p>
-              To grant a team member access to a specific mailbox via the API, create a separate API key scoped to that domain and share only that key. API keys are scoped per domain — a key cannot access mailboxes on a domain it was not issued for.
+              To grant a team member access to a specific mailbox via the API, create a separate API key scoped to that domain and share only that key. API keys are scoped per domain - a key cannot access mailboxes on a domain it was not issued for.
             </p>
             <p>
               Team member invites and per-user mailbox permissions are on the roadmap. Follow the changelog for updates.
@@ -180,7 +180,7 @@ await client.deleteMailbox('support@yourdomain.com');`}</Code>
           <div className="mt-12 grid gap-4 sm:grid-cols-2">
             {[
               { href: "/docs/email-campaigns", title: "Email Campaigns", desc: "Use mailboxes to run bulk campaign sends." },
-              { href: "/docs/api#list-mailboxes", title: "API — Mailboxes", desc: "Full REST API reference for mailbox management." },
+              { href: "/docs/api#list-mailboxes", title: "API - Mailboxes", desc: "Full REST API reference for mailbox management." },
             ].map((card) => (
               <Link
                 key={card.href}

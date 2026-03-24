@@ -63,7 +63,7 @@ function getSNSClient() {
   });
 }
 
-// DNS resolution helpers — use Google's public DNS to avoid stale
+// DNS resolution helpers - use Google's public DNS to avoid stale
 // caches on Convex's internal system resolver
 const dnsResolver = new dns.promises.Resolver();
 dnsResolver.setServers(["8.8.8.8", "1.1.1.1"]);
@@ -256,12 +256,12 @@ export const verifyDns = action({
 
     // Sticky verification: once a record is verified, never flip it back to false
     // from a user-triggered check. DNS propagation and SES internal state are
-    // eventually consistent — transient failures should not undo a prior success.
+    // eventually consistent - transient failures should not undo a prior success.
     const sticky = (fresh: boolean, existing: boolean) => fresh || existing;
 
     const status = {
       domainId,
-      // Use sesVerified (VerifiedForSendingStatus) as the primary verified flag — it is
+      // Use sesVerified (VerifiedForSendingStatus) as the primary verified flag - it is
       // what SES actually uses to gate outgoing email, and it is stickied so a transient
       // SES response can't unexpectedly lock users out of their mailboxes.
       verified: sticky(sesVerified, domain.verified),
@@ -366,7 +366,7 @@ async function ensureSnsTopicForDomain(domain: string): Promise<string> {
   const sns = getSNSClient();
   const topicName = `devmail-${domain.replace(/\./g, "-")}`;
 
-  // CreateTopic is idempotent — returns existing ARN if topic already exists
+  // CreateTopic is idempotent - returns existing ARN if topic already exists
   const topicResult = await sns.send(
     new CreateTopicCommand({ Name: topicName })
   );
@@ -396,7 +396,7 @@ export async function ensureSendingConfigurationSet(): Promise<void> {
   const configSetName = "devmail-sending";
   const topicName = "devmail-sending-events";
 
-  // Create configuration set — idempotent (no-op if already exists)
+  // Create configuration set - idempotent (no-op if already exists)
   try {
     await sesv2.send(
       new CreateConfigurationSetCommand({
@@ -482,7 +482,7 @@ export const cleanupUnverifiedDomainsInternal = internalAction({
   },
 });
 
-// Admin action — call from the Convex dashboard to manually trigger cleanup.
+// Admin action - call from the Convex dashboard to manually trigger cleanup.
 export const cleanupUnverifiedDomains = action({
   args: { olderThanDays: v.number() },
   handler: async (ctx, { olderThanDays }): Promise<{ deleted: number }> => {
@@ -542,7 +542,7 @@ async function ensureReceiptRuleWithSns(domain: string) {
       })
     );
   } catch {
-    // Rule may not exist yet — that's fine
+    // Rule may not exist yet - that's fine
   }
 
   // Create rule with both S3 and SNS actions

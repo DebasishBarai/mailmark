@@ -188,7 +188,7 @@ export const sendEmail = action({
     const unsubFooter = isCampaign ? buildUnsubscribeFooter(unsubUrl) : "";
     const bodyWithTracking = body + unsubFooter + trackingPixel;
 
-    // Build raw MIME email for both paths — SES rejects Message-ID as a
+    // Build raw MIME email for both paths - SES rejects Message-ID as a
     // custom header in Simple content, so always send via Content.Raw.
     const rawEmail = hasAttachments
       ? buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, bodyWithTracking, attachments!, cc, bcc, unsubHeaders)
@@ -585,7 +585,7 @@ export const scheduleEmailViaApi = internalAction({
   },
 });
 
-// Called from the /v1/send HTTP route — no Clerk auth, validated via API key
+// Called from the /v1/send HTTP route - no Clerk auth, validated via API key
 export const sendEmailViaApi = internalAction({
   args: {
     mailboxId: v.id("mailboxes"),

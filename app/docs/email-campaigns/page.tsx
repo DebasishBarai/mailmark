@@ -76,7 +76,7 @@ export default function EmailCampaignsPage() {
             Email Campaigns
           </h1>
           <p className="mt-3 text-lg text-gray-600 dark:text-gray-300">
-            Campaigns send individual, personalised emails to a list of recipients — all tracked under a shared batch ID.
+            Campaigns send individual, personalised emails to a list of recipients - all tracked under a shared batch ID.
           </p>
 
           <Section id="creating-campaign" title="Creating a campaign">
@@ -139,7 +139,7 @@ console.log(result.messageIds); // one messageId per recipient`}</Code>
               Because each campaign email is rendered and sent individually, you can personalise the HTML body per recipient before calling <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">client.send()</code>.
             </p>
             <p>
-              Mailmark does not yet have a built-in template engine — personalisation is done in your application code before you call the API.
+              Mailmark does not yet have a built-in template engine - personalisation is done in your application code before you call the API.
               A simple pattern using a helper function:
             </p>
             <Code>{`import { Mailmark } from 'mailmark-sdk';
@@ -224,7 +224,7 @@ await client.send({
 
           <div className="mt-12 grid gap-4 sm:grid-cols-2">
             {[
-              { href: "/docs/api#send-email", title: "API — Send Email", desc: "Full send endpoint reference with all options." },
+              { href: "/docs/api#send-email", title: "API - Send Email", desc: "Full send endpoint reference with all options." },
               { href: "/docs/mailboxes", title: "Mailboxes", desc: "Create the mailboxes you send campaigns from." },
             ].map((card) => (
               <Link

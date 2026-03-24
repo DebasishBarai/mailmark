@@ -238,7 +238,7 @@ export default function ThemeToggle() {
                       Preview
                     </p>
                     <div className="space-y-0">
-                      {["Inbox — Meeting tomorrow", "Sent — Re: Project update", "Draft — Newsletter v2"].map((item, i) => (
+                      {["Inbox - Meeting tomorrow", "Sent - Re: Project update", "Draft - Newsletter v2"].map((item, i) => (
                         <div
                           key={i}
                           className="flex items-center justify-between border-b transition-all"

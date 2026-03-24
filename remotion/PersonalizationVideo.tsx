@@ -458,7 +458,7 @@ function MiniShell({
           })}
         </div>
 
-        {/* Main content — email list */}
+        {/* Main content - email list */}
         <div
           style={{
             flex: 1,
@@ -546,7 +546,7 @@ function MiniShell({
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-// SCENE 1 — Intro (0–90)
+// SCENE 1 - Intro (0-90)
 // ════════════════════════════════════════════════════════════════════════════════
 function SceneIntro({ theme }: { theme: "light" | "dark" }) {
   const frame = useCurrentFrame();
@@ -635,7 +635,7 @@ function SceneIntro({ theme }: { theme: "light" | "dark" }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-// SCENE 2 — Theme Showcase (90–480)
+// SCENE 2 - Theme Showcase (90-480)
 // Cycles through themes with animated transitions
 // ════════════════════════════════════════════════════════════════════════════════
 function SceneThemes({ theme }: { theme: "light" | "dark" }) {
@@ -799,7 +799,7 @@ function SceneThemes({ theme }: { theme: "light" | "dark" }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-// SCENE 3 — Wallpapers (480–750)
+// SCENE 3 - Wallpapers (480-750)
 // ════════════════════════════════════════════════════════════════════════════════
 function SceneWallpapers({ theme }: { theme: "light" | "dark" }) {
   const frame = useCurrentFrame();
@@ -964,7 +964,7 @@ function SceneWallpapers({ theme }: { theme: "light" | "dark" }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-// SCENE 4 — UI Density (750–990)
+// SCENE 4 - UI Density (750-990)
 // ════════════════════════════════════════════════════════════════════════════════
 function SceneDensity({ theme }: { theme: "light" | "dark" }) {
   const frame = useCurrentFrame();
@@ -1095,7 +1095,7 @@ function SceneDensity({ theme }: { theme: "light" | "dark" }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-// SCENE 5 — Signature Editor (990–1200)
+// SCENE 5 - Signature Editor (990-1200)
 // ════════════════════════════════════════════════════════════════════════════════
 function SceneSignature({ theme }: { theme: "light" | "dark" }) {
   const frame = useCurrentFrame();
@@ -1405,7 +1405,7 @@ function SceneSignature({ theme }: { theme: "light" | "dark" }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-// SCENE 6 — CTA (1200–1350)
+// SCENE 6 - CTA (1200-1350)
 // ════════════════════════════════════════════════════════════════════════════════
 function SceneCTA({ theme }: { theme: "light" | "dark" }) {
   const frame = useCurrentFrame();
@@ -1576,32 +1576,32 @@ function SceneTransition({
 export const PersonalizationVideo: React.FC<{ theme?: "light" | "dark" }> = ({ theme = "dark" }) => {
   return (
     <AbsoluteFill style={{ background: "transparent" }}>
-      {/* Scene 1: Intro (0–90) */}
+      {/* Scene 1: Intro (0-90) */}
       <Sequence from={0} durationInFrames={90}>
         <SceneIntro theme={theme} />
       </Sequence>
 
-      {/* Scene 2: Theme showcase (90–480) */}
+      {/* Scene 2: Theme showcase (90-480) */}
       <Sequence from={90} durationInFrames={390}>
         <SceneThemes theme={theme} />
       </Sequence>
 
-      {/* Scene 3: Wallpapers (480–750) */}
+      {/* Scene 3: Wallpapers (480-750) */}
       <Sequence from={480} durationInFrames={270}>
         <SceneWallpapers theme={theme} />
       </Sequence>
 
-      {/* Scene 4: UI Density (750–990) */}
+      {/* Scene 4: UI Density (750-990) */}
       <Sequence from={750} durationInFrames={240}>
         <SceneDensity theme={theme} />
       </Sequence>
 
-      {/* Scene 5: Signature Editor (990–1200) */}
+      {/* Scene 5: Signature Editor (990-1200) */}
       <Sequence from={990} durationInFrames={210}>
         <SceneSignature theme={theme} />
       </Sequence>
 
-      {/* Scene 6: CTA (1200–1350) */}
+      {/* Scene 6: CTA (1200-1350) */}
       <Sequence from={1200} durationInFrames={150}>
         <SceneCTA theme={theme} />
       </Sequence>

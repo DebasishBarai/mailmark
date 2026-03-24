@@ -6,7 +6,7 @@ const faqs = [
   {
     question: "What is Mailmark?",
     answer:
-      "Mailmark is an all-in-one email hosting and campaign platform for custom domains. You connect your own domain, create as many mailboxes as you need, and manage everything — from day-to-day email to mass outreach campaigns — in a single dashboard.",
+      "Mailmark is an all-in-one email hosting and campaign platform for custom domains. You connect your own domain, create as many mailboxes as you need, and manage everything - from day-to-day email to mass outreach campaigns - in a single dashboard.",
   },
   {
     question: "Can I use my own custom domain?",
@@ -21,12 +21,12 @@ const faqs = [
   {
     question: "Does Mailmark support email campaigns?",
     answer:
-      "Yes. Pro and Business plans include a full campaign suite — compose rich HTML emails, import or build your recipient list, schedule sends, and track opens, clicks, and deliverability in the built-in analytics dashboard. Auto follow-up sequences are also supported.",
+      "Yes. Pro and Business plans include a full campaign suite - compose rich HTML emails, import or build your recipient list, schedule sends, and track opens, clicks, and deliverability in the built-in analytics dashboard. Auto follow-up sequences are also supported.",
   },
   {
     question: "Is there a free trial?",
     answer:
-      "Yes. Every plan comes with a 7-day free trial — no credit card required. You get full access to all features during the trial. After 7 days, your account pauses until you choose a paid plan.",
+      "Yes. Every plan comes with a 7-day free trial - no credit card required. You get full access to all features during the trial. After 7 days, your account pauses until you choose a paid plan.",
   },
   {
     question: "How does billing work?",
@@ -41,7 +41,7 @@ const faqs = [
   {
     question: "What email clients or apps can I use with Mailmark?",
     answer:
-      "You can use the built-in Mailmark web UI — which works in any modern browser. We also support IMAP and SMTP access, so you can connect your Mailmark mailboxes to any standard email client such as Apple Mail, Thunderbird, or Outlook.",
+      "You can use the built-in Mailmark web UI - which works in any modern browser. We also support IMAP and SMTP access, so you can connect your Mailmark mailboxes to any standard email client such as Apple Mail, Thunderbird, or Outlook.",
   },
 ];
 

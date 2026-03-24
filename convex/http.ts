@@ -127,7 +127,7 @@ http.route({
     console.log("[trackDelivery] received messageId:", messageId, "status:", status);
 
     if (!messageId || !status) {
-      console.log("[trackDelivery] missing messageId or status — body:", JSON.stringify(body));
+      console.log("[trackDelivery] missing messageId or status - body:", JSON.stringify(body));
       return new Response(JSON.stringify({ error: "Missing messageId or status" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },

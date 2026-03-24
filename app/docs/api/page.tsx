@@ -74,7 +74,7 @@ const ENDPOINTS: Endpoint[] = [
     path: "/v1/mailboxes",
     title: "Create Mailbox",
     description:
-      "Creates a new mailbox on the domain associated with your API key. Only the local part of the address is needed (e.g. 'hello' — the domain suffix is appended automatically).",
+      "Creates a new mailbox on the domain associated with your API key. Only the local part of the address is needed (e.g. 'hello' - the domain suffix is appended automatically).",
     fields: [
       {
         name: "address",
@@ -204,7 +204,7 @@ const ENDPOINTS: Endpoint[] = [
     path: "/v1/sender-groups/:id",
     title: "Update Sender Group",
     description:
-      "Updates a sender group. All fields are optional — only the fields you provide will be changed. Use addEmails / removeEmails for incremental recipient list changes, or emails to replace the entire list at once.",
+      "Updates a sender group. All fields are optional - only the fields you provide will be changed. Use addEmails / removeEmails for incremental recipient list changes, or emails to replace the entire list at once.",
     fields: [
       {
         name: "id",
@@ -505,7 +505,7 @@ function FieldInput({
   if (field.type === "select") {
     return (
       <select value={value} onChange={(e) => onChange(e.target.value)} className={base}>
-        <option value="">— optional —</option>
+        <option value="">- optional -</option>
         {field.options!.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     );
@@ -817,13 +817,13 @@ export default function ApiDocsPage() {
                 API Reference
               </h1>
               <p className="mt-2 text-base text-gray-600 dark:text-gray-300">
-                Send transactional and campaign emails, manage mailboxes, and configure sender groups — all from your application.
+                Send transactional and campaign emails, manage mailboxes, and configure sender groups - all from your application.
               </p>
 
               {/* API Key input */}
               <div className="mt-6 rounded-xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-900/40 dark:bg-violet-950/20">
                 <label className="mb-2 block text-xs font-semibold text-violet-800 dark:text-violet-300">
-                  Your API Key — paste it here to auto-fill all examples and try requests live
+                  Your API Key - paste it here to auto-fill all examples and try requests live
                 </label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -860,7 +860,7 @@ export default function ApiDocsPage() {
                   )}
                 </div>
                 <p className="mt-2 text-xs text-violet-700/70 dark:text-violet-400/70">
-                  Your key is never sent to our servers from this page — requests go directly to the API.{" "}
+                  Your key is never sent to our servers from this page - requests go directly to the API.{" "}
                   <a href="/developer" className="underline">Get your API key →</a>
                 </p>
               </div>
@@ -913,7 +913,7 @@ export default function ApiDocsPage() {
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">3</span>
-                  <p>Copy the key immediately — it is shown only once and stored as a hash.</p>
+                  <p>Copy the key immediately - it is shown only once and stored as a hash.</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">4</span>

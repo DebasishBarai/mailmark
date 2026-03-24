@@ -87,7 +87,7 @@ export default function Pricing() {
         {/* Trial banner */}
         <div className="mx-auto mt-10 max-w-2xl rounded-2xl border border-violet-200 bg-violet-50 px-6 py-4 text-center dark:border-violet-800 dark:bg-violet-950/30">
           <p className="text-sm font-medium text-violet-800 dark:text-violet-300">
-            Try any plan free for 7 days with full access. No credit card needed — your account pauses after the trial until you choose a plan.
+            Try any plan free for 7 days with full access. No credit card needed - your account pauses after the trial until you choose a plan.
           </p>
         </div>
 

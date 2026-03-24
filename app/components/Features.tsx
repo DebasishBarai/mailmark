@@ -6,7 +6,7 @@ const features = [
       </svg>
     ),
     title: "Custom Domain Setup",
-    description: "Add any domain you own. We guide you through DNS setup in minutes — MX, SPF, DKIM, all handled.",
+    description: "Add any domain you own. We guide you through DNS setup in minutes - MX, SPF, DKIM, all handled.",
   },
   {
     icon: (
@@ -15,7 +15,7 @@ const features = [
       </svg>
     ),
     title: "Unlimited Mailboxes",
-    description: "Create as many mailboxes as you need — support@, sales@, info@, ceo@ — all under one roof.",
+    description: "Create as many mailboxes as you need - support@, sales@, info@, ceo@ - all under one roof.",
   },
   {
     icon: (
@@ -24,7 +24,7 @@ const features = [
       </svg>
     ),
     title: "Full Email UI",
-    description: "Inbox, Sent, Outbox, Drafts — a familiar Gmail-like interface for every mailbox you create.",
+    description: "Inbox, Sent, Outbox, Drafts - a familiar Gmail-like interface for every mailbox you create.",
   },
   {
     icon: (
@@ -110,7 +110,7 @@ export default function Features() {
             Everything your business email needs
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            Domain hosting, mailbox management, and email campaigns — all in one
+            Domain hosting, mailbox management, and email campaigns - all in one
             platform.
           </p>
         </div>

@@ -196,7 +196,7 @@ export default function MergeImport({ onImport, onCancel }: MergeImportProps) {
                         key={h}
                         className="px-3 py-1.5 text-gray-700 dark:text-gray-300"
                       >
-                        {row[h] || "—"}
+                        {row[h] || "-"}
                       </td>
                     ))}
                   </tr>

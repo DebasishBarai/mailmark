@@ -6,7 +6,7 @@ import Footer from "../../components/Footer";
 export const metadata: Metadata = {
   title: "Email Deliverability Guide - Mailmark",
   description:
-    "A comprehensive guide to improving your email deliverability — authentication, sender reputation, list hygiene, and content best practices.",
+    "A comprehensive guide to improving your email deliverability - authentication, sender reputation, list hygiene, and content best practices.",
 };
 
 const tips = [
@@ -14,24 +14,24 @@ const tips = [
     title: "Authenticate your domain",
     items: [
       "Set up SPF, DKIM, and DMARC records (see our DNS Setup Guide).",
-      "Use a custom domain — never send campaigns from @gmail.com or @yahoo.com.",
+      "Use a custom domain - never send campaigns from @gmail.com or @yahoo.com.",
       "Start with DMARC policy p=none, then graduate to p=quarantine as you gain confidence.",
     ],
   },
   {
     title: "Warm up your sending IP",
     items: [
-      "Start with small volumes (50–100/day) and increase by 30–50% every 3–5 days.",
-      "Send to your most engaged contacts first — high open rates signal good sender reputation.",
+      "Start with small volumes (50-100/day) and increase by 30-50% every 3-5 days.",
+      "Send to your most engaged contacts first - high open rates signal good sender reputation.",
       "Avoid sending large one-off blasts. Consistent daily volume is better than spikes.",
     ],
   },
   {
     title: "Maintain list hygiene",
     items: [
-      "Remove hard bounces immediately and soft bounces after 3–5 attempts.",
+      "Remove hard bounces immediately and soft bounces after 3-5 attempts.",
       "Remove contacts who haven't engaged in 90+ days or run a re-engagement campaign first.",
-      "Never purchase email lists — they contain spam traps and dramatically hurt deliverability.",
+      "Never purchase email lists - they contain spam traps and dramatically hurt deliverability.",
       "Use double opt-in for new subscribers.",
     ],
   },
@@ -47,7 +47,7 @@ const tips = [
   {
     title: "Monitor your metrics",
     items: [
-      "Keep open rate above 20% and click rate above 2% — lower rates signal disengagement.",
+      "Keep open rate above 20% and click rate above 2% - lower rates signal disengagement.",
       "Keep bounce rate below 2% and spam complaint rate below 0.1%.",
       "Monitor your domain's reputation with Google Postmaster Tools and Senderscore.org.",
       "Set up bounce and complaint webhook handlers to act on events in real time.",
@@ -56,7 +56,7 @@ const tips = [
   {
     title: "Send at the right time",
     items: [
-      "Tuesday–Thursday, 9–11 am recipient local time consistently outperform other windows.",
+      "Tuesday-Thursday, 9-11 am recipient local time consistently outperform other windows.",
       "Avoid major holidays and Fridays for B2B audiences.",
       "Test send times with A/B splits and let data guide your decisions.",
     ],
@@ -98,7 +98,7 @@ export default function EmailDeliverabilityPage() {
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
             Reaching the inbox is only half the battle. Learn how to build and
             maintain strong sender reputation so your emails land where they
-            belong — in the inbox, not spam.
+            belong - in the inbox, not spam.
           </p>
           <div className="mt-6 flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1.5">
@@ -171,7 +171,7 @@ export default function EmailDeliverabilityPage() {
               Great deliverability comes down to three things: <strong>proving you are
               who you say you are</strong> (authentication), <strong>earning trust over time</strong>{" "}
               (sender reputation), and <strong>respecting your recipients</strong> (list hygiene
-              and content quality). Mailmark handles the technical infrastructure — the
+              and content quality). Mailmark handles the technical infrastructure - the
               rest is up to you.
             </p>
           </div>

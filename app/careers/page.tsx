@@ -24,7 +24,7 @@ const openings = [
     location: "Remote (Worldwide)",
     type: "Full-time",
     description:
-      "Help us build and scale the core Mailmark platform — Next.js frontend, Convex backend, AWS email infrastructure. You'll own features end-to-end.",
+      "Help us build and scale the core Mailmark platform - Next.js frontend, Convex backend, AWS email infrastructure. You'll own features end-to-end.",
   },
   {
     title: "DevOps / Infrastructure Engineer",
@@ -48,7 +48,7 @@ const openings = [
     location: "Remote (Worldwide)",
     type: "Part-time / Contract",
     description:
-      "Create high-quality content — blog posts, docs, email guides — that drives organic growth and helps users get the most from Mailmark.",
+      "Create high-quality content - blog posts, docs, email guides - that drives organic growth and helps users get the most from Mailmark.",
   },
 ];
 

@@ -18,7 +18,7 @@ export default function Hero() {
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-gray-600 dark:text-gray-400">
               Add your domain, create unlimited mailboxes like
               support@yourco.com and sales@yourco.com, and manage everything
-              from a beautiful email UI — inbox, sent, outbox, and built-in
+              from a beautiful email UI - inbox, sent, outbox, and built-in
               campaign tools.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
@@ -38,7 +38,7 @@ export default function Hero() {
             </p>
           </div>
 
-          {/* Hero visual — email UI mockup */}
+          {/* Hero visual - email UI mockup */}
           <div className="relative">
             <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
               {/* Title bar */}
@@ -47,7 +47,7 @@ export default function Hero() {
                 <div className="h-3 w-3 rounded-full bg-yellow-400" />
                 <div className="h-3 w-3 rounded-full bg-green-400" />
                 <span className="ml-3 text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Mailmark — sales@yourco.com
+                  Mailmark - sales@yourco.com
                 </span>
               </div>
               <div className="flex">
@@ -126,7 +126,7 @@ export default function Hero() {
                       },
                       {
                         from: "Campaign: Welcome Series",
-                        subject: "Stage 2 sent — 847 recipients",
+                        subject: "Stage 2 sent - 847 recipients",
                         preview: "Open rate: 42% · Click rate: 12%...",
                         time: "5h",
                         unread: false,

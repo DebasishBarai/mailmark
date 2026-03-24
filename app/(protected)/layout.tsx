@@ -137,7 +137,7 @@ function SyncUser() {
 function TrialGate({ children }: { children: ReactNode }) {
   const status = useQuery(api.subscriptions.currentStatus);
 
-  // Still loading or user not yet synced — show children normally
+  // Still loading or user not yet synced - show children normally
   if (status === undefined || status === null) return <>{children}</>;
 
   if (status.needsUpgrade) {
