@@ -6,7 +6,7 @@ const gridFeatures = [
       </svg>
     ),
     title: "Custom Domains",
-    description: "Add any domain you own with guided DNS setup and auto-verification.",
+    description: "Send campaigns from your own domain with guided DNS setup and auto-verification.",
   },
   {
     icon: (
@@ -14,8 +14,8 @@ const gridFeatures = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
       </svg>
     ),
-    title: "Unlimited Mailboxes",
-    description: "Create sales@, support@, info@ and as many as you need per domain.",
+    title: "Sender Mailboxes",
+    description: "Create outreach@, sales@, newsletters@ and as many sender addresses as you need.",
   },
   {
     icon: (
@@ -23,8 +23,8 @@ const gridFeatures = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z" />
       </svg>
     ),
-    title: "Full Inbox UI",
-    description: "Inbox, Sent, Outbox, Drafts, Trash. A complete email client in your browser.",
+    title: "Reply Management",
+    description: "Inbox, Sent, Outbox, Drafts, Trash. Manage campaign replies in a complete email client.",
   },
   {
     icon: (
@@ -33,7 +33,7 @@ const gridFeatures = [
       </svg>
     ),
     title: "Mass Campaigns",
-    description: "Send thousands of personalized emails from any of your mailboxes.",
+    description: "Send thousands of personalized emails with mail merge and dynamic fields.",
   },
   {
     icon: (
@@ -60,7 +60,7 @@ const gridFeatures = [
       </svg>
     ),
     title: "Deliverability",
-    description: "SPF, DKIM, DMARC, all configured automatically for maximum inbox delivery.",
+    description: "SPF, DKIM, DMARC configured automatically so your campaigns reach the inbox.",
   },
   {
     icon: (
@@ -69,7 +69,7 @@ const gridFeatures = [
       </svg>
     ),
     title: "Team Access",
-    description: "Invite your team, assign mailboxes, and manage roles from one dashboard.",
+    description: "Invite your team, assign sender mailboxes, and manage campaign roles from one dashboard.",
   },
 ];
 
@@ -79,10 +79,10 @@ export default function FeatureGrid() {
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
-            Everything you need in one platform
+            Everything you need for email campaigns
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            Domain management, email hosting, and campaign tools. No need for
+            Domain setup, deliverability, and campaign analytics. No need for
             separate services.
           </p>
         </div>

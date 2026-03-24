@@ -8,18 +8,18 @@ export default function Hero() {
           {/* Text */}
           <div className="flex flex-col items-center text-center md:items-start md:text-left">
             <span className="mb-4 inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
-              Email Hosting + Campaigns
+              Email Campaign Platform
             </span>
             <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 dark:text-white md:text-5xl lg:text-6xl">
-              Your domain.{" "}
-              <span className="text-violet-600">Your mailboxes.</span>{" "}
-              Your campaigns.
+              Send campaigns{" "}
+              <span className="text-violet-600">that land in inboxes,</span>{" "}
+              not spam.
             </h1>
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-gray-600 dark:text-gray-400">
-              Add your domain, create unlimited mailboxes like
-              support@yourco.com and sales@yourco.com, and manage everything
-              from a beautiful email UI with inbox, sent, outbox, and built-in
-              campaign tools.
+              Run email campaigns from your own domain with built-in
+              mail merge, automated follow-ups, and real-time analytics.
+              Connect your domain, create sender mailboxes, and start
+              reaching inboxes in minutes.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <CTAButton className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-200 transition-all hover:bg-violet-700 hover:shadow-xl dark:shadow-violet-900/30">
@@ -33,8 +33,8 @@ export default function Hero() {
               </a>
             </div>
             <p className="mt-8 text-sm font-medium text-gray-500 dark:text-gray-400">
-              Simple setup.{" "}
-              <span className="text-gray-800 dark:text-gray-200">Powerful delivery.</span>
+              Built-in deliverability.{" "}
+              <span className="text-gray-800 dark:text-gray-200">No third-party tools needed.</span>
             </p>
           </div>
 

@@ -13,8 +13,8 @@ export default function VideoDemo() {
           See Mailmark in Action
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-          Watch how easy it is to add your domain, create mailboxes, and send
-          campaigns, all from one dashboard.
+          Watch how easy it is to set up your domain, create sender mailboxes,
+          and launch your first email campaign.
         </p>
 
         <div className="mt-10">
