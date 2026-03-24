@@ -385,7 +385,7 @@ function SceneAddDomain({ theme }: { theme: "light" | "dark" }) {
           {/* DNS table */}
           <div style={{ opacity: tableOp, flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: t.textSub, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              DNS Records - add these to your registrar
+              DNS Records: add these to your registrar
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {dnsRows.map((row, i) => {
@@ -719,7 +719,7 @@ function SceneSendAsCampaign({ theme }: { theme: "light" | "dark" }) {
   const composeX = interpolate(sp(frame, 8, fps, 14, 110), [0, 1], [440, 0]);
 
   // Typing phases
-  const subjectText = typeText("Q4 Product Update - {{first_name}}", frame, 28, fps, 16);
+  const subjectText = typeText("Q4 Product Update | {{first_name}}", frame, 28, fps, 16);
   const bodyText = typeText("Hi {{first_name}},\n\nHope you're doing well. Here's what's new at acme.com...", frame, 72, fps, 26);
 
   // "Send as Campaign" toggle appears at 128, toggled on at 142
@@ -740,9 +740,9 @@ function SceneSendAsCampaign({ theme }: { theme: "light" | "dark" }) {
   // Switch to sent view
   const showSent = frame >= 230;
   const sentEmails = [
-    { to: "john.smith@acme.com", subject: "Q4 Product Update - John", tick: "read" as const, showAt: 235 },
-    { to: "emily.davis@corp.io", subject: "Q4 Product Update - Emily", tick: "delivered" as const, showAt: 244 },
-    { to: "alex.t@startup.co", subject: "Q4 Product Update - Alex", tick: "delivered" as const, showAt: 253 },
+    { to: "john.smith@acme.com", subject: "Q4 Product Update for John", tick: "read" as const, showAt: 235 },
+    { to: "emily.davis@corp.io", subject: "Q4 Product Update for Emily", tick: "delivered" as const, showAt: 244 },
+    { to: "alex.t@startup.co", subject: "Q4 Product Update for Alex", tick: "delivered" as const, showAt: 253 },
     { to: "+ 844 more recipients…", subject: "", tick: "sent" as const, showAt: 262 },
   ];
 
@@ -885,7 +885,7 @@ function SceneSendAsCampaign({ theme }: { theme: "light" | "dark" }) {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: toggleOn ? (theme === "dark" ? "rgba(139,92,246,0.12)" : "#f5f3ff") : t.rowBg, border: toggleOn ? `1px solid rgba(139,92,246,0.4)` : `1px solid ${t.border}`, borderRadius: 10, padding: "10px 14px", transform: `scale(${toggleBounce})` }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: toggleOn ? C.violet600 : t.text }}>Send as Campaign</div>
-                    <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>Each recipient gets a personal copy - replies only to you</div>
+                    <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>Each recipient gets a personal copy. Replies go only to you.</div>
                   </div>
                   <div style={{ width: 40, height: 22, borderRadius: 99, background: toggleOn ? C.violet600 : (theme === "dark" ? "rgba(255,255,255,0.15)" : C.gray300), position: "relative", flexShrink: 0 }}>
                     <div style={{ position: "absolute", top: 3, left: toggleOn ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: C.white, boxShadow: "0 1px 4px rgba(0,0,0,0.25)" }} />

@@ -15,7 +15,7 @@ const gridFeatures = [
       </svg>
     ),
     title: "Unlimited Mailboxes",
-    description: "Create sales@, support@, info@ - as many as you need per domain.",
+    description: "Create sales@, support@, info@ and as many as you need per domain.",
   },
   {
     icon: (
@@ -24,7 +24,7 @@ const gridFeatures = [
       </svg>
     ),
     title: "Full Inbox UI",
-    description: "Inbox, Sent, Outbox, Drafts, Trash - a complete email client in your browser.",
+    description: "Inbox, Sent, Outbox, Drafts, Trash. A complete email client in your browser.",
   },
   {
     icon: (
@@ -60,7 +60,7 @@ const gridFeatures = [
       </svg>
     ),
     title: "Deliverability",
-    description: "SPF, DKIM, DMARC - all configured automatically for maximum inbox delivery.",
+    description: "SPF, DKIM, DMARC, all configured automatically for maximum inbox delivery.",
   },
   {
     icon: (
@@ -82,7 +82,7 @@ export default function FeatureGrid() {
             Everything you need in one platform
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            Domain management, email hosting, and campaign tools - no need for
+            Domain management, email hosting, and campaign tools. No need for
             separate services.
           </p>
         </div>

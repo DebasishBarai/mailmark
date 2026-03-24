@@ -5,7 +5,7 @@ import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
   title: "Troubleshooting - Mailmark Docs",
-  description: "Fix common Mailmark issues - emails not sending, domain verification failures, bounces, and rejections.",
+  description: "Fix common Mailmark issues: emails not sending, domain verification failures, bounces, and rejections.",
 };
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -89,7 +89,7 @@ export default function TroubleshootingPage() {
 
             <div className="mt-4 space-y-5">
               <CheckItem title="API key is valid and not revoked">
-                Go to <strong>Dashboard → Developer</strong> and confirm the key is listed and not revoked. If you&apos;ve lost the key, revoke it and create a new one - keys are shown only once.
+                Go to <strong>Dashboard → Developer</strong> and confirm the key is listed and not revoked. If you&apos;ve lost the key, revoke it and create a new one. Keys are shown only once.
               </CheckItem>
               <CheckItem title="The sender address exists as a mailbox">
                 The <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">from</code> address must be a real mailbox on the domain the API key is scoped to.
@@ -132,7 +132,7 @@ export default function TroubleshootingPage() {
                 DNS records are cached by your TTL (time-to-live) value. If you recently added or changed a record, wait for the TTL to expire before re-verifying. A common TTL is 3600 seconds (1 hour).
               </CheckItem>
               <CheckItem title="Domain registrar propagation">
-                Some registrars take longer to propagate changes. If dig shows the record but Mailmark still shows unverified, click <strong>Verify now</strong> again - Mailmark re-checks on demand.
+                Some registrars take longer to propagate changes. If dig shows the record but Mailmark still shows unverified, click <strong>Verify now</strong> again. Mailmark re-checks on demand.
               </CheckItem>
             </div>
           </Section>
@@ -148,7 +148,7 @@ export default function TroubleshootingPage() {
                 The most common cause of bounces is a typo in the recipient address. Double-check the <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">to</code> field.
               </CheckItem>
               <CheckItem title="Your domain is not warmed up">
-                New domains and IP addresses need to be &quot;warmed up&quot; - start with small send volumes and gradually increase over days. Sending a large blast from a brand-new domain will trigger spam filters and rejections.
+                New domains and IP addresses need to be &quot;warmed up.&quot; Start with small send volumes and gradually increase over days. Sending a large blast from a brand-new domain will trigger spam filters and rejections.
               </CheckItem>
               <CheckItem title="SPF or DKIM is not configured">
                 Receiving servers check SPF and DKIM before accepting email. If either is missing or misconfigured, mail may be silently rejected or sent to spam. Verify your DNS setup in <Link href="/docs/domain-setup#spf-dkim" className="text-violet-600 hover:underline">Domain Setup → SPF & DKIM</Link>.

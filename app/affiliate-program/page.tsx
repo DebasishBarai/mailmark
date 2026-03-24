@@ -33,7 +33,7 @@ const steps = [
 const faqs = [
   {
     q: "How much can I earn?",
-    a: "You earn 30% of every payment made by referred customers - every month, for as long as they stay subscribed. A single Pro referral ($50/month) earns you $15/month indefinitely.",
+    a: "You earn 30% of every payment made by referred customers, every month, for as long as they stay subscribed. A single Pro referral ($50/month) earns you $15/month indefinitely.",
   },
   {
     q: "When do I get paid?",
@@ -41,7 +41,7 @@ const faqs = [
   },
   {
     q: "Is there a minimum payout threshold?",
-    a: "Yes - the minimum payout is $50. Earnings below this roll over to the next month.",
+    a: "Yes, the minimum payout is $50. Earnings below this roll over to the next month.",
   },
   {
     q: "How long does a referral cookie last?",
@@ -75,14 +75,14 @@ export default function AffiliatePage() {
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-gray-600 dark:text-gray-300">
             Recommend Mailmark to your audience and earn a 30% commission on every
-            payment - forever, not just for one year.
+            payment, forever, not just for one year.
           </p>
           <div className="mt-8 flex justify-center gap-4">
             <a
               href="/affiliate"
               className="rounded-full bg-violet-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700 dark:shadow-violet-900/30"
             >
-              Apply now - it&apos;s free
+              Apply now, it&apos;s free
             </a>
             <a
               href="#how-it-works"

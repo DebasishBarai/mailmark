@@ -22,7 +22,7 @@ const practices = [
   {
     title: "Encryption at rest",
     description:
-      "All stored data - including email content, attachments, and account information - is encrypted at rest using AES-256. Database backups are also encrypted.",
+      "All stored data, including email content, attachments, and account information, is encrypted at rest using AES-256. Database backups are also encrypted.",
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 8.485-7.5 11.25-7.5 11.25S5.25 14.86 5.25 6.375a7.5 7.5 0 1115 0z" />
@@ -86,7 +86,7 @@ export default function SecurityPage() {
             Your data is safe with us
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-gray-600 dark:text-gray-300">
-            Security isn&apos;t a feature - it&apos;s the foundation. Here&apos;s
+            Security isn&apos;t a feature. It&apos;s the foundation. Here&apos;s
             how we protect your email infrastructure and data.
           </p>
         </div>

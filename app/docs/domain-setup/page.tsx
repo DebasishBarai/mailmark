@@ -163,7 +163,7 @@ export default function DomainSetupPage() {
             <p className="mt-6 font-semibold text-gray-900 dark:text-white">DKIM (DomainKeys Identified Mail)</p>
             <p>
               DKIM adds a cryptographic signature to outgoing emails. Mailmark generates a DKIM key pair for each domain.
-              The public key is shown in the dashboard - add it as a CNAME or TXT record:
+              The public key is shown in the dashboard. Add it as a CNAME or TXT record:
             </p>
             <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-800">
               <table className="w-full text-left">
@@ -205,9 +205,9 @@ export default function DomainSetupPage() {
 
             <p className="font-semibold text-gray-900 dark:text-white">DMARC policy values</p>
             <ul className="ml-4 list-disc space-y-1">
-              <li><code className="rounded bg-gray-100 px-1 dark:bg-gray-800">p=none</code> - monitor only, no action taken on failures.</li>
-              <li><code className="rounded bg-gray-100 px-1 dark:bg-gray-800">p=quarantine</code> - suspicious emails go to spam.</li>
-              <li><code className="rounded bg-gray-100 px-1 dark:bg-gray-800">p=reject</code> - failed emails are rejected outright (strictest).</li>
+              <li><code className="rounded bg-gray-100 px-1 dark:bg-gray-800">p=none</code>: monitor only, no action taken on failures.</li>
+              <li><code className="rounded bg-gray-100 px-1 dark:bg-gray-800">p=quarantine</code>: suspicious emails go to spam.</li>
+              <li><code className="rounded bg-gray-100 px-1 dark:bg-gray-800">p=reject</code>: failed emails are rejected outright (strictest).</li>
             </ul>
             <p>
               Start with <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">p=none</code> to observe reports, then gradually move to <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">p=quarantine</code> and <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">p=reject</code> once you are confident all legitimate email passes authentication.

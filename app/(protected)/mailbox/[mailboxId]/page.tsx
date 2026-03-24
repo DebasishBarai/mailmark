@@ -2263,7 +2263,7 @@ export default function MailboxPage() {
                 <div className="border-t border-gray-100 dark:border-gray-700/50 pt-2">
                   <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
                     {composeAttachments.length} attachment{composeAttachments.length > 1 ? "s" : ""}
-                    {isAnyUploading && <span className="ml-1 text-amber-500">- processing...</span>}
+                    {isAnyUploading && <span className="ml-1 text-amber-500">(processing...)</span>}
                   </p>
                   <div className="flex flex-col gap-1.5">
                     {composeAttachments.map((att) => (
@@ -2400,7 +2400,7 @@ export default function MailboxPage() {
                         <div className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 ${sendMode === "send" ? "border-violet-600 bg-violet-600" : "border-gray-300 dark:border-gray-600"}`} />
                         <div>
                           <p className={`font-medium ${sendMode === "send" ? "text-violet-700 dark:text-violet-300" : "text-gray-800 dark:text-gray-200"}`}>Send</p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">{usesMergeFields ? "Disabled - merge fields require Campaign" : "One email to all recipients"}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">{usesMergeFields ? "Disabled: merge fields require Campaign" : "One email to all recipients"}</p>
                         </div>
                       </button>
                       <button
