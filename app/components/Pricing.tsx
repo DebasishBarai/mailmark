@@ -5,7 +5,7 @@ const plans = [
     name: "Starter",
     price: "$10",
     period: "per month",
-    description: "Perfect for individuals getting started with custom domain email.",
+    description: "Perfect for individuals launching their first email campaigns.",
     features: [
       "1,000 emails / month",
       "1 custom domain",
@@ -22,7 +22,7 @@ const plans = [
     name: "Pro",
     price: "$50",
     period: "per month",
-    description: "For growing teams that need more power and campaign tools.",
+    description: "For growing teams running multiple campaigns at scale.",
     features: [
       "25,000 emails / month",
       "5 custom domains",
@@ -39,7 +39,7 @@ const plans = [
     name: "Business",
     price: "$100",
     period: "per month",
-    description: "Unlimited scale with white-glove onboarding for your whole team.",
+    description: "Unlimited campaign volume with white-glove onboarding for your whole team.",
     features: [
       "100,000 emails / month",
       "Unlimited domains",

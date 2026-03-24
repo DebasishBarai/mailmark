@@ -40,7 +40,7 @@ export default function Footer() {
               <span className="text-2xl font-bold text-violet-600">Mailmark</span>
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-              Your domain. Your mailboxes. Your campaigns. All in one platform.
+              Email campaigns from your own domain. Built-in deliverability.
             </p>
           </div>
 

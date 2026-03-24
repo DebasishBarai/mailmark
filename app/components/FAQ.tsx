@@ -6,22 +6,22 @@ const faqs = [
   {
     question: "What is Mailmark?",
     answer:
-      "Mailmark is an all-in-one email hosting and campaign platform for custom domains. You connect your own domain, create as many mailboxes as you need, and manage everything from day-to-day email to mass outreach campaigns in a single dashboard.",
+      "Mailmark is an email campaign platform built around custom domains. You connect your own domain, create sender mailboxes, and run personalized campaigns with built-in deliverability, analytics, and automated follow-ups, all from a single dashboard.",
   },
   {
     question: "Can I use my own custom domain?",
     answer:
-      "Yes. Mailmark is built around custom domains. You add your domain, configure the required DNS records (we provide step-by-step instructions), and your mailboxes go live in minutes. You can add multiple domains on paid plans.",
+      "Yes. Mailmark is built around custom domains so your campaigns go out from addresses your recipients recognize and trust. You add your domain, configure the required DNS records (we provide step-by-step instructions), and you're campaign-ready in minutes. You can add multiple domains on paid plans.",
   },
   {
     question: "How many mailboxes can I create?",
     answer:
-      "The Starter plan supports up to 3 mailboxes on a single domain. The Pro plan gives you unlimited mailboxes across 5 domains, and the Business plan lifts all limits so your whole organization can be on Mailmark.",
+      "The Starter plan supports up to 3 sender mailboxes on a single domain. The Pro plan gives you unlimited mailboxes across 5 domains for running multiple campaigns, and the Business plan lifts all limits for full-scale outreach.",
   },
   {
-    question: "Does Mailmark support email campaigns?",
+    question: "What campaign features are included?",
     answer:
-      "Yes. Pro and Business plans include a full campaign suite. Compose rich HTML emails, import or build your recipient list, schedule sends, and track opens, clicks, and deliverability in the built-in analytics dashboard. Auto follow-up sequences are also supported.",
+      "Every plan includes email campaigns. Compose rich HTML emails, import or build your recipient list, personalize with merge tags, schedule sends, and track opens, clicks, and deliverability in the built-in analytics dashboard. Multi-stage automated follow-up sequences are also included.",
   },
   {
     question: "Is there a free trial?",
@@ -41,7 +41,7 @@ const faqs = [
   {
     question: "What email clients or apps can I use with Mailmark?",
     answer:
-      "You can use the built-in Mailmark web UI, which works in any modern browser. We also support IMAP and SMTP access, so you can connect your Mailmark mailboxes to any standard email client such as Apple Mail, Thunderbird, or Outlook.",
+      "Campaigns are managed through the built-in Mailmark web UI, which works in any modern browser. For managing replies, we also support IMAP and SMTP access, so you can connect your sender mailboxes to any standard email client such as Apple Mail, Thunderbird, or Outlook.",
   },
 ];
 

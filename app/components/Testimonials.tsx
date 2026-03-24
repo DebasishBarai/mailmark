@@ -1,21 +1,21 @@
 const testimonials = [
   {
     quote:
-      "We moved our entire team's email to Mailmark. Adding our domain took 5 minutes, and now everyone has their own mailbox. The campaign tools are a huge bonus.",
+      "We switched all our outreach campaigns to Mailmark. Setting up our domain took 5 minutes, and now every campaign goes out from our own address. Open rates jumped 30%.",
     name: "Sarah Chen",
     role: "Head of Sales, TechStart",
     stars: 5,
   },
   {
     quote:
-      "Finally, one platform for hosting our business emails AND running outreach campaigns. No more juggling Gmail, Mailchimp, and a domain registrar separately.",
+      "Finally, one platform for running email campaigns with real deliverability. No more juggling Mailchimp, a warming tool, and a separate inbox for replies.",
     name: "Marcus Johnson",
     role: "Founder, GrowthLab",
     stars: 5,
   },
   {
     quote:
-      "The mailbox UI feels just like Gmail but with campaign tools built right in. I switch between support@ and sales@ in one click. It's exactly what we needed.",
+      "The campaign tools are powerful and the reply management feels just like Gmail. I run outreach from sales@ and newsletters from updates@, all in one place.",
     name: "Priya Patel",
     role: "Marketing Director, ScaleUp",
     stars: 5,
@@ -43,7 +43,7 @@ export default function Testimonials() {
             Loved by businesses everywhere
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            See why teams choose Mailmark for their domain email and campaigns.
+            See why teams choose Mailmark for their email campaigns.
           </p>
         </div>
         <div className="mt-16 grid gap-8 md:grid-cols-3">

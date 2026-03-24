@@ -1,12 +1,12 @@
 const showcaseItems = [
   {
-    title: "Add Your Domain in Minutes",
+    title: "Connect Your Domain",
     description:
-      "Connect any domain you already own. Mailmark walks you through the DNS setup step by step, including MX records, SPF, DKIM, and DMARC. Your emails land in inboxes, not spam folders.",
+      "Add your own domain so campaigns go out from addresses your recipients recognize. Mailmark walks you through DNS setup step by step, including MX, SPF, DKIM, and DMARC for maximum deliverability.",
     bullets: [
       "Guided DNS configuration wizard",
       "Auto-verify MX, SPF, DKIM & DMARC",
-      "Full deliverability from day one",
+      "Campaign-ready deliverability from day one",
     ],
     visual: (
       <div className="space-y-3">
@@ -44,13 +44,13 @@ const showcaseItems = [
     gradient: "from-green-100 via-emerald-50 to-teal-100 dark:from-green-950/50 dark:via-emerald-950/50 dark:to-teal-950/50",
   },
   {
-    title: "Create Unlimited Mailboxes",
+    title: "Create Sender Mailboxes",
     description:
-      "Spin up mailboxes for every role, team, or project. support@, sales@, hello@, ceo@, each with its own inbox and settings. Switch between them instantly.",
+      "Spin up dedicated mailboxes for each campaign type: outreach@, sales@, newsletters@. Each has its own inbox to manage replies. Switch between them instantly.",
     bullets: [
       "One-click mailbox creation",
-      "Per-mailbox signatures & settings",
-      "Switch between mailboxes instantly",
+      "Per-mailbox sender signatures",
+      "Separate inboxes for campaign replies",
     ],
     visual: (
       <div className="space-y-2">
@@ -80,11 +80,11 @@ const showcaseItems = [
     gradient: "from-violet-100 via-purple-50 to-fuchsia-100 dark:from-violet-950/50 dark:via-purple-950/50 dark:to-fuchsia-950/50",
   },
   {
-    title: "A Familiar Email Experience",
+    title: "Manage Replies in One Place",
     description:
-      "Each mailbox comes with a full email UI you already know: Inbox, Sent, Outbox, Drafts, and Trash. Compose rich emails, manage conversations, and search across everything.",
+      "Every campaign reply lands in a familiar email UI: Inbox, Sent, Outbox, Drafts, and Trash. Respond to leads, manage conversations, and search across everything.",
     bullets: [
-      "Gmail-like inbox interface",
+      "Gmail-like inbox for campaign replies",
       "Rich text composer with attachments",
       "Full-text search across all mail",
     ],
@@ -122,9 +122,9 @@ const showcaseItems = [
     gradient: "from-blue-100 via-sky-50 to-cyan-100 dark:from-blue-950/50 dark:via-sky-950/50 dark:to-cyan-950/50",
   },
   {
-    title: "Run Campaigns from Any Mailbox",
+    title: "Launch and Track Campaigns",
     description:
-      "Pick a mailbox, upload or connect your contact list, personalize with merge tags, and launch. Set up automated follow-up sequences and track everything in real time.",
+      "Pick a sender mailbox, upload your contact list, personalize with merge tags, and launch. Set up automated follow-up sequences and track opens, clicks, and replies in real time.",
     bullets: [
       "Mail merge with CSV or Google Sheets",
       "Multi-stage automated follow-ups",
@@ -178,7 +178,7 @@ export default function FeatureShowcase() {
             How Mailmark works
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            From domain setup to email campaigns in four simple steps.
+            From domain setup to your first campaign in four simple steps.
           </p>
         </div>
 
