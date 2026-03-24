@@ -20,7 +20,7 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "$25",
+    price: "$50",
     period: "per month",
     description: "For growing teams that need more power and campaign tools.",
     features: [
@@ -37,7 +37,7 @@ const plans = [
   },
   {
     name: "Business",
-    price: "$75",
+    price: "$100",
     period: "per month",
     description: "Unlimited scale with white-glove onboarding for your whole team.",
     features: [

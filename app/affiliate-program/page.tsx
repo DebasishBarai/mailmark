@@ -33,7 +33,7 @@ const steps = [
 const faqs = [
   {
     q: "How much can I earn?",
-    a: "You earn 30% of every payment made by referred customers — every month, for as long as they stay subscribed. A single Pro referral ($25/month) earns you $7.50/month indefinitely.",
+    a: "You earn 30% of every payment made by referred customers — every month, for as long as they stay subscribed. A single Pro referral ($50/month) earns you $15/month indefinitely.",
   },
   {
     q: "When do I get paid?",
@@ -55,8 +55,8 @@ const faqs = [
 
 const tiers = [
   { plan: "Starter", price: "$10/mo", commission: "$3.00/mo", note: "30% recurring" },
-  { plan: "Pro", price: "$25/mo", commission: "$7.50/mo", note: "30% recurring", highlight: true },
-  { plan: "Business", price: "$75/mo", commission: "$22.50/mo", note: "30% recurring", highlight: false },
+  { plan: "Pro", price: "$50/mo", commission: "$15/mo", note: "30% recurring", highlight: true },
+  { plan: "Business", price: "$100/mo", commission: "$30/mo", note: "30% recurring", highlight: false },
 ];
 
 export default function AffiliatePage() {

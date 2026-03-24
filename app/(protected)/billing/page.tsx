@@ -12,8 +12,8 @@ const PLAN_LABELS: Record<string, string> = {
 
 const PLAN_PRICES: Record<string, string> = {
   starter: "$10",
-  pro: "$25",
-  business: "$75",
+  pro: "$50",
+  business: "$100",
 };
 
 const plans = [
@@ -37,7 +37,7 @@ const plans = [
   {
     key: "pro" as const,
     name: "Pro",
-    price: "$25",
+    price: "$50",
     period: "per month",
     description: "For growing teams that need more power and campaign tools.",
     features: [
@@ -54,7 +54,7 @@ const plans = [
   {
     key: "business" as const,
     name: "Business",
-    price: "$75",
+    price: "$100",
     period: "per month",
     description: "Unlimited scale with white-glove onboarding for your whole team.",
     features: [

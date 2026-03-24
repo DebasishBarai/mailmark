@@ -14,14 +14,14 @@ const plans = [
   {
     key: "pro" as const,
     name: "Pro",
-    price: "$25",
+    price: "$50",
     features: ["25,000 emails / month", "5 domains", "Unlimited mailboxes", "Full email UI", "Email campaigns", "Campaign analytics"],
     highlighted: true,
   },
   {
     key: "business" as const,
     name: "Business",
-    price: "$75",
+    price: "$100",
     features: ["100,000 emails / month", "Unlimited domains", "Full email UI", "Email campaigns", "Campaign analytics", "Dedicated support"],
   },
 ];

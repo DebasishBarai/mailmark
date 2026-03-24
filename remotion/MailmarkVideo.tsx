@@ -969,8 +969,8 @@ function ScenePricing({ theme }: { theme: "light" | "dark" }) {
 
   const plans = [
     { name: "Starter", price: "$10", period: "/mo", features: ["1,000 emails/mo", "1 domain", "3 mailboxes", "Full email UI", "Basic support"], highlight: false, badge: null },
-    { name: "Pro", price: "$25", period: "/mo", features: ["25,000 emails/mo", "5 domains", "Unlimited mailboxes", "Email campaigns", "Priority support"], highlight: true, badge: "Most Popular" },
-    { name: "Business", price: "$75", period: "/mo", features: ["100,000 emails/mo", "Unlimited domains", "Unlimited mailboxes", "Campaign analytics", "Dedicated support"], highlight: false, badge: null },
+    { name: "Pro", price: "$50", period: "/mo", features: ["25,000 emails/mo", "5 domains", "Unlimited mailboxes", "Email campaigns", "Priority support"], highlight: true, badge: "Most Popular" },
+    { name: "Business", price: "$100", period: "/mo", features: ["100,000 emails/mo", "Unlimited domains", "Unlimited mailboxes", "Campaign analytics", "Dedicated support"], highlight: false, badge: null },
   ];
   return (
     <AbsoluteFill style={{ background: bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: font, padding: "0 60px" }}>
