@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const BASE_URL = "https://mailmark.dev";
+const BASE_URL = "https://www.mailmark.dev";
 
 const blogSlugs = [
   "getting-started-with-custom-domain-emails",
