@@ -42,7 +42,7 @@
 #      --bucket devmail-emails \
 #      --notification-configuration '{
 #        "LambdaFunctionConfigurations": [{
-#          "LambdaFunctionArn": "arn:aws:lambda:ap-south-1:YOUR_ACCOUNT_ID:function:devmail-ses-s3-handler",
+#          "LambdaFunctionArn": "arn:aws:lambda:ap-south-1:989774662403:function:devmail-ses-s3-handler",
 #          "Events": ["s3:ObjectCreated:*"],
 #          "Filter": {
 #            "Key": {
@@ -71,10 +71,10 @@ set -e
 FUNCTION_NAME="devmail-ses-s3-handler"
 REGION="ap-south-1"
 # Replace with your actual role ARN after step 1
-ROLE_ARN="arn:aws:iam::YOUR_ACCOUNT_ID:role/devmail-ses-lambda-role"
+ROLE_ARN="arn:aws:iam::989774662403:role/devmail-ses-lambda-role"
 
 # ── Set these to your actual values ──
-CONVEX_SITE_URL="https://harmless-armadillo-386.convex.site"
+CONVEX_SITE_URL="https://rugged-bulldog-579.convex.site"
 WEBHOOK_SECRET="aws-ses"
 S3_BUCKET="devmail-emails"
 

@@ -16,6 +16,7 @@ const plans = [
       "Basic support",
     ],
     cta: "Start 7-Day Free Trial",
+    hasTrial: true,
     highlighted: false,
   },
   {
@@ -33,6 +34,7 @@ const plans = [
       "Priority support",
     ],
     cta: "Start 7-Day Free Trial",
+    hasTrial: true,
     highlighted: true,
   },
   {
@@ -49,7 +51,9 @@ const plans = [
       "Campaign analytics",
       "Dedicated support",
     ],
-    cta: "Start 7-Day Free Trial",
+    // cta: "Start 7-Day Free Trial",
+    cta: "Get Started",
+    hasTrial: false,
     highlighted: false,
   },
 ];
@@ -80,14 +84,16 @@ export default function Pricing() {
             Simple, transparent pricing
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            Every plan includes a 7-day free trial. No credit card required.
+            {/* Every plan includes a 7-day free trial. No credit card required. */}
+            Starter and Pro plans include a 7-day free trial.
           </p>
         </div>
 
         {/* Trial banner */}
         <div className="mx-auto mt-10 max-w-2xl rounded-2xl border border-violet-200 bg-violet-50 px-6 py-4 text-center dark:border-violet-800 dark:bg-violet-950/30">
           <p className="text-sm font-medium text-violet-800 dark:text-violet-300">
-            Try any plan free for 7 days with full access. No credit card needed. Your account pauses after the trial until you choose a plan.
+            {/* Try any plan free for 7 days with full access. No credit card needed. Your account pauses after the trial until you choose a plan. */}
+            Try Starter or Pro free for 7 days with full access. Cancel anytime during the trial, no charge.
           </p>
         </div>
 
@@ -124,11 +130,14 @@ export default function Pricing() {
                     /{plan.period}
                   </span>
                 </div>
+                {/* 7-day free trial included – only for plans with hasTrial */}
+                {plan.hasTrial && (
                 <p
                   className={`mt-1 text-xs font-medium ${plan.highlighted ? "text-violet-200" : "text-violet-600 dark:text-violet-400"}`}
                 >
                   7-day free trial included
                 </p>
+                )}
                 <p
                   className={`mt-3 text-sm ${plan.highlighted ? "text-violet-100" : "text-gray-600 dark:text-gray-400"}`}
                 >

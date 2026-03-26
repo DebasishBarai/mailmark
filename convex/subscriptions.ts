@@ -2,7 +2,8 @@ import { action, internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
-const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+// const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const TRIAL_DURATION_MS = 0; // 0 days – upgrade required immediately
 
 const PLANS = {
   starter: { priceMonthly: 1000 },
