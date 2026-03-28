@@ -2,22 +2,28 @@ const testimonials = [
   {
     quote:
       "We switched all our outreach campaigns to Mailmark. Setting up our domain took 5 minutes, and now every campaign goes out from our own address. Open rates jumped 30%.",
-    name: "Sarah Chen",
-    role: "Head of Sales, TechStart",
+    // name: "Sarah Chen",
+    // role: "Head of Sales, TechStart",
+    name: "Mailmark User",
+    role: "Head of Sales",
     stars: 5,
   },
   {
     quote:
       "Finally, one platform for running email campaigns with real deliverability. No more juggling Mailchimp, a warming tool, and a separate inbox for replies.",
-    name: "Marcus Johnson",
-    role: "Founder, GrowthLab",
+    // name: "Marcus Johnson",
+    // role: "Founder, GrowthLab",
+    name: "Seasoned Entrepreneur",
+    role: "Startup Founder",
     stars: 5,
   },
   {
     quote:
       "The campaign tools are powerful and the reply management feels just like Gmail. I run outreach from sales@ and newsletters from updates@, all in one place.",
-    name: "Priya Patel",
-    role: "Marketing Director, ScaleUp",
+    // name: "Priya Patel",
+    // role: "Marketing Director, ScaleUp",
+    name: "Mailmark User",
+    role: "Marketing Director",
     stars: 5,
   },
 ];
