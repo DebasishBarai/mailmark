@@ -1,5 +1,5 @@
 import { action, internalMutation, mutation, query } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 
 // const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -36,15 +36,12 @@ export const currentStatus = query({
     const hasActiveSubscription =
       subscription !== null && (subscription.status === "active" || subscription.status === "trialing");
 
-    // Bypass upgrade gate for admin user
-    const isAdmin = user._id === "kd7erpvhd5enw68vff9xtfgkan832jrw";
-
     return {
       subscription,
       trialEndsAt,
       trialExpired,
       hasActiveSubscription,
-      needsUpgrade: !isAdmin && trialExpired && !hasActiveSubscription,
+      needsUpgrade: trialExpired && !hasActiveSubscription,
     };
   },
 });
@@ -168,13 +165,53 @@ export const cancel = mutation({
       .withIndex("by_user_id", (q) => q.eq("userId", user._id))
       .first();
 
-    if (!subscription || subscription.status !== "active") {
+    if (!subscription || (subscription.status !== "active" && subscription.status !== "trialing")) {
       throw new Error("No active subscription to cancel");
     }
 
     await ctx.db.patch(subscription._id, {
       status: "canceled",
       canceledAt: Date.now(),
+    });
+  },
+});
+
+/** Cancel the current user's subscription via Polar API and update local DB. */
+export const cancelViaPolar = action({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.runQuery(internal.users.getUser, {
+      subject: identity.subject,
+    });
+    if (!user) throw new Error("User not found");
+
+    const status = await ctx.runQuery(api.subscriptions.currentStatus);
+    const polarSubscriptionId = status?.subscription?.polarSubscriptionId;
+    if (!polarSubscriptionId) throw new Error("No subscription to cancel");
+
+    const polarResponse = await fetch(
+      `${process.env.POLAR_BASE_URL}/v1/subscriptions/${polarSubscriptionId}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${process.env.POLAR_ACCESS_TOKEN}`,
+        },
+      }
+    );
+
+    if (!polarResponse.ok) {
+      const errorText = await polarResponse.text();
+      throw new Error(`Failed to cancel subscription: ${errorText}`);
+    }
+
+    await ctx.runMutation(internal.subscriptions.handlePolarSubscriptionEvent, {
+      polarSubscriptionId,
+      clerkId: identity.subject,
+      plan: status!.subscription!.plan,
+      status: "canceled",
     });
   },
 });

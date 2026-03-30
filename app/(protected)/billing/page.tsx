@@ -85,7 +85,23 @@ function CheckIcon() {
 export default function BillingPage() {
   const status = useQuery(api.subscriptions.currentStatus);
   const createCheckout = useAction(api.subscriptions.createCheckoutSession);
+  const cancelSubscription = useAction(api.subscriptions.cancelViaPolar);
   const [loading, setLoading] = useState<string | null>(null);
+  const [canceling, setCanceling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const handleCancel = async () => {
+    if (!confirm("Are you sure you want to cancel your subscription?")) return;
+    setCanceling(true);
+    setCancelError(null);
+    try {
+      await cancelSubscription();
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : "Failed to cancel. Please try again.");
+    } finally {
+      setCanceling(false);
+    }
+  };
 
   const handleUpgrade = async (plan: "starter" | "pro" | "business") => {
     setLoading(plan);
@@ -111,6 +127,8 @@ export default function BillingPage() {
   }
 
   const plan = status?.subscription?.plan;
+  const subscriptionStatus = status?.subscription?.status;
+  const isTrialing = subscriptionStatus === "trialing";
   const isActive = status?.hasActiveSubscription;
   const trialEndsAt = status?.trialEndsAt;
   const trialExpired = status?.trialExpired;
@@ -132,13 +150,34 @@ export default function BillingPage() {
         </div>
         <div className="px-6 py-6">
           {isActive && plan ? (
-            <div className="flex items-center gap-3">
-              <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                {PLAN_LABELS[plan] ?? plan} | {PLAN_PRICES[plan] ?? ""}/mo
-              </span>
-              <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                Active
-              </span>
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {PLAN_LABELS[plan] ?? plan} | {PLAN_PRICES[plan] ?? ""}/mo
+                </span>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                  isTrialing
+                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                    : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                }`}>
+                  {isTrialing ? "Trialing" : "Active"}
+                </span>
+              </div>
+              {isTrialing && status?.subscription?.startedAt && (
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Trial ends {new Date(status.subscription.startedAt + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+                </p>
+              )}
+              {cancelError && (
+                <p className="mt-2 text-sm text-red-600 dark:text-red-400">{cancelError}</p>
+              )}
+              <button
+                onClick={handleCancel}
+                disabled={canceling}
+                className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+              >
+                {canceling ? "Canceling..." : "Cancel Subscription"}
+              </button>
             </div>
           ) : trialExpired ? (
             <p className="text-sm font-medium text-red-600 dark:text-red-400">
