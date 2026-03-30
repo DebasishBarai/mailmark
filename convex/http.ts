@@ -720,6 +720,8 @@ http.route({
     const event = body.type as string;
     const data = body.data as Record<string, unknown> | undefined;
 
+    console.log(`[polar-webhook] event: ${event}, data: ${JSON.stringify(data)}`);
+
     // Handle subscription created/updated events
     if (
       event === "subscription.created" ||
@@ -753,9 +755,17 @@ http.route({
         return new Response("Unknown product ID", { status: 400 });
       }
 
+      // const status =
+      //   polarStatus === "active" ? "active" :
+      //   polarStatus === "canceled" ? "canceled" : "past_due";
+      const hasTrialPlan = plan === "starter" || plan === "pro";
       const status =
         polarStatus === "active" ? "active" :
-        polarStatus === "canceled" ? "canceled" : "past_due";
+        polarStatus === "trialing" ? "trialing" :
+        polarStatus === "canceled" ? "canceled" :
+        // When Polar doesn't send a status (e.g. subscription.created), default based on plan
+        event === "subscription.created" && hasTrialPlan ? "trialing" :
+        event === "subscription.created" ? "active" : "past_due";
 
       await ctx.runMutation(internal.subscriptions.handlePolarSubscriptionEvent, {
         polarSubscriptionId,
@@ -765,7 +775,7 @@ http.route({
       });
 
       // Record or cancel affiliate commission
-      if (event === "subscription.created" && status === "active") {
+      if (event === "subscription.created" && (status === "active" || status === "trialing")) {
         const user = await ctx.runQuery(internal.users.getUser, { subject: clerkId });
         if (user) {
           await ctx.runMutation(internal.affiliates.recordCommission, {

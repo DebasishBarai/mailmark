@@ -34,14 +34,17 @@ export const currentStatus = query({
     const trialEndsAt = user._creationTime + TRIAL_DURATION_MS;
     const trialExpired = Date.now() > trialEndsAt;
     const hasActiveSubscription =
-      subscription !== null && subscription.status === "active";
+      subscription !== null && (subscription.status === "active" || subscription.status === "trialing");
+
+    // Bypass upgrade gate for admin user
+    const isAdmin = user._id === "kd7erpvhd5enw68vff9xtfgkan832jrw";
 
     return {
       subscription,
       trialEndsAt,
       trialExpired,
       hasActiveSubscription,
-      needsUpgrade: trialExpired && !hasActiveSubscription,
+      needsUpgrade: !isAdmin && trialExpired && !hasActiveSubscription,
     };
   },
 });
@@ -111,7 +114,7 @@ export const handlePolarSubscriptionEvent = internalMutation({
     polarSubscriptionId: v.string(),
     clerkId: v.string(), // customer.external_id from Polar
     plan: v.union(v.literal("starter"), v.literal("pro"), v.literal("business")),
-    status: v.union(v.literal("active"), v.literal("canceled"), v.literal("past_due")),
+    status: v.union(v.literal("active"), v.literal("trialing"), v.literal("canceled"), v.literal("past_due")),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db

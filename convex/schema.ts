@@ -107,6 +107,7 @@ export default defineSchema({
     plan: v.union(v.literal("starter"), v.literal("pro"), v.literal("business")),
     status: v.union(
       v.literal("active"),
+      v.literal("trialing"),
       v.literal("canceled"),
       v.literal("past_due")
     ),
