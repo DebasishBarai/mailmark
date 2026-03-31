@@ -148,50 +148,7 @@ http.route({
   }),
 });
 
-// ── Inbox Placement: POST callback for automated seed email reports ──────────
-http.route({
-  path: "/inbox-placement/report",
-  method: "POST",
-  handler: httpAction(async (ctx, request) => {
-    const secret = request.headers.get("x-webhook-secret");
-    if (secret !== process.env.SES_WEBHOOK_SECRET) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-
-    let body: {
-      messageId?: string;
-      seedEmail?: string;
-      placement?: string;
-    };
-    try { body = await request.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
-
-    const { messageId, seedEmail, placement } = body;
-    if (!messageId || !seedEmail || !placement) {
-      return new Response(JSON.stringify({ error: "Missing fields" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    if (!["inbox", "promotions", "spam", "not_received"].includes(placement)) {
-      return new Response(JSON.stringify({ error: "Invalid placement" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    await ctx.runMutation(internal.inboxPlacement.reportPlacementByMessageId, {
-      messageId,
-      seedEmail,
-      placement: placement as "inbox" | "promotions" | "spam" | "not_received",
-    });
-
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }),
-});
+// ── Inbox Placement: removed (users can test by sending to their own accounts)
 
 // ── Unsubscribe: GET handler (browser one-click / link click) ─────────────────
 // Renders a confirmation page and processes the unsubscribe

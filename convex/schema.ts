@@ -207,41 +207,41 @@ export default defineSchema({
   })
     .index("by_email", ["email"]),
 
-  inboxPlacementTests: defineTable({
-    userId: v.id("users"),
-    domainId: v.id("domains"),
-    mailboxId: v.id("mailboxes"),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("sending"),
-      v.literal("waiting"),
-      v.literal("completed"),
-      v.literal("failed")
-    ),
-    subject: v.string(),
-    htmlBody: v.string(),
-    createdAt: v.number(),
-    completedAt: v.optional(v.number()),
-  })
-    .index("by_user_id", ["userId"])
-    .index("by_domain_id", ["domainId"]),
+  // inboxPlacementTests: defineTable({
+  //   userId: v.id("users"),
+  //   domainId: v.id("domains"),
+  //   mailboxId: v.id("mailboxes"),
+  //   status: v.union(
+  //     v.literal("pending"),
+  //     v.literal("sending"),
+  //     v.literal("waiting"),
+  //     v.literal("completed"),
+  //     v.literal("failed")
+  //   ),
+  //   subject: v.string(),
+  //   htmlBody: v.string(),
+  //   createdAt: v.number(),
+  //   completedAt: v.optional(v.number()),
+  // })
+  //   .index("by_user_id", ["userId"])
+  //   .index("by_domain_id", ["domainId"]),
 
-  inboxPlacementResults: defineTable({
-    testId: v.id("inboxPlacementTests"),
-    provider: v.string(),
-    seedEmail: v.string(),
-    placement: v.optional(v.union(
-      v.literal("inbox"),
-      v.literal("promotions"),
-      v.literal("spam"),
-      v.literal("not_received")
-    )),
-    receivedAt: v.optional(v.number()),
-    reportedAt: v.optional(v.number()),
-    messageId: v.optional(v.string()),
-  })
-    .index("by_test_id", ["testId"])
-    .index("by_message_id", ["messageId"]),
+  // inboxPlacementResults: defineTable({
+  //   testId: v.id("inboxPlacementTests"),
+  //   provider: v.string(),
+  //   seedEmail: v.string(),
+  //   placement: v.optional(v.union(
+  //     v.literal("inbox"),
+  //     v.literal("promotions"),
+  //     v.literal("spam"),
+  //     v.literal("not_received")
+  //   )),
+  //   receivedAt: v.optional(v.number()),
+  //   reportedAt: v.optional(v.number()),
+  //   messageId: v.optional(v.string()),
+  // })
+  //   .index("by_test_id", ["testId"])
+  //   .index("by_message_id", ["messageId"]),
 
   api_keys: defineTable({
     userId: v.id("users"),
