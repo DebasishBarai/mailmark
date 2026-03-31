@@ -605,13 +605,17 @@ export default function MailboxPage() {
       setLoadingBody(true);
       try {
         const result = await fetchEmailBody({ s3Key: email.s3Key });
-        // Strip tracking pixels before rendering so viewing your own sent
-        // email doesn't falsely trigger the "opened" event.
-        const sanitized = result.body.replace(
-          /<img[^>]*src="[^"]*\/track\/open\/[^"]*"[^>]*\/?>/gi,
-          ""
-        );
-        setEmailBody(sanitized);
+        // Strip tracking pixels only for sent/outbox/drafts so viewing your
+        // own sent email doesn't falsely trigger the "opened" event.
+        // Inbox emails should keep the pixel so it behaves normally.
+        const shouldStripPixel = activeFolder !== "inbox";
+        const body = shouldStripPixel
+          ? result.body.replace(
+              /<img[^>]*src="[^"]*\/track\/open\/[^"]*"[^>]*\/?>/gi,
+              ""
+            )
+          : result.body;
+        setEmailBody(body);
         setEmailAttachments(result.attachments);
       } catch {
         setEmailBody("Failed to load email body.");
