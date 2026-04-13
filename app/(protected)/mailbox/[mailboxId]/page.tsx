@@ -525,6 +525,7 @@ export default function MailboxPage() {
   const schedulePickerRef = useRef<HTMLDivElement>(null);
   const [recipientFilter, setRecipientFilter] = useState<"all" | "pending" | "delivered" | "opened">("all");
   const [recipientSearch, setRecipientSearch] = useState("");
+  const [mailSearch, setMailSearch] = useState("");
 
   const isLoading = mailbox === undefined || paginatedResult === undefined;
 
@@ -547,6 +548,7 @@ export default function MailboxPage() {
     setCurrentPage(0);
     setPageCursors([null]);
     setSelectedEmailId(null);
+    setMailSearch("");
   }, [activeFolder]);
 
   // Group sent/outbox emails by batchId so multi-recipient sends appear as one row
@@ -589,6 +591,25 @@ export default function MailboxPage() {
       return { key, representative: rep, allEmails: groupEmails, isBatch, pendingCount, deliveredCount, openedCount };
     });
   }, [emails, activeFolder]);
+
+  const filteredEmailGroups = useMemo(() => {
+    const term = mailSearch.toLowerCase().trim();
+    if (!term) return emailGroups;
+    return emailGroups.filter((group) => {
+      return group.allEmails.some((e) => {
+        const fromStr = e.from.toLowerCase();
+        const toStr = e.to.join(" ").toLowerCase();
+        const subject = e.subject.toLowerCase();
+        const snippet = e.snippet.toLowerCase();
+        return (
+          subject.includes(term) ||
+          snippet.includes(term) ||
+          fromStr.includes(term) ||
+          toStr.includes(term)
+        );
+      });
+    });
+  }, [emailGroups, mailSearch]);
 
   const handleSelectEmail = async (emailId: Id<"emails">) => {
     setSelectedEmailId(emailId);
@@ -1354,6 +1375,31 @@ export default function MailboxPage() {
               </button>
             </div>
           </div>
+          {/* Search bar */}
+          <div className="border-b border-gray-100 dark:border-gray-700/50 px-3 py-2">
+            <div className="relative">
+              <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+              <input
+                type="text"
+                value={mailSearch}
+                onChange={(e) => setMailSearch(e.target.value)}
+                placeholder="Search emails..."
+                className="w-full rounded-md border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 py-1.5 pl-8 pr-8 text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-violet-300 dark:focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-300 dark:focus:ring-violet-500"
+              />
+              {mailSearch && (
+                <button
+                  onClick={() => setMailSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
           <div className="flex-1 overflow-x-hidden overflow-y-auto">
             {emails.length === 0 ? (
               <div className="flex h-full items-center justify-center">
@@ -1363,9 +1409,16 @@ export default function MailboxPage() {
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{activeFolder} is empty</p>
                 </div>
               </div>
+            ) : filteredEmailGroups.length === 0 ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">No results found</p>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">No emails match &ldquo;{mailSearch}&rdquo;</p>
+                </div>
+              </div>
             ) : (
               <div className="divide-y divide-gray-50 dark:divide-gray-700/30">
-                {emailGroups.map((group) => {
+                {filteredEmailGroups.map((group) => {
                   const email = group.representative;
                   // All recipients across the batch (for multi-recipient sends)
                   const allRecipients = group.allEmails.flatMap((e) => e.to);
