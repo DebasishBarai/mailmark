@@ -518,6 +518,19 @@ export const scheduleEmailViaApi = internalAction({
       );
     }
 
+    // Email quota check
+    const schedApiLimits = await ctx.runQuery(internal.quotas.getUserLimits, {
+      userId: mailbox.userId,
+    });
+    const schedApiSentThisMonth = await ctx.runQuery(internal.quotas.countSentEmailsThisMonth, {
+      userId: mailbox.userId,
+    });
+    if (schedApiSentThisMonth >= schedApiLimits.emailsPerMonth) {
+      throw new Error(
+        `Monthly email limit reached (${schedApiLimits.emailsPerMonth.toLocaleString()} emails). Please upgrade your plan.`
+      );
+    }
+
     const fromAddress = mailbox.displayName
       ? `${mailbox.displayName} <${mailbox.fullAddress}>`
       : mailbox.fullAddress;

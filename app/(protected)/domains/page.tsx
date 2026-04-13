@@ -30,8 +30,13 @@ function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
 
 export default function DomainsPage() {
   const domains = useQuery(api.domains.listForCurrentUser);
+  const usageAndLimits = useQuery(api.quotas.getUsageAndLimits);
   const addDomain = useAction(api.domainActions.add);
   const isLoading = domains === undefined;
+
+  const domainLimit = usageAndLimits?.limits.domains ?? null;
+  const domainCount = usageAndLimits?.usage.domains ?? 0;
+  const atDomainLimit = domainLimit !== null && domainCount >= domainLimit;
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newDomain, setNewDomain] = useState("");
@@ -75,16 +80,38 @@ export default function DomainsPage() {
             Manage your email domains and DNS verification.
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          Add Domain
-        </button>
+        <div className="flex items-center gap-3">
+          {usageAndLimits && domainLimit !== null && (
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {domainCount}/{domainLimit} domain{domainLimit !== 1 ? "s" : ""} used
+            </span>
+          )}
+          <button
+            onClick={() => setShowAddModal(true)}
+            disabled={atDomainLimit}
+            title={atDomainLimit ? `Domain limit reached (${domainLimit}). Upgrade your plan to add more.` : undefined}
+            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Add Domain
+          </button>
+        </div>
       </div>
+
+      {/* Limit reached banner */}
+      {atDomainLimit && (
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/20">
+          <svg className="h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            You&apos;ve reached the domain limit for your <strong>{usageAndLimits?.plan}</strong> plan ({domainLimit} domain{domainLimit !== 1 ? "s" : ""}).{" "}
+            <a href="/billing" className="font-semibold underline hover:no-underline">Upgrade your plan</a> to add more domains.
+          </p>
+        </div>
+      )}
 
       {/* Domain list */}
       {isLoading ? (
@@ -114,7 +141,8 @@ export default function DomainsPage() {
           </p>
           <button
             onClick={() => setShowAddModal(true)}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
+            disabled={atDomainLimit}
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
