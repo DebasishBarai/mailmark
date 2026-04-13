@@ -355,9 +355,9 @@ function SceneAddDomain({ theme }: { theme: "light" | "dark" }) {
     { type: "CNAME", name: "token1._domainkey", value: "token1.dkim.amazonses.com", purpose: "DKIM 1", verifyAt: 135 },
     { type: "CNAME", name: "token2._domainkey", value: "token2.dkim.amazonses.com", purpose: "DKIM 2", verifyAt: 160 },
     { type: "CNAME", name: "token3._domainkey", value: "token3.dkim.amazonses.com", purpose: "DKIM 3", verifyAt: 185 },
-    { type: "MX",    name: "@",                 value: "inbound-smtp.ap-south-1.amazonaws.com", purpose: "Receiving", verifyAt: 205 },
-    { type: "TXT",   name: "@",                 value: "v=spf1 include:amazonses.com ~all", purpose: "SPF", verifyAt: 220 },
-    { type: "TXT",   name: "_dmarc",            value: "v=DMARC1; p=quarantine;", purpose: "DMARC", verifyAt: 238 },
+    { type: "MX", name: "@", value: "inbound-smtp.ap-south-1.amazonaws.com", purpose: "Receiving", verifyAt: 205 },
+    { type: "TXT", name: "@", value: "v=spf1 include:amazonses.com ~all", purpose: "SPF", verifyAt: 220 },
+    { type: "TXT", name: "_dmarc", value: "v=DMARC1; p=quarantine;", purpose: "DMARC", verifyAt: 238 },
   ];
 
   const successOp = fadeIn(frame, 248, 268);
@@ -975,7 +975,7 @@ function ScenePricing({ theme }: { theme: "light" | "dark" }) {
   return (
     <AbsoluteFill style={{ background: bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: font, padding: "0 60px" }}>
       <div style={{ opacity: fadeIn(frame, 0, 20), fontSize: 36, fontWeight: 900, color: titleColor, marginBottom: 6, letterSpacing: "-1px", textAlign: "center" }}>Simple, transparent pricing</div>
-      <div style={{ opacity: fadeIn(frame, 14, 30), fontSize: 15, color: subtitleColor, marginBottom: 44, textAlign: "center" }}>Every plan includes a 7-day free trial. No credit card required.</div>
+      <div style={{ opacity: fadeIn(frame, 14, 30), fontSize: 15, color: subtitleColor, marginBottom: 44, textAlign: "center" }}>Starter and Pro plans include a 7-day free trial.</div>
       <div style={{ display: "flex", gap: 20, alignItems: "stretch" }}>
         {plans.map((plan, i) => {
           const delay = i * 18;
