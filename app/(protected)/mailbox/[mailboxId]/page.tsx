@@ -612,6 +612,9 @@ export default function MailboxPage() {
   }, [emailGroups, mailSearch]);
 
   const handleSelectEmail = async (emailId: Id<"emails">) => {
+    if (showCompose) {
+      resetComposeState();
+    }
     setSelectedEmailId(emailId);
     setEmailBody(null);
     setEmailAttachments([]);
