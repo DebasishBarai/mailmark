@@ -12,10 +12,16 @@ export const PLAN_LIMITS = {
 export type PlanLimits = typeof PLAN_LIMITS[keyof typeof PLAN_LIMITS];
 
 /** Returns the limits for the user's current effective plan.
+ *  Beta users get business-tier limits.
  *  Users with no active subscription get starter (free trial) limits. */
 export const getUserLimits = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }): Promise<PlanLimits> => {
+    const user = await ctx.db.get(userId);
+    if (user?.category === "beta") {
+      return PLAN_LIMITS["business"];
+    }
+
     const subscription = await ctx.db
       .query("subscriptions")
       .withIndex("by_user_id", (q) => q.eq("userId", userId))

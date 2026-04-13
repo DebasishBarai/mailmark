@@ -28,6 +28,7 @@ export const createUser = internalMutation({
       name: args.name,
       imageUrl: args.imageUrl,
       polarCustomerId: args.polarCustomerId,
+      category: "normal",
     });
     return (await ctx.db.get(userId))!;
   },

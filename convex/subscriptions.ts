@@ -35,13 +35,15 @@ export const currentStatus = query({
     const trialExpired = Date.now() > trialEndsAt;
     const hasActiveSubscription =
       subscription !== null && (subscription.status === "active" || subscription.status === "trialing");
+    const isBetaUser = user.category === "beta";
 
     return {
       subscription,
       trialEndsAt,
       trialExpired,
       hasActiveSubscription,
-      needsUpgrade: trialExpired && !hasActiveSubscription,
+      isBetaUser,
+      needsUpgrade: trialExpired && !hasActiveSubscription && !isBetaUser,
     };
   },
 });
