@@ -17,6 +17,7 @@ export default function DomainDetailPage() {
     domainId: domainId as Id<"domains">,
   });
   const createMailbox = useMutation(api.mailboxes.create);
+  const updateDisplayName = useMutation(api.mailboxes.updateDisplayName);
   const removeDomain = useAction(api.domainActions.remove);
   const verifyDns = useAction(api.domainActions.verifyDns);
   const usageAndLimits = useQuery(api.quotas.getUsageAndLimits);
@@ -33,6 +34,9 @@ export default function DomainDetailPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [editingMailbox, setEditingMailbox] = useState<Doc<"mailboxes"> | null>(null);
+  const [editDisplayName, setEditDisplayName] = useState("");
+  const [isSavingDisplayName, setIsSavingDisplayName] = useState(false);
 const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const handleCopy = useCallback((text: string, key: string) => {
@@ -55,6 +59,21 @@ const [copiedKey, setCopiedKey] = useState<string | null>(null);
       setNewDisplayName("");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleSaveDisplayName = async () => {
+    if (!editingMailbox) return;
+    setIsSavingDisplayName(true);
+    try {
+      await updateDisplayName({
+        mailboxId: editingMailbox._id,
+        displayName: editDisplayName.trim(),
+      });
+      setEditingMailbox(null);
+      setEditDisplayName("");
+    } finally {
+      setIsSavingDisplayName(false);
     }
   };
 
@@ -504,12 +523,11 @@ const handleRemoveDomain = async () => {
         ) : (
           <div className="divide-y divide-gray-50 dark:divide-gray-700/30">
             {mailboxes.map((mb: Doc<"mailboxes">) => (
-              <Link
+              <div
                 key={mb._id}
-                href={`/mailbox/${mb._id}`}
                 className="flex items-center justify-between px-6 py-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
               >
-                <div className="flex items-center gap-4">
+                <Link href={`/mailbox/${mb._id}`} className="flex flex-1 items-center gap-4">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-sm font-bold text-violet-600 dark:bg-violet-900/40 dark:text-violet-400">
                     {mb.address[0].toUpperCase()}
                   </div>
@@ -519,11 +537,27 @@ const handleRemoveDomain = async () => {
                       <p className="text-xs text-gray-500 dark:text-gray-400">{mb.displayName}</p>
                     )}
                   </div>
+                </Link>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setEditingMailbox(mb);
+                      setEditDisplayName(mb.displayName ?? "");
+                    }}
+                    title="Edit display name"
+                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                    </svg>
+                  </button>
+                  <Link href={`/mailbox/${mb._id}`}>
+                    <svg className="h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
+                  </Link>
                 </div>
-                <svg className="h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
-              </Link>
+              </div>
             ))}
           </div>
         )}
@@ -587,6 +621,54 @@ const handleRemoveDomain = async () => {
                 className="flex-1 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
               >
                 {isCreating ? "Creating..." : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit display name modal */}
+      {editingMailbox && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 md:items-center">
+          <div className="w-full max-w-md rounded-t-2xl bg-white p-6 shadow-2xl dark:bg-gray-800 md:rounded-2xl md:p-8">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Edit Display Name</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Update the display name for <span className="font-medium text-gray-700 dark:text-gray-200">{editingMailbox.fullAddress}</span>.
+            </p>
+            <div className="mt-6">
+              <label htmlFor="editDisplayName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Display name
+              </label>
+              <input
+                id="editDisplayName"
+                type="text"
+                value={editDisplayName}
+                onChange={(e) => setEditDisplayName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveDisplayName()}
+                placeholder="e.g. Sales Team"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+                autoFocus
+              />
+              <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+                This name appears as the sender when sending emails. Leave empty to use just the email address.
+              </p>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => {
+                  setEditingMailbox(null);
+                  setEditDisplayName("");
+                }}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveDisplayName}
+                disabled={isSavingDisplayName}
+                className="flex-1 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+              >
+                {isSavingDisplayName ? "Saving..." : "Save"}
               </button>
             </div>
           </div>
