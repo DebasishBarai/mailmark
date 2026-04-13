@@ -1,4 +1,4 @@
-import { internalQuery } from "./_generated/server";
+import { internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 
 // null = unlimited
@@ -12,14 +12,14 @@ export const PLAN_LIMITS = {
 export type PlanLimits = typeof PLAN_LIMITS[keyof typeof PLAN_LIMITS];
 
 /** Returns the limits for the user's current effective plan.
- *  Beta users get business-tier limits.
- *  Users with no active subscription get starter (free trial) limits. */
+ *  Beta users get starter-tier limits (paywall bypassed, not unlimited).
+ *  Users with no active subscription get free-tier limits. */
 export const getUserLimits = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }): Promise<PlanLimits> => {
     const user = await ctx.db.get(userId);
     if (user?.category === "beta") {
-      return PLAN_LIMITS["business"];
+      return PLAN_LIMITS["starter"];
     }
 
     const subscription = await ctx.db
@@ -31,6 +31,80 @@ export const getUserLimits = internalQuery({
       subscription?.status === "active" ? subscription.plan : "free";
 
     return PLAN_LIMITS[plan];
+  },
+});
+
+/** Returns the effective plan name for a user (used in mutations that can't call internalQuery). */
+export function resolvePlan(
+  userCategory: string | undefined,
+  subscriptionStatus: string | undefined | null,
+  subscriptionPlan: string | undefined | null,
+): keyof typeof PLAN_LIMITS {
+  if (userCategory === "beta") return "starter";
+  if (subscriptionStatus === "active" && subscriptionPlan) {
+    return subscriptionPlan as keyof typeof PLAN_LIMITS;
+  }
+  return "free";
+}
+
+/** Public query: returns the user's plan limits and current usage counts. */
+export const getUsageAndLimits = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) return null;
+
+    const subscription = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .first();
+
+    const plan = resolvePlan(user.category, subscription?.status, subscription?.plan);
+    const limits = PLAN_LIMITS[plan];
+
+    const domains = await ctx.db
+      .query("domains")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .collect();
+
+    const mailboxes = await ctx.db
+      .query("mailboxes")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .collect();
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    let emailsSentThisMonth = 0;
+    for (const mailbox of mailboxes) {
+      const emails = await ctx.db
+        .query("emails")
+        .withIndex("by_mailbox_folder", (q) =>
+          q.eq("mailboxId", mailbox._id).eq("folder", "sent")
+        )
+        .filter((q) => q.gte(q.field("date"), startOfMonth))
+        .collect();
+      emailsSentThisMonth += emails.length;
+    }
+
+    return {
+      plan,
+      limits: {
+        domains: limits.domains,
+        mailboxes: limits.mailboxes,
+        emailsPerMonth: limits.emailsPerMonth,
+      },
+      usage: {
+        domains: domains.length,
+        mailboxes: mailboxes.length,
+        emailsSentThisMonth,
+      },
+    };
   },
 });
 
