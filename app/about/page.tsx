@@ -52,10 +52,10 @@ const values = [
 ];
 
 const stats = [
-  { value: "10k+", label: "Mailboxes created" },
-  { value: "500+", label: "Domains hosted" },
-  { value: "2M+", label: "Emails sent" },
-  { value: "99.9%", label: "Uptime SLA" },
+  { value: "All-in-one", label: "Hosting, inbox & campaigns" },
+  { value: "Custom domains", label: "you@yourcompany.com" },
+  { value: "Open source", label: "Transparent & extensible" },
+  { value: "Self-hostable", label: "Your data, your server" },
 ];
 
 export default function AboutPage() {
@@ -73,20 +73,20 @@ export default function AboutPage() {
             Email that&apos;s truly yours
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-gray-600 dark:text-gray-300">
-            We built Mailmark because we were tired of paying three different
-            services to host email, send campaigns, and manage our team&apos;s
-            inboxes. There had to be a better way.
+            Mailmark was built out of frustration with paying three different
+            services to host email, send campaigns, and manage inboxes. There
+            had to be a better way.
           </p>
         </div>
       </section>
 
-      {/* Stats */}
+      {/* Highlights */}
       <section className="border-y border-gray-100 bg-white px-6 py-12 dark:border-gray-700 dark:bg-gray-900">
         <div className="mx-auto max-w-7xl">
           <dl className="grid grid-cols-2 gap-8 lg:grid-cols-4">
             {stats.map((stat) => (
               <div key={stat.label} className="text-center">
-                <dt className="text-3xl font-extrabold text-violet-600">{stat.value}</dt>
+                <dt className="text-2xl font-extrabold text-violet-600">{stat.value}</dt>
                 <dd className="mt-1 text-sm text-gray-500 dark:text-gray-400">{stat.label}</dd>
               </div>
             ))}
@@ -100,12 +100,11 @@ export default function AboutPage() {
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Our story</h2>
           <div className="mt-6 space-y-5 text-gray-600 leading-relaxed dark:text-gray-300">
             <p>
-              Mailmark started in 2024 when our founders, a team of engineers
-              frustrated by fragmented email tooling, decided to build the
-              platform they always wanted. They had used Google Workspace,
-              Postmark, Mailchimp, and half a dozen other tools, patching them
-              together with APIs and custom scripts just to send an email from
-              their company domain.
+              Mailmark started in 2024 as a solo project born out of
+              frustration with fragmented email tooling. After juggling Google
+              Workspace, Postmark, Mailchimp, and half a dozen other tools
+              just to send an email from a custom domain, there had to be a
+              better way.
             </p>
             <p>
               The insight was simple: every business needs three things. A
@@ -115,10 +114,10 @@ export default function AboutPage() {
               three support teams.
             </p>
             <p>
-              We launched Mailmark&apos;s public beta in late 2025. Today,
-              thousands of startups, agencies, and small teams use Mailmark to
-              run their entire email operation from a single dashboard. We&apos;re
-              just getting started.
+              Mailmark is still early and growing. It&apos;s an open-source,
+              indie project focused on getting the fundamentals right before
+              chasing scale. If you value transparency and simplicity,
+              you&apos;re in the right place.
             </p>
           </div>
         </div>
@@ -156,17 +155,17 @@ export default function AboutPage() {
       <section className="bg-white px-6 py-20 dark:bg-gray-900">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Want to join us?
+            Ready to try Mailmark?
           </h2>
           <p className="mt-3 text-gray-600 dark:text-gray-300">
-            We&apos;re a small, remote-first team building in public. Check out
-            our open roles.
+            Set up your custom domain email in minutes. No credit card
+            required to get started.
           </p>
           <a
-            href="/careers"
+            href="/dashboard"
             className="mt-6 inline-block rounded-full bg-violet-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700 dark:shadow-violet-900/30"
           >
-            View open positions
+            Get started for free
           </a>
         </div>
       </section>
