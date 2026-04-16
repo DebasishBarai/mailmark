@@ -188,6 +188,8 @@ const handleRemoveDomain = async () => {
     },
   ];
 
+  const allDnsVerified = dnsRecords.length > 0 && dnsRecords.every((r) => r.verified);
+
   return (
     <div className="p-4 pb-6 md:p-8">
       {/* Breadcrumb */}
@@ -250,6 +252,23 @@ const handleRemoveDomain = async () => {
           </button>
         </div>
       </div>
+
+      {/* Explanatory note when all DNS records are verified but SES hasn't confirmed yet */}
+      {allDnsVerified && !domain.verified && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-900/20 md:mb-8">
+          <svg className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+          </svg>
+          <div>
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+              All DNS records are correctly configured
+            </p>
+            <p className="mt-0.5 text-xs text-blue-600 dark:text-blue-400">
+              AWS SES is still processing verification. This can take up to 72 hours. Please check back later.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* DNS Records */}
       <div className="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 md:mb-8">
