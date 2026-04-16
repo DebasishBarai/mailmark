@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAction } from "convex/react";
+import { useClerk } from "@clerk/nextjs";
 import { api } from "../../convex/_generated/api";
 
 const plans = [
@@ -28,6 +29,7 @@ const plans = [
 
 export default function UpgradeModal() {
   const createCheckoutSession = useAction(api.subscriptions.createCheckoutSession);
+  const { signOut } = useClerk();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,6 +145,12 @@ export default function UpgradeModal() {
           <p className="text-xs text-gray-400 dark:text-gray-500">
             Secure checkout via Polar &middot; Cancel anytime &middot; All prices in USD
           </p>
+          <button
+            onClick={() => signOut({ redirectUrl: "/" })}
+            className="mt-3 text-sm text-gray-500 underline hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
+          >
+            Sign out
+          </button>
         </div>
       </div>
     </div>
