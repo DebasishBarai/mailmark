@@ -70,6 +70,16 @@ const sidebarLinks = [
     ),
   },
   {
+    label: "Docs",
+    href: "/docs",
+    external: true,
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+      </svg>
+    ),
+  },
+  {
     label: "Billing",
     href: "/billing",
     icon: (
@@ -246,6 +256,7 @@ function AppShell({ children }: { children: ReactNode }) {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileOpen(false)}
+                  {...("external" in link && link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   className={`flex items-center gap-3 rounded-r-lg border-l-2 py-2.5 pl-[10px] pr-3 text-sm font-medium transition-colors ${isActive
                     ? "border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-400 dark:bg-violet-900/30 dark:text-violet-300"
                     : "border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
@@ -255,7 +266,16 @@ function AppShell({ children }: { children: ReactNode }) {
                   <span className={isActive ? "text-violet-600 dark:text-violet-400" : "text-gray-400 dark:text-gray-500"}>
                     {link.icon}
                   </span>
-                  {!sidebarCollapsed && <span>{link.label}</span>}
+                  {!sidebarCollapsed && (
+                    <span className="flex items-center gap-1.5">
+                      {link.label}
+                      {"external" in link && link.external && (
+                        <svg className="h-3 w-3 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                        </svg>
+                      )}
+                    </span>
+                  )}
                 </Link>
               );
             })}

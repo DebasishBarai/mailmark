@@ -22,7 +22,6 @@ import type * as emailVerification from "../emailVerification.js";
 import type * as emailVerificationQueries from "../emailVerificationQueries.js";
 import type * as emails from "../emails.js";
 import type * as http from "../http.js";
-import type * as inboxPlacement from "../inboxPlacement.js";
 import type * as mailboxes from "../mailboxes.js";
 import type * as quotas from "../quotas.js";
 import type * as senderGroups from "../senderGroups.js";
@@ -54,7 +53,6 @@ declare const fullApi: ApiFromModules<{
   emailVerificationQueries: typeof emailVerificationQueries;
   emails: typeof emails;
   http: typeof http;
-  inboxPlacement: typeof inboxPlacement;
   mailboxes: typeof mailboxes;
   quotas: typeof quotas;
   senderGroups: typeof senderGroups;
