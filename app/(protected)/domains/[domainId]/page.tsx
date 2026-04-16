@@ -200,7 +200,7 @@ const handleRemoveDomain = async () => {
     ];
 
     for (const record of dnsRecords) {
-      const name = record.name === "@" ? `${domain!.domain}.` : `${record.name}.${domain!.domain}.`;
+      const name = record.name === "@" ? "@" : record.name;
       if (record.type === "CNAME") {
         lines.push(`${name}\tIN\tCNAME\t${record.value}.`);
       } else if (record.type === "MX") {
