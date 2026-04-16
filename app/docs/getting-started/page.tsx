@@ -90,7 +90,7 @@ export default function GettingStartedPage() {
             <p>Follow these four steps to get up and running:</p>
             <div className="mt-6 space-y-6">
               <Step n={1} title="Create a Mailmark account">
-                Sign up at <Link href="/sign-up" className="text-violet-600 hover:underline">mailmark.dev/sign-up</Link>. No credit card required to start.
+                Go to <Link href="/" className="text-violet-600 hover:underline">mailmark.dev</Link> and click Sign In. Sign up with your email or Google/Github account.
               </Step>
               <Step n={2} title="Add and verify your domain">
                 Go to <strong>Dashboard → Domains</strong> and click <strong>Add domain</strong>. Enter your domain name and follow the DNS instructions to verify ownership.
