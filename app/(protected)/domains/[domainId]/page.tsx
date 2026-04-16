@@ -136,6 +136,7 @@ const handleRemoveDomain = async () => {
       value: `${token}.dkim.amazonses.com`,
       recommendedValue: `${token}.dkim.amazonses.com`,
       purpose: `DKIM ${i + 1}`,
+      tooltip: "Proves emails from your domain are authentic and haven't been tampered with. Your email provider uses these to verify you.",
       verified: dkimRecordStatus[i] ?? false,
     })),
     // MX record for receiving email
@@ -147,6 +148,7 @@ const handleRemoveDomain = async () => {
       recommendedValue: `inbound-smtp.${region}.amazonaws.com`,
       currentDnsValue: domain.mxVerified ? undefined : (domain.actualMxValue ? domain.actualMxValue.replace(/^\d+\s+/, "") : undefined),
       purpose: "Receiving",
+      tooltip: "Tells the internet where to deliver emails sent to your domain. Points incoming mail to the server that handles it.",
       verified: domain.mxVerified,
     },
     // SPF TXT record
@@ -157,6 +159,7 @@ const handleRemoveDomain = async () => {
       recommendedValue: `v=spf1 include:amazonses.com ~all`,
       currentDnsValue: domain.spfVerified ? undefined : domain.actualSpfValue,
       purpose: "SPF",
+      tooltip: "Lists which servers are allowed to send email on behalf of your domain. Helps prevent spoofing.",
       verified: domain.spfVerified,
     },
     // DMARC TXT record
@@ -167,6 +170,7 @@ const handleRemoveDomain = async () => {
       recommendedValue: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${domain.domain}`,
       currentDnsValue: domain.dmarcVerified ? undefined : domain.actualDmarcValue,
       purpose: "DMARC",
+      tooltip: "Tells receiving servers what to do when an email fails authentication checks. Protects your domain from being used in phishing.",
       verified: domain.dmarcVerified,
     },
     // Custom MAIL FROM domain records - fixes MAIL FROM alignment in AWS SES
@@ -177,6 +181,7 @@ const handleRemoveDomain = async () => {
       value: `feedback-smtp.${region}.amazonaws.com`,
       recommendedValue: `feedback-smtp.${region}.amazonaws.com`,
       purpose: "MAIL FROM",
+      tooltip: "Sets up a dedicated subdomain for outbound email routing. Improves deliverability.",
       verified: domain.mailFromMxVerified ?? false,
     },
     {
@@ -185,6 +190,7 @@ const handleRemoveDomain = async () => {
       value: `v=spf1 include:amazonses.com ~all`,
       recommendedValue: `v=spf1 include:amazonses.com ~all`,
       purpose: "MAIL FROM SPF",
+      tooltip: "Same as SPF but for the outbound mail subdomain. Ensures alignment between sender identity and sending server.",
       verified: domain.mailFromSpfVerified ?? false,
     },
   ];
@@ -370,6 +376,14 @@ const handleRemoveDomain = async () => {
                   <div className="mb-2 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-gray-900 dark:text-white">{record.purpose}</span>
+                      <span className="group/tip relative">
+                        <svg className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+                        </svg>
+                        <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 w-52 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-[11px] leading-relaxed text-white opacity-0 shadow-lg transition-opacity group-hover/tip:opacity-100 dark:bg-gray-700">
+                          {record.tooltip}
+                        </span>
+                      </span>
                       <span className="font-mono text-xs font-medium text-violet-600">{record.type}</span>
                       {"priority" in record && (
                         <span className="text-[10px] text-gray-400 dark:text-gray-500">Pri: {record.priority}</span>
@@ -463,7 +477,17 @@ const handleRemoveDomain = async () => {
                   {dnsRecords.map((record, i) => (
                     <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="whitespace-nowrap px-6 py-3 text-xs font-medium text-gray-900 dark:text-white">
-                        {record.purpose}
+                        <span className="inline-flex items-center gap-1.5">
+                          {record.purpose}
+                          <span className="group/tip relative">
+                            <svg className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+                            </svg>
+                            <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 w-56 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-[11px] font-normal leading-relaxed text-white opacity-0 shadow-lg transition-opacity group-hover/tip:opacity-100 dark:bg-gray-700">
+                              {record.tooltip}
+                            </span>
+                          </span>
+                        </span>
                       </td>
                       <td className="whitespace-nowrap px-6 py-3 font-mono text-xs font-medium text-violet-600">
                         {record.type}
