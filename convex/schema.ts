@@ -9,7 +9,7 @@ export default defineSchema({
     imageUrl: v.optional(v.string()),
     polarCustomerId: v.optional(v.string()),
     // User category: "beta" users bypass the paywall
-    category: v.optional(v.union(v.literal("beta"), v.literal("normal"))),
+    category: v.optional(v.union(v.literal("beta"), v.literal("normal"), v.literal("admin"))),
     // Appearance preferences
     prefTheme: v.optional(v.string()),
     prefDensity: v.optional(v.string()),

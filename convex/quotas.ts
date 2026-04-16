@@ -18,6 +18,9 @@ export const getUserLimits = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }): Promise<PlanLimits> => {
     const user = await ctx.db.get(userId);
+    if (user?.category === "admin") {
+      return PLAN_LIMITS["business"];
+    }
     if (user?.category === "beta") {
       return PLAN_LIMITS["starter"];
     }
@@ -40,6 +43,7 @@ export function resolvePlan(
   subscriptionStatus: string | undefined | null,
   subscriptionPlan: string | undefined | null,
 ): keyof typeof PLAN_LIMITS {
+  if (userCategory === "admin") return "business";
   if (userCategory === "beta") return "starter";
   if (subscriptionStatus === "active" && subscriptionPlan) {
     return subscriptionPlan as keyof typeof PLAN_LIMITS;

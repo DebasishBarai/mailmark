@@ -36,6 +36,7 @@ export const currentStatus = query({
     const hasActiveSubscription =
       subscription !== null && (subscription.status === "active" || subscription.status === "trialing");
     const isBetaUser = user.category === "beta";
+    const isAdmin = user.category === "admin";
 
     return {
       subscription,
@@ -43,7 +44,8 @@ export const currentStatus = query({
       trialExpired,
       hasActiveSubscription,
       isBetaUser,
-      needsUpgrade: trialExpired && !hasActiveSubscription && !isBetaUser,
+      isAdmin,
+      needsUpgrade: trialExpired && !hasActiveSubscription && !isBetaUser && !isAdmin,
     };
   },
 });

@@ -39,7 +39,7 @@ We do not sell your personal data to third parties. We do not use your email con
     title: "3. Data sharing",
     content: `We share data only in the following circumstances:
 
-**Service providers:** We share data with vendors who help us operate the service (e.g., AWS for cloud infrastructure, Polar for payments, Clerk for authentication). These vendors are contractually obligated to protect your data.
+**Service providers:** We share data with vendors who help us operate the service (e.g., AWS for cloud infrastructure and email processing, Convex for database hosting, Polar for payments, Clerk for authentication). These vendors are contractually obligated to protect your data and process it in accordance with applicable data protection laws.
 
 **Legal compliance:** We may disclose data when required by law, court order, or governmental authority, or to protect the rights, property, and safety of Mailmark, our users, and the public.
 
@@ -48,7 +48,25 @@ We do not sell your personal data to third parties. We do not use your email con
 We do not share your email content with advertisers or analytics companies.`,
   },
   {
-    title: "4. Cookies and tracking",
+    title: "4. Infrastructure and data location",
+    content: `Mailmark's infrastructure is hosted across the following providers and regions:
+
+**Email processing and storage:** AWS ap-south-1 (Mumbai, India). All email sending, receiving, DKIM signing, and raw email storage (S3) are handled in this region.
+
+**Database:** Convex cloud infrastructure (United States).
+
+**Authentication:** Clerk (United States).
+
+**Payments:** Polar (European Union).
+
+This means your email data, including message content and metadata, is processed and stored in AWS data centers located in Mumbai, India. Account and authentication data is processed in the United States.
+
+**International transfers:** If you are located outside India or the United States, your data will be transferred to and processed in these regions. We rely on standard contractual clauses and vendor data processing agreements to ensure your data is protected in accordance with GDPR and other applicable data protection regulations.
+
+We are evaluating multi-region support to allow customers to choose their preferred data region in a future release. If data residency is a hard requirement for your organization, please contact us at privacy@mailmark.dev to discuss your needs.`,
+  },
+  {
+    title: "5. Cookies and tracking",
     content: `We use cookies and similar technologies to:
 
 - Keep you logged in (essential session cookies).
@@ -58,7 +76,7 @@ We do not share your email content with advertisers or analytics companies.`,
 You can control cookie settings through your browser. Disabling cookies may affect some product features. We do not use third-party advertising cookies.`,
   },
   {
-    title: "5. Data retention",
+    title: "6. Data retention",
     content: `We retain your data for as long as your account is active or as needed to provide services. If you delete your account:
 
 - Account data is deleted within 30 days.
@@ -68,7 +86,7 @@ You can control cookie settings through your browser. Disabling cookies may affe
 You can request earlier deletion of specific data by contacting privacy@mailmark.dev.`,
   },
   {
-    title: "6. Security",
+    title: "7. Security",
     content: `We protect your data with:
 
 - TLS/HTTPS encryption for all data in transit.
@@ -80,7 +98,7 @@ You can request earlier deletion of specific data by contacting privacy@mailmark
 No method of transmission or storage is 100% secure. If you discover a security vulnerability, please report it to security@mailmark.dev.`,
   },
   {
-    title: "7. Your rights",
+    title: "8. Your rights",
     content: `Depending on your location, you may have the following rights:
 
 - **Access:** Request a copy of personal data we hold about you.
@@ -97,15 +115,15 @@ To exercise any of these rights, email privacy@mailmark.dev. We will respond wit
 **California residents:** Under CCPA, you have additional rights including the right to know what data is sold or shared (we do not sell personal data).`,
   },
   {
-    title: "8. Children's privacy",
+    title: "9. Children's privacy",
     content: `Mailmark is not directed at children under 16. We do not knowingly collect personal data from anyone under 16. If you believe a child has provided us with personal information, contact us at privacy@mailmark.dev and we will delete it promptly.`,
   },
   {
-    title: "9. Changes to this policy",
+    title: "10. Changes to this policy",
     content: `We may update this Privacy Policy periodically. We will notify you of material changes by email and by posting a notice on our website at least 30 days before the change takes effect. Continued use of the service after changes take effect constitutes acceptance of the revised policy.`,
   },
   {
-    title: "10. Contact us",
+    title: "11. Contact us",
     content: `For privacy-related questions or to exercise your rights, contact:
 
 **Mailmark Privacy Team**
@@ -130,7 +148,7 @@ export default function PrivacyPage() {
             Privacy Policy
           </h1>
           <p className="mt-4 text-gray-500 dark:text-gray-400">
-            Last updated: <strong>January 15, 2026</strong>
+            Last updated: <strong>April 16, 2026</strong>
           </p>
           <p className="mt-4 text-gray-600 dark:text-gray-300">
             Mailmark (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) is committed to protecting your privacy.
