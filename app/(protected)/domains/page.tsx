@@ -72,8 +72,8 @@ export default function DomainsPage() {
     | undefined;
   const usageAndLimits = useQuery(api.quotas.getUsageAndLimits);
   const addDomain = useAction(api.domainActions.add);
-  const createAwsDraft = useAction(api.awsAccounts.createDraft);
-  const verifyAwsAccount = useAction(api.awsAccounts.verify);
+  const createAwsDraft = useAction(api.awsAccountActions.createDraft);
+  const verifyAwsAccount = useAction(api.awsAccountActions.verify);
   const isLoading = domains === undefined;
 
   const domainLimit = usageAndLimits?.limits.domains ?? null;
