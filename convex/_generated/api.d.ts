@@ -11,6 +11,8 @@
 import type * as affiliates from "../affiliates.js";
 import type * as apiKeyActions from "../apiKeyActions.js";
 import type * as apiKeys from "../apiKeys.js";
+import type * as awsAccountActions from "../awsAccountActions.js";
+import type * as awsAccounts from "../awsAccounts.js";
 import type * as contacts from "../contacts.js";
 import type * as crons from "../crons.js";
 import type * as domainActions from "../domainActions.js";
@@ -22,6 +24,7 @@ import type * as emailVerification from "../emailVerification.js";
 import type * as emailVerificationQueries from "../emailVerificationQueries.js";
 import type * as emails from "../emails.js";
 import type * as http from "../http.js";
+import type * as lib_awsClients from "../lib/awsClients.js";
 import type * as mailboxes from "../mailboxes.js";
 import type * as quotas from "../quotas.js";
 import type * as senderGroups from "../senderGroups.js";
@@ -42,6 +45,8 @@ declare const fullApi: ApiFromModules<{
   affiliates: typeof affiliates;
   apiKeyActions: typeof apiKeyActions;
   apiKeys: typeof apiKeys;
+  awsAccountActions: typeof awsAccountActions;
+  awsAccounts: typeof awsAccounts;
   contacts: typeof contacts;
   crons: typeof crons;
   domainActions: typeof domainActions;
@@ -53,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   emailVerificationQueries: typeof emailVerificationQueries;
   emails: typeof emails;
   http: typeof http;
+  "lib/awsClients": typeof lib_awsClients;
   mailboxes: typeof mailboxes;
   quotas: typeof quotas;
   senderGroups: typeof senderGroups;
