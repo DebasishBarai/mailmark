@@ -208,7 +208,7 @@ export const createDraft = action({
       process.env.CONVEX_SITE_URL ??
       process.env.NEXT_PUBLIC_CONVEX_SITE_URL ??
       "";
-    const mailmarkAwsAccountId = process.env.MAILMARK_AWS_ACCOUNT_ID ?? "";
+    const mailmarkAwsAccountId = process.env.AWS_ACCOUNT_ID ?? "";
 
     const cfnTemplateUrl = `${appUrl}/infra/byo-aws-cfn.yml`;
     const inboundWebhookUrl = `${convexSiteUrl}/ingestEmail`;
@@ -341,7 +341,7 @@ export const verify = action({
         verified: false,
         awsAccountId: null,
         sesSandbox: null,
-        error: `Could not assume role. Check that the trust policy allows ${process.env.MAILMARK_AWS_ACCOUNT_ID ?? "our AWS account"} and that the ExternalId matches. Details: ${msg}`,
+        error: `Could not assume role. Check that the trust policy allows ${process.env.AWS_ACCOUNT_ID ?? "our AWS account"} and that the ExternalId matches. Details: ${msg}`,
       };
     }
 
