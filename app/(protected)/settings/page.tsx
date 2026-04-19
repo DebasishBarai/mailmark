@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Doc, Id } from "../../../convex/_generated/dataModel";
+import { ConnectAwsAccountWizard } from "../../components/ConnectAwsAccountWizard";
 
 type AwsAccountSummary = {
   _id: Id<"awsAccounts">;
@@ -204,6 +205,7 @@ export default function SettingsPage() {
     | AwsAccountSummary[]
     | undefined;
   const domains = useQuery(api.domains.listForCurrentUser);
+  const [showWizard, setShowWizard] = useState(false);
 
   const domainsByAccount = useMemo(() => {
     const map = new Map<Id<"awsAccounts">, Doc<"domains">[]>();
@@ -229,14 +231,36 @@ export default function SettingsPage() {
       </div>
 
       <section>
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            AWS accounts
-          </h2>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            AWS accounts you&apos;ve connected to host your own email infrastructure. Connect a new one from the Add Domain flow.
-          </p>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              AWS accounts
+            </h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              AWS accounts you&apos;ve connected to host your own email infrastructure.
+            </p>
+          </div>
+          {!showWizard && (
+            <button
+              onClick={() => setShowWizard(true)}
+              className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Connect AWS account
+            </button>
+          )}
         </div>
+
+        {showWizard && (
+          <div className="mb-4">
+            <ConnectAwsAccountWizard
+              onCancel={() => setShowWizard(false)}
+              onVerified={() => setShowWizard(false)}
+            />
+          </div>
+        )}
 
         {isLoading ? (
           <div className="space-y-4">
@@ -248,14 +272,16 @@ export default function SettingsPage() {
             ))}
           </div>
         ) : (awsAccounts ?? []).length === 0 ? (
-          <div className="rounded-xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-gray-700 dark:bg-gray-800">
-            <p className="text-sm font-medium text-gray-900 dark:text-white">
-              No connected AWS accounts yet
-            </p>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Connect your own AWS account during the Add Domain flow to host your email infrastructure there.
-            </p>
-          </div>
+          !showWizard && (
+            <div className="rounded-xl border border-gray-200 bg-white px-6 py-12 text-center dark:border-gray-700 dark:bg-gray-800">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                No connected AWS accounts yet
+              </p>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Click <strong>Connect AWS account</strong> above to host your email infrastructure in your own AWS account.
+              </p>
+            </div>
+          )
         ) : (
           <div className="space-y-4">
             {(awsAccounts ?? []).map((acc) => (
