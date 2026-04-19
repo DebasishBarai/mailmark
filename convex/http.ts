@@ -19,7 +19,17 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const secret = request.headers.get("x-webhook-secret");
-    if (secret !== process.env.SES_WEBHOOK_SECRET) {
+    // Platform Lambda uses SES_WEBHOOK_SECRET. BYO-AWS Lambdas are baked
+    // with a per-account secret at CFN stack creation; look it up on the
+    // awsAccounts table.
+    const isPlatformSecret =
+      !!secret && secret === process.env.SES_WEBHOOK_SECRET;
+    const awsAccount = !isPlatformSecret && secret
+      ? await ctx.runQuery(internal.awsAccounts.getByWebhookSecretInternal, {
+          secret,
+        })
+      : null;
+    if (!isPlatformSecret && !awsAccount) {
       return new Response("Unauthorized", { status: 401 });
     }
 
@@ -117,7 +127,14 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const secret = request.headers.get("x-webhook-secret");
-    if (secret !== process.env.SES_WEBHOOK_SECRET) {
+    const isPlatformSecret =
+      !!secret && secret === process.env.SES_WEBHOOK_SECRET;
+    const awsAccount = !isPlatformSecret && secret
+      ? await ctx.runQuery(internal.awsAccounts.getByWebhookSecretInternal, {
+          secret,
+        })
+      : null;
+    if (!isPlatformSecret && !awsAccount) {
       return new Response("Unauthorized", { status: 401 });
     }
 

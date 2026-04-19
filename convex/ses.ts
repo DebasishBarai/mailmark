@@ -13,18 +13,25 @@ import { action, internalAction, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { PLAN_LIMITS } from "./quotas";
 import { Id } from "./_generated/dataModel";
-import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
-import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { SendEmailCommand } from "@aws-sdk/client-sesv2";
+import { PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { simpleParser } from "mailparser";
+import {
+  getPlatformAwsClients,
+  getAwsClientsForAccount,
+  type AwsClientBundle,
+} from "./lib/awsClients";
+import type { Doc } from "./_generated/dataModel";
 
-function getSESClient() {
-  return new SESv2Client({
-    region: process.env.AWS_REGION!,
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    },
-  });
+// Resolve the client bundle for a mailbox — platform by default, BYO when
+// the mailbox's domain has an awsAccount attached (and verified).
+async function clientsForMailboxResult(
+  mailbox: { awsAccount?: Doc<"awsAccounts"> | null }
+): Promise<AwsClientBundle> {
+  if (mailbox.awsAccount) {
+    return await getAwsClientsForAccount(mailbox.awsAccount);
+  }
+  return getPlatformAwsClients();
 }
 
 // Generate unsubscribe headers and footer for RFC 8058 compliance
@@ -83,16 +90,6 @@ function buildRawMimeEmail(
   }
   lines.push(`--${boundary}--`);
   return lines.join("\r\n");
-}
-
-function getS3Client() {
-  return new S3Client({
-    region: process.env.AWS_REGION!,
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    },
-  });
 }
 
 export const sendEmail = action({
@@ -167,7 +164,8 @@ export const sendEmail = action({
       ? `${mailbox.displayName} <${mailbox.fullAddress}>`
       : mailbox.fullAddress;
 
-    const ses = getSESClient();
+    const aws = await clientsForMailboxResult(mailbox);
+    const ses = aws.sesv2;
     const messageId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const hasAttachments = (attachments ?? []).length > 0;
 
@@ -222,10 +220,9 @@ export const sendEmail = action({
 
     // Save raw email to S3
     const s3Key = `${mailbox.domain}/${mailbox.address}/${emailFolder}/${messageId}.eml`;
-    const s3 = getS3Client();
-    await s3.send(
+    await aws.s3.send(
       new PutObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET!,
+        Bucket: aws.s3Bucket,
         Key: s3Key,
         Body: rawEmail,
         ContentType: "message/rfc822",
@@ -255,16 +252,30 @@ export const sendEmail = action({
   },
 });
 
+// Resolve the correct client bundle from an s3Key (format: `{domain}/...`).
+async function clientsForS3Key(
+  ctx: { runQuery: (fn: any, args: any) => Promise<any> },
+  s3Key: string
+): Promise<AwsClientBundle> {
+  const domainName = s3Key.split("/")[0];
+  if (!domainName) return getPlatformAwsClients();
+  const awsAccount = await ctx.runQuery(
+    internal.domains.getAwsAccountByDomainName,
+    { domain: domainName }
+  );
+  return awsAccount ? await getAwsClientsForAccount(awsAccount) : getPlatformAwsClients();
+}
+
 export const fetchEmailBody = action({
   args: { s3Key: v.string() },
   handler: async (ctx, { s3Key }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const s3 = getS3Client();
-    const response = await s3.send(
+    const aws = await clientsForS3Key(ctx, s3Key);
+    const response = await aws.s3.send(
       new GetObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET!,
+        Bucket: aws.s3Bucket,
         Key: s3Key,
       })
     );
@@ -293,10 +304,10 @@ export const getAttachment = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const s3 = getS3Client();
-    const response = await s3.send(
+    const aws = await clientsForS3Key(ctx, s3Key);
+    const response = await aws.s3.send(
       new GetObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET!,
+        Bucket: aws.s3Bucket,
         Key: s3Key,
       })
     );
@@ -398,10 +409,10 @@ export const scheduleEmail = action({
 
     // Save raw email to S3 under the outbox path
     const s3Key = `${mailbox.domain}/${mailbox.address}/outbox/${messageId}.eml`;
-    const s3 = getS3Client();
-    await s3.send(
+    const aws = await clientsForMailboxResult(mailbox);
+    await aws.s3.send(
       new PutObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET!,
+        Bucket: aws.s3Bucket,
         Key: s3Key,
         Body: rawEmail,
         ContentType: "message/rfc822",
@@ -458,9 +469,9 @@ export const sendScheduledEmail = internalAction({
     }
 
     // Read the pre-built raw MIME from S3
-    const s3 = getS3Client();
-    const response = await s3.send(
-      new GetObjectCommand({ Bucket: process.env.AWS_S3_BUCKET!, Key: s3Key })
+    const aws = await clientsForMailboxResult(emails);
+    const response = await aws.s3.send(
+      new GetObjectCommand({ Bucket: aws.s3Bucket, Key: s3Key })
     );
     const rawEmail = await response.Body?.transformToString("utf-8");
     if (!rawEmail) {
@@ -469,7 +480,7 @@ export const sendScheduledEmail = internalAction({
     }
 
     // Send via SES
-    const ses = getSESClient();
+    const ses = aws.sesv2;
     const sesResponse = await ses.send(
       new SendEmailCommand({
         FromEmailAddress: fromAddress,
@@ -562,10 +573,10 @@ export const scheduleEmailViaApi = internalAction({
     ].join("\r\n");
 
     const s3Key = `${mailbox.domain}/${mailbox.address}/outbox/${messageId}.eml`;
-    const s3 = getS3Client();
-    await s3.send(
+    const awsApi = await clientsForMailboxResult(mailbox);
+    await awsApi.s3.send(
       new PutObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET!,
+        Bucket: awsApi.s3Bucket,
         Key: s3Key,
         Body: rawEmail,
         ContentType: "message/rfc822",
@@ -651,7 +662,8 @@ export const sendEmailViaApi = internalAction({
       ? `${mailbox.displayName} <${mailbox.fullAddress}>`
       : mailbox.fullAddress;
 
-    const ses = getSESClient();
+    const awsViaApi = await clientsForMailboxResult(mailbox);
+    const ses = awsViaApi.sesv2;
     const messageId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
     const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? "";
@@ -689,10 +701,9 @@ export const sendEmailViaApi = internalAction({
     );
 
     const s3Key = `${mailbox.domain}/${mailbox.address}/sent/${messageId}.eml`;
-    const s3 = getS3Client();
-    await s3.send(
+    await awsViaApi.s3.send(
       new PutObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET!,
+        Bucket: awsViaApi.s3Bucket,
         Key: s3Key,
         Body: rawEmail,
         ContentType: "message/rfc822",
@@ -735,18 +746,18 @@ export const moveIncomingEmail = internalAction({
 
     if (oldS3Key === newS3Key) return;
 
-    const bucket = process.env.AWS_S3_BUCKET!;
-    const s3 = getS3Client();
+    const aws = await clientsForS3Key(ctx, oldS3Key);
+    const bucket = aws.s3Bucket;
 
     try {
-      await s3.send(
+      await aws.s3.send(
         new CopyObjectCommand({
           Bucket: bucket,
           CopySource: encodeURI(`${bucket}/${oldS3Key}`),
           Key: newS3Key,
         })
       );
-      await s3.send(
+      await aws.s3.send(
         new DeleteObjectCommand({
           Bucket: bucket,
           Key: oldS3Key,

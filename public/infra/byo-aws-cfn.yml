@@ -1,0 +1,316 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Mailmark - Bring Your Own AWS: provisions S3 bucket, Lambda email parser,
+  SES receipt rule set, SES sending configuration set, SNS topics, and an
+  IAM role that Mailmark's AWS account can assume to manage SES identities
+  and send/receive email on your behalf.
+
+Parameters:
+  ExternalId:
+    Type: String
+    Description: Copy this exactly from the Mailmark "Connect AWS account" screen.
+    MinLength: 8
+    NoEcho: true
+  MailmarkAwsAccountId:
+    Type: String
+    Description: Mailmark's AWS account ID (pre-filled by the Mailmark app).
+    AllowedPattern: "[0-9]{12}"
+  WebhookSecret:
+    Type: String
+    Description: Shared secret used by the Lambda to authenticate with Mailmark's API.
+    MinLength: 16
+    NoEcho: true
+  InboundWebhookUrl:
+    Type: String
+    Description: Mailmark Convex URL that receives parsed inbound emails.
+  SendingWebhookUrl:
+    Type: String
+    Description: Mailmark URL that receives SES sending event notifications.
+
+Resources:
+
+  # ── S3 bucket for inbound + outbound raw emails ──────────────────────────────
+  EmailsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "mailmark-${AWS::AccountId}-emails"
+      LifecycleConfiguration:
+        Rules:
+          - Id: transient-incoming-cleanup
+            Status: Enabled
+            Prefix: ""
+            ExpirationInDays: 3650
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  EmailsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref EmailsBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowSESPuts
+            Effect: Allow
+            Principal:
+              Service: ses.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub "arn:aws:s3:::${EmailsBucket}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceAccount: !Ref "AWS::AccountId"
+
+  # ── Lambda: parses each .eml file and calls Mailmark's ingest endpoint ───────
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: emails-bucket-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:CopyObject
+                Resource: !Sub "arn:aws:s3:::${EmailsBucket}/*"
+
+  EmailIngestLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "mailmark-email-ingest-${AWS::StackName}"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      MemorySize: 256
+      Environment:
+        Variables:
+          CONVEX_SITE_URL: !Ref InboundWebhookUrl
+          WEBHOOK_SECRET: !Ref WebhookSecret
+          S3_BUCKET: !Ref EmailsBucket
+      Code:
+        ZipFile: |
+          // Trimmed inline copy of /lambda/ses-s3-handler.mjs. Keep in sync.
+          const { S3Client, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
+          const s3 = new S3Client({});
+          exports.handler = async (event) => {
+            for (const record of event.Records) {
+              const bucket = record.s3.bucket.name;
+              const rawKey = decodeURIComponent(record.s3.object.key.replace(/\+/g, " "));
+              const m = rawKey.match(/^([^/]+)\/incoming\/(.+)$/);
+              if (!m) continue;
+              const domain = m[1];
+              const sesMessageId = m[2];
+              const resp = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: rawKey }));
+              const raw = await resp.Body.transformToString("utf-8");
+              const headers = parseHeaders(raw);
+              const recipients = [...addrs(headers.to), ...addrs(headers.cc)]
+                .filter((a) => a.toLowerCase().endsWith("@" + domain.toLowerCase()));
+              if (recipients.length === 0) continue;
+              const messageId = sesMessageId;
+              const hasAttachments = (headers.contentType || "").toLowerCase().includes("multipart/mixed")
+                || raw.includes("Content-Disposition: attachment");
+              for (const r of recipients) {
+                const local = r.split("@")[0].toLowerCase();
+                const newKey = `${domain}/${local}/inbox/${messageId}.eml`;
+                await s3.send(new CopyObjectCommand({ Bucket: bucket, CopySource: `${bucket}/${rawKey}`, Key: newKey, ContentType: "message/rfc822" }));
+                await fetch(`${process.env.CONVEX_SITE_URL}`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "x-webhook-secret": process.env.WEBHOOK_SECRET },
+                  body: JSON.stringify({
+                    recipientAddress: r.toLowerCase(),
+                    from: headers.from, to: recipients, subject: headers.subject || "(no subject)",
+                    date: headers.date ? new Date(headers.date).getTime() : Date.now(),
+                    messageId, hasAttachments, s3Key: newKey,
+                  }),
+                });
+              }
+              await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: rawKey }));
+            }
+            return { statusCode: 200, body: "OK" };
+          };
+          function parseHeaders(raw) {
+            const end = raw.indexOf("\r\n\r\n");
+            const section = end !== -1 ? raw.slice(0, end) : raw.slice(0, raw.indexOf("\n\n"));
+            const unfolded = section.replace(/\r?\n[ \t]+/g, " ");
+            const h = {};
+            for (const line of unfolded.split(/\r?\n/)) {
+              const i = line.indexOf(":");
+              if (i === -1) continue;
+              h[line.slice(0, i).trim().toLowerCase()] = line.slice(i + 1).trim();
+            }
+            return { from: h.from || "", to: h.to || "", cc: h.cc || "", subject: h.subject || "", date: h.date || "", contentType: h["content-type"] || "" };
+          }
+          function addrs(v) {
+            if (!v) return [];
+            return v.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((p) => {
+              const t = p.trim();
+              const m = t.match(/<([^>]+)>/);
+              return m ? m[1].trim() : (t.includes("@") ? t : null);
+            }).filter(Boolean);
+          }
+
+  LambdaS3InvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt EmailIngestLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !GetAtt EmailsBucket.Arn
+
+  # ── SES receipt rule set (inactive by default - user or Mailmark activates it) ─
+  ReceiptRuleSet:
+    Type: AWS::SES::ReceiptRuleSet
+    Properties:
+      RuleSetName: devmail-receipt-rules
+
+  # ── SNS topic for outbound sending events (delivery / bounce / complaint) ────
+  SendingEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: devmail-sending-events
+      DisplayName: Mailmark SES sending events
+
+  SendingEventsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: https
+      Endpoint: !Ref SendingWebhookUrl
+      TopicArn: !Ref SendingEventsTopic
+
+  # ── SES configuration set for outbound emails ────────────────────────────────
+  SendingConfigurationSet:
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: devmail-sending
+
+  SendingConfigurationSetEventDestination:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Properties:
+      ConfigurationSetName: !Ref SendingConfigurationSet
+      EventDestination:
+        Name: devmail-sending-sns
+        Enabled: true
+        MatchingEventTypes:
+          - send
+          - delivery
+          - bounce
+          - complaint
+        SnsDestination:
+          TopicARN: !Ref SendingEventsTopic
+
+  # ── IAM role Mailmark's account can assume to manage this AWS account ────────
+  MailmarkAssumeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "MailmarkIntegrationRole-${AWS::StackName}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${MailmarkAwsAccountId}:root"
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref ExternalId
+      Policies:
+        - PolicyName: mailmark-ses-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: SESIdentity
+                Effect: Allow
+                Action:
+                  - ses:CreateEmailIdentity
+                  - ses:GetEmailIdentity
+                  - ses:DeleteEmailIdentity
+                  - ses:PutEmailIdentityMailFromAttributes
+                  - ses:PutEmailIdentityDkimAttributes
+                  - ses:PutEmailIdentityDkimSigningAttributes
+                  - ses:ListEmailIdentities
+                  - ses:GetAccount
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                  - ses:CreateConfigurationSet
+                  - ses:GetConfigurationSet
+                  - ses:DeleteConfigurationSet
+                  - ses:CreateConfigurationSetEventDestination
+                  - ses:UpdateConfigurationSetEventDestination
+                  - ses:DeleteConfigurationSetEventDestination
+                  - ses:PutConfigurationSetDeliveryOptions
+                Resource: "*"
+              - Sid: SESReceipt
+                Effect: Allow
+                Action:
+                  - ses:CreateReceiptRule
+                  - ses:DeleteReceiptRule
+                  - ses:UpdateReceiptRule
+                  - ses:DescribeReceiptRule
+                  - ses:CreateReceiptRuleSet
+                  - ses:DeleteReceiptRuleSet
+                  - ses:DescribeReceiptRuleSet
+                  - ses:SetActiveReceiptRuleSet
+                  - ses:DescribeActiveReceiptRuleSet
+                  - ses:ListReceiptRuleSets
+                Resource: "*"
+              - Sid: SNS
+                Effect: Allow
+                Action:
+                  - sns:CreateTopic
+                  - sns:GetTopicAttributes
+                  - sns:SetTopicAttributes
+                  - sns:Subscribe
+                  - sns:Unsubscribe
+                  - sns:ListSubscriptions
+                  - sns:ListSubscriptionsByTopic
+                  - sns:ListTopics
+                  - sns:DeleteTopic
+                Resource: "*"
+              - Sid: S3
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                  - s3:PutBucketNotification
+                  - s3:GetBucketNotification
+                Resource:
+                  - !Sub "arn:aws:s3:::${EmailsBucket}"
+                  - !Sub "arn:aws:s3:::${EmailsBucket}/*"
+              - Sid: STS
+                Effect: Allow
+                Action:
+                  - sts:GetCallerIdentity
+                Resource: "*"
+
+Outputs:
+  RoleArn:
+    Description: Paste this back into Mailmark's "Verify" step.
+    Value: !GetAtt MailmarkAssumeRole.Arn
+  BucketName:
+    Description: Paste this back into Mailmark's "Verify" step.
+    Value: !Ref EmailsBucket
+  AwsAccountId:
+    Description: Your AWS account ID (for reference).
+    Value: !Ref "AWS::AccountId"
+  Region:
+    Description: The region this stack was deployed in.
+    Value: !Ref "AWS::Region"

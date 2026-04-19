@@ -12,9 +12,16 @@ export const getMailboxWithDomain = internalQuery({
     const domain = await ctx.db.get(mailbox.domainId);
     if (!domain) return null;
 
+    // Include the AWS account row (if the domain is BYO) so action callers
+    // can route SES/S3 calls to the right account without an extra lookup.
+    const awsAccount = domain.awsAccountId
+      ? await ctx.db.get(domain.awsAccountId)
+      : null;
+
     return {
       ...mailbox,
       domain: domain.domain,
+      awsAccount,
     };
   },
 });
