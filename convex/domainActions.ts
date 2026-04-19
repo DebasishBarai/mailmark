@@ -10,7 +10,6 @@ import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
-  SESv2Client,
   CreateEmailIdentityCommand,
   GetEmailIdentityCommand,
   DeleteEmailIdentityCommand,
@@ -19,7 +18,6 @@ import {
   CreateConfigurationSetEventDestinationCommand,
 } from "@aws-sdk/client-sesv2";
 import {
-  SESClient,
   CreateReceiptRuleSetCommand,
   CreateReceiptRuleCommand,
   DeleteReceiptRuleCommand,
@@ -27,41 +25,16 @@ import {
   DescribeActiveReceiptRuleSetCommand,
 } from "@aws-sdk/client-ses";
 import {
-  SNSClient,
   CreateTopicCommand,
   SubscribeCommand,
 } from "@aws-sdk/client-sns";
 import dns from "node:dns";
-
-function getSESv2Client() {
-  return new SESv2Client({
-    region: process.env.AWS_REGION!,
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    },
-  });
-}
-
-function getSESClient() {
-  return new SESClient({
-    region: process.env.AWS_REGION!,
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    },
-  });
-}
-
-function getSNSClient() {
-  return new SNSClient({
-    region: process.env.AWS_REGION!,
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    },
-  });
-}
+import {
+  getPlatformAwsClients,
+  getAwsClientsForAccount,
+  type AwsClientBundle,
+} from "./lib/awsClients";
+import type { Doc } from "./_generated/dataModel";
 
 // DNS resolution helpers - use Google's public DNS to avoid stale
 // caches on Convex's internal system resolver
@@ -93,8 +66,12 @@ async function resolveTxt(hostname: string): Promise<string[][]> {
 }
 
 export const add = action({
-  args: { domain: v.string() },
-  handler: async (ctx, { domain }): Promise<{ domainId: string; dkimTokens: string[] }> => {
+  args: {
+    domain: v.string(),
+    // Optional: use a user-connected AWS account instead of the platform's.
+    awsAccountId: v.optional(v.id("awsAccounts")),
+  },
+  handler: async (ctx, { domain, awsAccountId }): Promise<{ domainId: string; dkimTokens: string[] }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
@@ -123,8 +100,26 @@ export const add = action({
     });
     if (existing) throw new Error("Domain already exists");
 
-    const sesv2 = getSESv2Client();
-    const result = await sesv2.send(
+    // Resolve which AWS account the domain should live in.
+    let clients: AwsClientBundle;
+    if (awsAccountId) {
+      const account = await ctx.runQuery(internal.awsAccounts.getByIdInternal, {
+        accountId: awsAccountId,
+      });
+      if (!account || account.userId !== user._id) {
+        throw new Error("AWS account not found");
+      }
+      if (account.status !== "verified") {
+        throw new Error(
+          `AWS account "${account.alias}" is not verified. Please complete the CloudFormation stack setup and verify the role before adding a domain.`
+        );
+      }
+      clients = await getAwsClientsForAccount(account);
+    } else {
+      clients = getPlatformAwsClients();
+    }
+
+    const result = await clients.sesv2.send(
       new CreateEmailIdentityCommand({
         EmailIdentity: domain,
         DkimSigningAttributes: {
@@ -136,7 +131,7 @@ export const add = action({
     const dkimTokens = result.DkimAttributes?.Tokens ?? [];
 
     // Configure custom MAIL FROM domain for SPF/DMARC alignment
-    await sesv2.send(
+    await clients.sesv2.send(
       new PutEmailIdentityMailFromAttributesCommand({
         EmailIdentity: domain,
         MailFromDomain: `mail.${domain}`,
@@ -148,6 +143,7 @@ export const add = action({
       userId: user._id,
       domain,
       sesDkimTokens: dkimTokens,
+      awsAccountId,
     });
 
     return { domainId, dkimTokens };
@@ -165,8 +161,17 @@ export const verifyDns = action({
     });
     if (!domain) throw new Error("Domain not found");
 
+    // Resolve AWS clients for this domain (platform or BYO).
+    const awsAccount = await ctx.runQuery(
+      internal.domains.getAwsAccountForDomain,
+      { domainId }
+    );
+    const clients: AwsClientBundle = awsAccount
+      ? await getAwsClientsForAccount(awsAccount)
+      : getPlatformAwsClients();
+
     const dkimTokens = domain.sesDkimTokens ?? [];
-    const region = "ap-south-1";
+    const region = clients.region;
 
     // Check each DKIM CNAME record individually via DNS
     const dkimRecordStatus = await Promise.all(
@@ -227,7 +232,7 @@ export const verifyDns = action({
     const actualDmarcValue = dmarcRecord ? dmarcRecord.join("") : undefined;
 
     // Check SES status for overall DKIM verification
-    const sesv2 = getSESv2Client();
+    const sesv2 = clients.sesv2;
 
     // Ensure custom MAIL FROM is configured in SES (for domains added before this feature)
     try {
@@ -289,7 +294,7 @@ export const verifyDns = action({
     // freshly verified this check, or was already verified before).
     if (status.verified) {
       try {
-        await ensureReceiptRuleWithSns(domain.domain);
+        await ensureReceiptRuleWithSns(domain.domain, clients);
         await ctx.runMutation(internal.domains.markReceiptRuleCreated, {
           domainId,
         });
@@ -300,7 +305,7 @@ export const verifyDns = action({
       // Ensure the sending configuration set exists so that outgoing emails
       // receive Delivery and Bounce notifications via SNS.
       try {
-        await ensureSendingConfigurationSet();
+        await ensureSendingConfigurationSet(clients);
       } catch (error: unknown) {
         console.error("Failed to create sending configuration set:", error);
       }
@@ -336,8 +341,14 @@ export const remove = action({
     }
 
     try {
-      const sesv2 = getSESv2Client();
-      await sesv2.send(
+      const awsAccount = await ctx.runQuery(
+        internal.domains.getAwsAccountForDomain,
+        { domainId }
+      );
+      const clients = awsAccount
+        ? await getAwsClientsForAccount(awsAccount)
+        : getPlatformAwsClients();
+      await clients.sesv2.send(
         new DeleteEmailIdentityCommand({
           EmailIdentity: domain.domain,
         })
@@ -353,17 +364,31 @@ export const remove = action({
 // Public action so already-verified domains can set up the sending
 // configuration set without having to re-run DNS verification.
 export const setupSendingNotifications = action({
-  args: {},
-  handler: async (ctx): Promise<void> => {
+  args: { awsAccountId: v.optional(v.id("awsAccounts")) },
+  handler: async (ctx, { awsAccountId }): Promise<void> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    await ensureSendingConfigurationSet();
+
+    let clients: AwsClientBundle;
+    if (awsAccountId) {
+      const account = await ctx.runQuery(internal.awsAccounts.getByIdInternal, {
+        accountId: awsAccountId,
+      });
+      if (!account) throw new Error("AWS account not found");
+      clients = await getAwsClientsForAccount(account);
+    } else {
+      clients = getPlatformAwsClients();
+    }
+    await ensureSendingConfigurationSet(clients);
   },
 });
 
 // Creates an SNS topic for the domain and subscribes the webhook endpoint
-async function ensureSnsTopicForDomain(domain: string): Promise<string> {
-  const sns = getSNSClient();
+async function ensureSnsTopicForDomain(
+  domain: string,
+  clients: AwsClientBundle
+): Promise<string> {
+  const sns = clients.sns;
   const topicName = `devmail-${domain.replace(/\./g, "-")}`;
 
   // CreateTopic is idempotent - returns existing ARN if topic already exists
@@ -390,9 +415,11 @@ async function ensureSnsTopicForDomain(domain: string): Promise<string> {
 // Creates (idempotent) an SES v2 Configuration Set with an SNS event
 // destination for Delivery and Bounce notifications. All emails sent with
 // ConfigurationSetName="devmail-sending" will trigger these events.
-export async function ensureSendingConfigurationSet(): Promise<void> {
-  const sesv2 = getSESv2Client();
-  const sns = getSNSClient();
+export async function ensureSendingConfigurationSet(
+  clients: AwsClientBundle
+): Promise<void> {
+  const sesv2 = clients.sesv2;
+  const sns = clients.sns;
   const configSetName = "devmail-sending";
   const topicName = "devmail-sending-events";
 
@@ -459,8 +486,15 @@ export const cleanupUnverifiedDomainsInternal = internalAction({
     let deleted = 0;
     for (const domain of domains) {
       try {
-        const sesv2 = getSESv2Client();
-        await sesv2.send(
+        const awsAccount = domain.awsAccountId
+          ? await ctx.runQuery(internal.awsAccounts.getByIdInternal, {
+              accountId: domain.awsAccountId,
+            })
+          : null;
+        const clients = awsAccount
+          ? await getAwsClientsForAccount(awsAccount)
+          : getPlatformAwsClients();
+        await clients.sesv2.send(
           new DeleteEmailIdentityCommand({ EmailIdentity: domain.domain })
         );
       } catch (error: unknown) {
@@ -495,10 +529,10 @@ export const cleanupUnverifiedDomains = action({
 
 // Ensures an SES receipt rule exists with both S3 and SNS actions.
 // Deletes and recreates the rule to update existing rules that lack SNS.
-async function ensureReceiptRuleWithSns(domain: string) {
-  const ses = getSESClient();
+async function ensureReceiptRuleWithSns(domain: string, clients: AwsClientBundle) {
+  const ses = clients.ses;
   const ruleSetName = "devmail-receipt-rules";
-  const bucket = process.env.AWS_S3_BUCKET!;
+  const bucket = clients.s3Bucket;
 
   // Ensure rule set exists and is active
   try {
@@ -531,7 +565,7 @@ async function ensureReceiptRuleWithSns(domain: string) {
   const ruleName = `devmail-${domain.replace(/\./g, "-")}`;
 
   // Create SNS topic and subscribe webhook
-  const topicArn = await ensureSnsTopicForDomain(domain);
+  const topicArn = await ensureSnsTopicForDomain(domain, clients);
 
   // Delete existing rule so we can recreate it with SNS action
   try {

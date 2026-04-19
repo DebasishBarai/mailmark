@@ -61,6 +61,7 @@ export const insertDomain = internalMutation({
     domain: v.string(),
     sesVerificationToken: v.optional(v.string()),
     sesDkimTokens: v.optional(v.array(v.string())),
+    awsAccountId: v.optional(v.id("awsAccounts")),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("domains", {
@@ -73,7 +74,34 @@ export const insertDomain = internalMutation({
       dmarcVerified: false,
       sesVerificationToken: args.sesVerificationToken,
       sesDkimTokens: args.sesDkimTokens,
+      awsAccountId: args.awsAccountId,
     });
+  },
+});
+
+// Fetch the awsAccounts row for a domain, if any. Returns null for
+// platform-hosted domains (awsAccountId unset).
+export const getAwsAccountForDomain = internalQuery({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }) => {
+    const domain = await ctx.db.get(domainId);
+    if (!domain?.awsAccountId) return null;
+    return await ctx.db.get(domain.awsAccountId);
+  },
+});
+
+// Look up the AWS account for a domain-by-name. Used by operations that
+// only have an S3 key (which starts with `{domain}/...`) to figure out
+// which AWS account owns the object.
+export const getAwsAccountByDomainName = internalQuery({
+  args: { domain: v.string() },
+  handler: async (ctx, { domain }) => {
+    const row = await ctx.db
+      .query("domains")
+      .withIndex("by_domain", (q) => q.eq("domain", domain))
+      .unique();
+    if (!row?.awsAccountId) return null;
+    return await ctx.db.get(row.awsAccountId);
   },
 });
 

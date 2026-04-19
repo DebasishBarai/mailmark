@@ -2,7 +2,31 @@ import { v } from "convex/values";
 import { query, mutation, action, internalMutation, internalQuery, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { PLAN_LIMITS, resolvePlan } from "./quotas";
-import { S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import { DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import {
+  getPlatformAwsClients,
+  getAwsClientsForAccount,
+  type AwsClientBundle,
+} from "./lib/awsClients";
+
+// Resolve AWS clients for a mailbox's deletion: uses the mailbox's domain
+// to find the BYO awsAccount row (if any), falling back to platform creds.
+// S3 keys are stored as `{domain}/{mailbox}/...`, so we read the mailbox's
+// domainId, look up the domain, and then the awsAccount.
+async function clientsForMailboxId(
+  ctx: { runQuery: (fn: any, args: any) => Promise<any> },
+  mailboxId: string
+): Promise<AwsClientBundle> {
+  // Use the existing helper to find the mailbox → domain → awsAccount chain.
+  const info = await ctx.runQuery(
+    internal.emails.getMailboxWithDomain,
+    { mailboxId }
+  );
+  if (info?.awsAccount) {
+    return await getAwsClientsForAccount(info.awsAccount);
+  }
+  return getPlatformAwsClients();
+}
 
 export const listByDomain = query({
   args: { domainId: v.id("domains") },
@@ -212,6 +236,8 @@ export const removeRecords = internalMutation({
 export const remove = action({
   args: { mailboxId: v.id("mailboxes") },
   handler: async (ctx, { mailboxId }) => {
+    const aws = await clientsForMailboxId(ctx, mailboxId);
+
     const s3Keys: string[] = await ctx.runMutation(
       internal.mailboxes.removeRecords,
       { mailboxId }
@@ -219,21 +245,11 @@ export const remove = action({
 
     if (s3Keys.length === 0) return;
 
-    const s3 = new S3Client({
-      region: process.env.AWS_REGION!,
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-      },
-    });
-
-    const bucket = process.env.AWS_S3_BUCKET!;
-
     // DeleteObjectsCommand accepts up to 1000 keys per request
     for (let i = 0; i < s3Keys.length; i += 1000) {
-      await s3.send(
+      await aws.s3.send(
         new DeleteObjectsCommand({
-          Bucket: bucket,
+          Bucket: aws.s3Bucket,
           Delete: {
             Objects: s3Keys.slice(i, i + 1000).map((Key) => ({ Key })),
           },
@@ -341,23 +357,17 @@ export const deleteRecordsInternal = internalMutation({
 export const removeInternal = internalAction({
   args: { mailboxId: v.id("mailboxes") },
   handler: async (ctx, { mailboxId }) => {
+    const aws = await clientsForMailboxId(ctx, mailboxId);
+
     const s3Keys: string[] = await ctx.runMutation(
       internal.mailboxes.deleteRecordsInternal,
       { mailboxId }
     );
     if (s3Keys.length === 0) return;
-    const s3 = new S3Client({
-      region: process.env.AWS_REGION!,
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-      },
-    });
-    const bucket = process.env.AWS_S3_BUCKET!;
     for (let i = 0; i < s3Keys.length; i += 1000) {
-      await s3.send(
+      await aws.s3.send(
         new DeleteObjectsCommand({
-          Bucket: bucket,
+          Bucket: aws.s3Bucket,
           Delete: { Objects: s3Keys.slice(i, i + 1000).map((Key) => ({ Key })) },
         })
       );

@@ -37,9 +37,42 @@ export default defineSchema({
     // Custom MAIL FROM domain verification (mail.yourdomain.com)
     mailFromMxVerified: v.optional(v.boolean()),
     mailFromSpfVerified: v.optional(v.boolean()),
+    // Bring-your-own AWS: when set, all SES/S3/SNS calls for this domain use
+    // the referenced AWS account's credentials and bucket. When undefined the
+    // platform's shared AWS account is used (legacy behavior).
+    awsAccountId: v.optional(v.id("awsAccounts")),
   })
     .index("by_user_id", ["userId"])
-    .index("by_domain", ["domain"]),
+    .index("by_domain", ["domain"])
+    .index("by_aws_account", ["awsAccountId"]),
+
+  // User-connected AWS accounts for BYO (bring-your-own) infrastructure.
+  // One row per (user, AWS account) pair. Populated after the user deploys
+  // the Mailmark CloudFormation stack in their own AWS account and pastes
+  // back the stack outputs.
+  awsAccounts: defineTable({
+    userId: v.id("users"),
+    alias: v.string(),
+    roleArn: v.string(),
+    externalId: v.string(),
+    region: v.string(),
+    s3Bucket: v.string(),
+    // The AWS webhook endpoints (inbound + sending-events) are authenticated
+    // by a shared secret we bake into the CFN stack as a Lambda/SNS env var.
+    // Per-account secret → we can distinguish which AWS account a request came from.
+    webhookSecret: v.string(),
+    awsAccountId: v.optional(v.string()),
+    sesSandbox: v.optional(v.boolean()),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("verified"),
+      v.literal("failed")
+    ),
+    lastError: v.optional(v.string()),
+    lastVerifiedAt: v.optional(v.number()),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_webhook_secret", ["webhookSecret"]),
 
   mailboxes: defineTable({
     domainId: v.id("domains"),
