@@ -412,10 +412,7 @@ export default function DomainsPage() {
                 {showWizard && (
                   <ConnectAwsAccountWizard
                     onCancel={() => setShowWizard(false)}
-                    onVerified={(accountId) => {
-                      setSelectedAccountId(accountId);
-                      setShowWizard(false);
-                    }}
+                    onVerified={(accountId) => setSelectedAccountId(accountId)}
                   />
                 )}
               </div>
