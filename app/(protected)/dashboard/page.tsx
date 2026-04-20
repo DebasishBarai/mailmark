@@ -2,54 +2,24 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery, useAction } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Doc } from "../../../convex/_generated/dataModel";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   PieChart, Pie, Cell, ResponsiveContainer,
 } from "recharts";
+import { AddDomainModal } from "../../components/AddDomainModal";
 
 export default function DashboardPage() {
   const domains = useQuery(api.domains.listForCurrentUser);
   const emailStats = useQuery(api.emailStats.getForCurrentUser);
-  const addDomain = useAction(api.domainActions.add);
   const isLoading = domains === undefined;
   const statsLoading = emailStats === undefined;
 
   const domainCount = domains?.length ?? 0;
 
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newDomain, setNewDomain] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
-  const [addError, setAddError] = useState("");
-
-  const domainRegex = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
-
-  const handleAddDomain = async () => {
-    const domain = newDomain.trim().toLowerCase();
-    if (!domain) return;
-    if (!domainRegex.test(domain)) {
-      setAddError("Please enter a valid domain (e.g. example.com).");
-      return;
-    }
-    setIsAdding(true);
-    setAddError("");
-    try {
-      await addDomain({ domain: newDomain.trim().toLowerCase() });
-      setShowAddModal(false);
-      setNewDomain("");
-    } catch (error: any) {
-      const message = error?.message ?? "Failed to add domain";
-      if (message.includes("Domain already exists")) {
-        setAddError("This domain has already been added. Please use a different domain.");
-      } else {
-        setAddError(message);
-      }
-    } finally {
-      setIsAdding(false);
-    }
-  };
 
   const deliveryData = emailStats
     ? [
@@ -316,53 +286,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Add domain modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-gray-800">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Add a Domain</h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Enter the domain you own and want to use for email.
-            </p>
-            <div className="mt-6">
-              <label htmlFor="domain" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Domain name
-              </label>
-              <input
-                id="domain"
-                type="text"
-                value={newDomain}
-                onChange={(e) => { setNewDomain(e.target.value); setAddError(""); }}
-                onKeyDown={(e) => e.key === "Enter" && handleAddDomain()}
-                placeholder="yourcompany.com"
-                className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
-              />
-              {addError && (
-                <p className="mt-2 text-sm text-red-600 dark:text-red-400">{addError}</p>
-              )}
-            </div>
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => {
-                  setShowAddModal(false);
-                  setNewDomain("");
-                  setAddError("");
-                }}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddDomain}
-                disabled={!newDomain.trim() || isAdding}
-                className="flex-1 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
-              >
-                {isAdding ? "Adding..." : "Add Domain"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showAddModal && <AddDomainModal onClose={() => setShowAddModal(false)} />}
     </div>
   );
 }
