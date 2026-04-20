@@ -81,7 +81,12 @@ export const createDraft = action({
       "";
     const mailmarkAwsAccountId = process.env.AWS_ACCOUNT_ID ?? "";
 
-    const cfnTemplateUrl = `${appUrl}/infra/byo-aws-cfn.yml`;
+    const cfnTemplateUrl = process.env.MAILMARK_CFN_TEMPLATE_URL ?? "";
+    if (!cfnTemplateUrl) {
+      throw new Error(
+        "Server is missing MAILMARK_CFN_TEMPLATE_URL. Upload public/infra/byo-aws-cfn.yml to a public S3 object and set MAILMARK_CFN_TEMPLATE_URL to that URL."
+      );
+    }
     const inboundWebhookUrl = `${convexSiteUrl}/ingestEmail`;
     const sendingWebhookUrl = `${appUrl}/api/ses-webhook`;
 
