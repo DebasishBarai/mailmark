@@ -331,7 +331,8 @@ function MiniShell({
           style={{
             position: "absolute",
             inset: 0,
-            zIndex: 0,
+            zIndex: 2,
+            pointerEvents: "none",
           }}
         >
           <Img
@@ -408,11 +409,7 @@ function MiniShell({
         <div
           style={{
             width: 150,
-            background: wallpaperUrl
-              ? t.isDark
-                ? "rgba(0,0,0,0.6)"
-                : "rgba(255,255,255,0.85)"
-              : t.sidebarBg,
+            background: t.sidebarBg,
             borderRight: `1px solid ${t.border}`,
             padding: `${py * 1.5}px 8px`,
             display: "flex",
@@ -463,11 +460,7 @@ function MiniShell({
           style={{
             flex: 1,
             overflow: "hidden",
-            background: wallpaperUrl
-              ? t.isDark
-                ? "rgba(0,0,0,0.5)"
-                : "rgba(255,255,255,0.8)"
-              : t.mainBg,
+            background: t.mainBg,
             padding: `${py}px`,
           }}
         >
@@ -898,7 +891,7 @@ function SceneWallpapers({ theme }: { theme: "light" | "dark" }) {
         }}
       >
         <MiniShell
-          themeColors={themes["clean-white"]}
+          themeColors={isLight ? themes["clean-white"] : themes["dracula"]}
           wallpaperUrl={wallpapers[wpIndex].url}
         />
       </div>
