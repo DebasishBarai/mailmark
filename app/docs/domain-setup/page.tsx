@@ -39,6 +39,7 @@ function InfoBox({ children }: { children: React.ReactNode }) {
 }
 
 const NAV = [
+  { id: "choose-infra", label: "Choose your infrastructure" },
   { id: "verifying-domain", label: "Verifying your domain" },
   { id: "mx-records", label: "Configuring MX records" },
   { id: "spf-dkim", label: "Setting up SPF & DKIM" },
@@ -81,6 +82,33 @@ export default function DomainSetupPage() {
           <p className="mt-3 text-lg text-gray-600 dark:text-gray-300">
             Configure DNS records to verify your domain and ensure reliable email delivery.
           </p>
+
+          <Section id="choose-infra" title="Choose your infrastructure">
+            <p>
+              When you click <strong>Add domain</strong>, Mailmark asks where the underlying AWS resources (SES identity, S3 bucket for inbound email, Lambda forwarder, and SNS topics) should live. There are two options, and you pick one per domain:
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-gray-100 p-5 dark:border-gray-700">
+                <p className="font-semibold text-gray-900 dark:text-white">Mailmark infrastructure</p>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                  Mailmark hosts and operates the AWS resources in its own account. Simplest setup. Recommended for most users. No separate AWS bill.
+                </p>
+              </div>
+              <div className="rounded-xl border border-gray-100 p-5 dark:border-gray-700">
+                <p className="font-semibold text-gray-900 dark:text-white">Use my own AWS account (BYO-AWS)</p>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                  The same resources are deployed inside your AWS account via a CloudFormation Quick-Create stack. You keep full ownership of the data and pay SES / S3 costs on your AWS bill.
+                </p>
+              </div>
+            </div>
+            <InfoBox>
+              The choice only affects <em>where</em> the AWS resources live. The DNS records you paste into your registrar (MX, SPF, DKIM, DMARC) are the same in both modes. You can pick a different infrastructure per domain.
+            </InfoBox>
+            <p>
+              For the full BYO-AWS flow - CloudFormation stack, IAM role with <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">ExternalId</code>, SES sandbox detection, and disconnect behavior - see{" "}
+              <Link href="/docs/byo-aws" className="text-violet-600 hover:underline">Bring your own AWS account</Link>.
+            </p>
+          </Section>
 
           <Section id="verifying-domain" title="Verifying your domain">
             <p>

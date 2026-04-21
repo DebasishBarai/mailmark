@@ -93,7 +93,8 @@ export default function GettingStartedPage() {
                 Go to <Link href="/" className="text-violet-600 hover:underline">mailmark.dev</Link> and click Sign In. Sign up with your email or Google/Github account.
               </Step>
               <Step n={2} title="Add and verify your domain">
-                Go to <strong>Dashboard → Domains</strong> and click <strong>Add domain</strong>. Enter your domain name and follow the DNS instructions to verify ownership.
+                Go to <strong>Dashboard → Domains</strong> and click <strong>Add domain</strong>. Enter your domain name and pick an infrastructure - <strong>Mailmark infrastructure</strong> (recommended) or <strong>Use my own AWS account</strong> (see{" "}
+                <Link href="/docs/byo-aws" className="text-violet-600 hover:underline">BYO-AWS</Link>). Then follow the DNS instructions to verify ownership.
               </Step>
               <Step n={3} title="Create a mailbox">
                 Once your domain is verified, create a mailbox under <strong>Dashboard → Mailboxes</strong>. For example, <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">hello@yourdomain.com</code>.
@@ -120,9 +121,13 @@ export default function GettingStartedPage() {
             </p>
             <div className="mt-4 space-y-3">
               <p><strong>1.</strong> Go to <strong>Dashboard → Domains</strong> and click <strong>Add domain</strong>.</p>
-              <p><strong>2.</strong> Enter your domain (e.g. <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">acme.com</code>) and click <strong>Continue</strong>.</p>
-              <p><strong>3.</strong> Mailmark will show you DNS records to add to your domain registrar. These include TXT records for SPF and DKIM. Add them all.</p>
-              <p><strong>4.</strong> Click <strong>Verify</strong>. DNS propagation can take up to 48 hours but usually completes within minutes.</p>
+              <p><strong>2.</strong> Enter your domain (e.g. <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">acme.com</code>).</p>
+              <p>
+                <strong>3.</strong> Pick where the AWS resources should live: <strong>Mailmark infrastructure</strong> (default, recommended) or <strong>Use my own AWS account</strong>. The DNS records are the same either way - the choice only affects where SES / S3 / Lambda are provisioned. See{" "}
+                <Link href="/docs/byo-aws" className="text-violet-600 hover:underline">BYO-AWS</Link> for the advanced flow.
+              </p>
+              <p><strong>4.</strong> Mailmark will show you DNS records to add to your domain registrar. These include TXT records for SPF and DKIM. Add them all.</p>
+              <p><strong>5.</strong> Click <strong>Verify</strong>. DNS propagation can take up to 48 hours but usually completes within minutes.</p>
             </div>
             <p>
               Once verified the domain status changes to <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">Active</span>.

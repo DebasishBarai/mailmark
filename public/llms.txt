@@ -13,15 +13,17 @@
 5. [Quotas & Limits](#quotas--limits)
 6. [Getting Started](#getting-started)
 7. [Domain Setup & DNS](#domain-setup--dns)
-8. [Mailboxes](#mailboxes)
-9. [Email UI](#email-ui)
-10. [Email Campaigns](#email-campaigns)
-11. [REST API](#rest-api)
-12. [npm SDK](#npm-sdk)
-13. [Billing & Subscriptions](#billing--subscriptions)
-14. [Affiliate Program](#affiliate-program)
-15. [Frequently Asked Questions](#frequently-asked-questions)
-16. [Key URLs](#key-urls)
+8. [Infrastructure: Mailmark-hosted vs BYO-AWS](#infrastructure-mailmark-hosted-vs-byo-aws)
+9. [Settings → AWS Accounts](#settings--aws-accounts)
+10. [Mailboxes](#mailboxes)
+11. [Email UI](#email-ui)
+12. [Email Campaigns](#email-campaigns)
+13. [REST API](#rest-api)
+14. [npm SDK](#npm-sdk)
+15. [Billing & Subscriptions](#billing--subscriptions)
+16. [Affiliate Program](#affiliate-program)
+17. [Frequently Asked Questions](#frequently-asked-questions)
+18. [Key URLs](#key-urls)
 
 ---
 
@@ -29,7 +31,7 @@
 
 Mailmark combines three things that businesses previously needed separate tools for:
 
-1. **Custom domain email hosting** - Receive and send email from addresses on your own domain (e.g. hello@acme.com) without managing mail servers. Mailmark handles the infrastructure using Amazon SES.
+1. **Custom domain email hosting** - Receive and send email from addresses on your own domain (e.g. hello@acme.com) without managing mail servers. Mailmark handles the infrastructure using Amazon SES. At domain setup time you can either let Mailmark host the AWS resources (the default) or deploy the same resources inside your own AWS account via CloudFormation (BYO-AWS) - see [Infrastructure: Mailmark-hosted vs BYO-AWS](#infrastructure-mailmark-hosted-vs-byo-aws).
 2. **A full email client** - An inbox, sent folder, outbox, drafts, and trash for every mailbox you create, accessible from any browser. Similar to Gmail but for your custom domain.
 3. **Email campaign tools** - Send bulk outreach and marketing emails from any of your mailboxes with mail merge, personalization, open/click tracking, automated follow-up sequences, and real-time analytics.
 
@@ -40,7 +42,12 @@ Mailmark is not a shared email provider (like Gmail or Outlook). You bring your 
 ## How Mailmark Works
 
 ### Step 1 - Add Your Domain
-Go to Dashboard → Domains and click "Add domain". Enter your domain name (e.g. acme.com). Mailmark registers the domain with Amazon SES and returns the DNS records you need to add to your domain registrar: DKIM CNAME records, SPF TXT record, DMARC TXT record, and MX record for inbound email.
+Go to Dashboard → Domains and click "Add domain". Enter your domain name (e.g. acme.com) and pick where the underlying AWS resources should live:
+
+- **Mailmark infrastructure** (default, recommended) - Mailmark hosts the SES identity, S3 bucket, Lambda forwarder, and SNS topics in its own AWS account.
+- **Use my own AWS account** (BYO-AWS) - the same resources are provisioned inside your AWS account via a CloudFormation Quick-Create stack. You keep full ownership of the raw email data. See [Infrastructure: Mailmark-hosted vs BYO-AWS](#infrastructure-mailmark-hosted-vs-byo-aws).
+
+In either case Mailmark registers the domain with Amazon SES and returns the DNS records you need to add to your domain registrar: DKIM CNAME records, SPF TXT record, DMARC TXT record, and MX record for inbound email. The DNS records themselves are identical in both modes - the choice only affects where the AWS resources live.
 
 ### Step 2 - Verify DNS
 Add the DNS records at your registrar (Cloudflare, Namecheap, GoDaddy, etc.). Click "Verify" in Mailmark. DNS propagation usually completes within minutes but can take up to 48 hours. Mailmark checks MX, SPF, DKIM (three CNAME records), and DMARC individually and shows live verification status for each.
@@ -250,6 +257,47 @@ Mailmark also configures a custom MAIL FROM domain (`mail.yourdomain.com`) for b
 - SPF TXT record on `mail.yourdomain.com` including `amazonses.com`
 
 Verification status for each record is shown in real time in Dashboard → Domains → [your domain].
+
+---
+
+## Infrastructure: Mailmark-hosted vs BYO-AWS
+
+When you add a domain Mailmark asks where the underlying AWS resources (SES identity, S3 bucket for inbound email, Lambda forwarder, SNS topics for bounce/complaint) should live. There are two options:
+
+### Mailmark infrastructure (default)
+Mailmark provisions and operates all AWS resources in its own account. This is the simplest path and is recommended for most users. You pay only the Mailmark subscription - no separate AWS bill.
+
+### Use my own AWS account (BYO-AWS)
+Mailmark deploys the same resources inside your AWS account via a CloudFormation Quick-Create stack. Use this when you need:
+- Data residency - raw email objects live in your own S3 bucket, in your chosen AWS region.
+- Your own SES sending reputation or already-warmed SES account.
+- Regulatory / compliance requirements that require the mailbox contents to be stored in an account you control.
+- To pay SES and S3 costs on your existing AWS bill.
+
+**Connection flow**:
+1. In Add-Domain (or Settings → AWS accounts → Connect AWS account), pick an alias and an AWS region.
+2. Click **Open CloudFormation in AWS**. The Quick-Create URL pre-fills these parameters into the stack: `ExternalId`, `MailmarkAwsAccountId`, `WebhookSecret`, inbound webhook URL, and sending webhook URL.
+3. Deploy the stack in your AWS account. The stack outputs a `RoleArn` (an IAM role trusted by Mailmark's AWS account with an `ExternalId` condition) and a `BucketName`.
+4. Paste the `RoleArn` and `BucketName` back into the Mailmark wizard.
+5. Mailmark verifies by calling `STS.AssumeRole` + `STS.GetCallerIdentity` and probes `SES.GetAccount` to detect whether your SES account is still in the sandbox. If SES is in the sandbox, a badge is shown in the UI and you must request production access in AWS before you can send to external recipients.
+
+Once verified, the AWS account is available as an infrastructure target when adding domains. Multiple domains can share the same connected AWS account.
+
+---
+
+## Settings → AWS Accounts
+
+The Settings page (Dashboard → Settings) lists every AWS account you have connected for BYO-AWS. For each account you see:
+- Alias (the friendly name you gave it)
+- Status (`verified`, `pending`, or `failed`)
+- AWS account ID, region, S3 bucket, and role ARN
+- Last verified timestamp
+- SES sandbox badge if applicable
+- Linked domains - every Mailmark domain currently using this AWS account
+
+From this page you can:
+- **Connect AWS account** - launches the same wizard used in Add-Domain; a newly connected account is immediately available for future domain additions.
+- **Disconnect** - removes the link between Mailmark and your AWS account. **Disconnect is blocked while any domain is still linked to the account** - you must delete those domains in Mailmark first, then disconnect. The CloudFormation stack in your AWS account is never deleted by Mailmark; you remove it yourself in the AWS console if you want to free up the resources.
 
 ---
 
@@ -608,6 +656,8 @@ All further sends are blocked until the next calendar month (when the quota rese
 | Documentation home | https://mailmark.dev/docs |
 | Getting started | https://mailmark.dev/docs/getting-started |
 | Domain setup guide | https://mailmark.dev/docs/domain-setup |
+| BYO-AWS guide | https://mailmark.dev/docs/byo-aws |
+| Settings (AWS accounts) | https://mailmark.dev/settings |
 | Mailboxes guide | https://mailmark.dev/docs/mailboxes |
 | Email campaigns guide | https://mailmark.dev/docs/email-campaigns |
 | API reference | https://mailmark.dev/docs/api |
@@ -637,5 +687,6 @@ All further sends are blocked until the next calendar month (when the quota rese
 - **Email delivery & receiving**: Amazon SES (Simple Email Service)
 - **Email storage**: Amazon S3
 - **Event notifications**: Amazon SNS (webhook delivery for inbound/outbound events)
+- **BYO-AWS provisioning**: AWS CloudFormation Quick-Create stack; cross-account access via IAM `AssumeRole` with an `ExternalId` trust condition. Webhooks signed with a per-account shared secret.
 - **Payments**: Polar (subscription management and billing)
 - **Deployment**: Vercel (frontend), Convex cloud (backend)
