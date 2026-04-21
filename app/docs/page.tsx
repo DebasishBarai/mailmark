@@ -36,10 +36,28 @@ const sections = [
     href: "/docs/domain-setup",
     color: "blue",
     articles: [
+      { label: "Choose your infrastructure", href: "/docs/domain-setup#choose-infra" },
       { label: "Verifying your domain", href: "/docs/domain-setup#verifying-domain" },
       { label: "Configuring MX records", href: "/docs/domain-setup#mx-records" },
       { label: "Setting up SPF & DKIM", href: "/docs/domain-setup#spf-dkim" },
       { label: "DMARC configuration", href: "/docs/domain-setup#dmarc" },
+    ],
+  },
+  {
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
+      </svg>
+    ),
+    title: "Bring your own AWS",
+    href: "/docs/byo-aws",
+    color: "indigo",
+    articles: [
+      { label: "When to use BYO-AWS", href: "/docs/byo-aws#when-to-use" },
+      { label: "What gets provisioned", href: "/docs/byo-aws#what-gets-provisioned" },
+      { label: "Step-by-step setup", href: "/docs/byo-aws#connect" },
+      { label: "Disconnecting", href: "/docs/byo-aws#disconnect" },
+      { label: "Troubleshooting", href: "/docs/byo-aws#troubleshooting" },
     ],
   },
   {
@@ -109,6 +127,7 @@ const sections = [
 const colorMap: Record<string, string> = {
   violet: "bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400",
   blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400",
+  indigo: "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400",
   emerald: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400",
   amber: "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400",
   pink: "bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-400",
@@ -118,6 +137,7 @@ const colorMap: Record<string, string> = {
 const borderMap: Record<string, string> = {
   violet: "hover:border-violet-200 dark:hover:border-violet-700",
   blue: "hover:border-blue-200 dark:hover:border-blue-700",
+  indigo: "hover:border-indigo-200 dark:hover:border-indigo-700",
   emerald: "hover:border-emerald-200 dark:hover:border-emerald-700",
   amber: "hover:border-amber-200 dark:hover:border-amber-700",
   pink: "hover:border-pink-200 dark:hover:border-pink-700",
