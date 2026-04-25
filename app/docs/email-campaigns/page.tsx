@@ -4,7 +4,7 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Email Campaigns - Mailmark Docs",
+  title: "Email Campaigns",
   description: "Create, personalise, schedule, and analyse bulk email campaigns with Mailmark.",
 };
 

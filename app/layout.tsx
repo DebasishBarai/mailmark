@@ -15,9 +15,36 @@ const geistSans = GeistSans;
 const geistMono = GeistMono;
 
 export const metadata: Metadata = {
-  title: "Mailmark - Email Hosting & Campaigns for Your Domain",
+  metadataBase: new URL("https://mailmark.dev"),
+  title: {
+    default: "Mailmark - Email Hosting & Campaigns for Your Domain",
+    template: "%s | Mailmark",
+  },
   description:
     "Add your domain, create unlimited mailboxes, and run powerful email campaigns. A complete email platform with inbox, sent, outbox, and built-in campaign tools.",
+  openGraph: {
+    type: "website",
+    siteName: "Mailmark",
+    title: "Mailmark - Email Hosting & Campaigns for Your Domain",
+    description:
+      "Add your domain, create unlimited mailboxes, and run powerful email campaigns. A complete email platform with inbox, sent, outbox, and built-in campaign tools.",
+    url: "https://mailmark.dev",
+    images: [
+      {
+        url: "/logo-icon.png",
+        width: 200,
+        height: 200,
+        alt: "Mailmark",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Mailmark - Email Hosting & Campaigns for Your Domain",
+    description:
+      "Add your domain, create unlimited mailboxes, and run powerful email campaigns. A complete email platform with inbox, sent, outbox, and built-in campaign tools.",
+    images: ["/logo-icon.png"],
+  },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },

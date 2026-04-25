@@ -4,7 +4,7 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Email Deliverability Guide - Mailmark",
+  title: "Email Deliverability Guide",
   description:
     "A comprehensive guide to improving your email deliverability covering authentication, sender reputation, list hygiene, and content best practices.",
 };

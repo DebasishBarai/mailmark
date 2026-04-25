@@ -501,10 +501,27 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const article = articles[slug];
-  if (!article) return { title: "Article Not Found - Mailmark" };
+  if (!article) return { title: "Article Not Found" };
+  const url = `https://mailmark.dev/blog/${slug}`;
   return {
-    title: `${article.title} - Mailmark Blog`,
+    title: article.title,
     description: article.excerpt,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "article",
+      url,
+      title: article.title,
+      description: article.excerpt,
+      publishedTime: new Date(article.date).toISOString(),
+      section: article.category,
+      images: [{ url: "/logo-icon.png", width: 200, height: 200, alt: "Mailmark" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: article.title,
+      description: article.excerpt,
+      images: ["/logo-icon.png"],
+    },
   };
 }
 
@@ -520,8 +537,38 @@ export default async function BlogArticlePage({
     notFound();
   }
 
+  const articleSchema = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: article.title,
+    description: article.excerpt,
+    datePublished: new Date(article.date).toISOString(),
+    author: {
+      "@type": "Organization",
+      name: "Mailmark",
+      url: "https://mailmark.dev",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Mailmark",
+      url: "https://mailmark.dev",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://mailmark.dev/logo-icon.png",
+      },
+    },
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": `https://mailmark.dev/blog/${slug}`,
+    },
+  };
+
   return (
     <main className="bg-white dark:bg-gray-900">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+      />
       <Header />
 
       {/* Hero */}

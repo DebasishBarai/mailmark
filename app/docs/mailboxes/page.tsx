@@ -4,7 +4,7 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Mailboxes - Mailmark Docs",
+  title: "Mailboxes",
   description: "Create and manage mailboxes, aliases, permissions, and IMAP access in Mailmark.",
 };
 

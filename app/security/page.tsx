@@ -3,7 +3,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Security - Mailmark",
+  title: "Security",
   description:
     "How Mailmark protects your data and email infrastructure with enterprise-grade security practices.",
 };

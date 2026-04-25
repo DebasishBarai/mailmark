@@ -4,7 +4,7 @@ import Footer from "../components/Footer";
 import SubscribeForm from "./subscribe-form";
 
 export const metadata: Metadata = {
-  title: "System Status - Mailmark",
+  title: "System Status",
   description: "Real-time status of all Mailmark services and infrastructure components.",
 };
 

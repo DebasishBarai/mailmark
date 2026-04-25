@@ -3,7 +3,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - Mailmark",
+  title: "Privacy Policy",
   description: "Mailmark Privacy Policy. How we collect, use, and protect your data.",
 };
 
