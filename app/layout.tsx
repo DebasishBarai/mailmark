@@ -29,14 +29,7 @@ export const metadata: Metadata = {
     description:
       "Add your domain, create unlimited mailboxes, and run powerful email campaigns. A complete email platform with inbox, sent, outbox, and built-in campaign tools.",
     url: "https://mailmark.dev",
-    images: [
-      {
-        url: "/logo-icon.png",
-        width: 200,
-        height: 200,
-        alt: "Mailmark",
-      },
-    ],
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Mailmark" }],
   },
   twitter: {
     card: "summary_large_image",
