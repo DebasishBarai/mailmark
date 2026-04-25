@@ -30,7 +30,7 @@ const organizationSchema = {
   "@type": "Organization",
   name: "Mailmark",
   url: "https://mailmark.dev",
-  logo: "https://mailmark.dev/logo-icon.png",
+  logo: "https://mailmark.dev/og-image.png",
   description:
     "Add your domain, create unlimited mailboxes, and run powerful email campaigns.",
 };

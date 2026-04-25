@@ -514,13 +514,13 @@ export async function generateMetadata({
       description: article.excerpt,
       publishedTime: new Date(article.date).toISOString(),
       section: article.category,
-      images: [{ url: "/logo-icon.png", width: 200, height: 200, alt: "Mailmark" }],
+      images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Mailmark" }],
     },
     twitter: {
       card: "summary_large_image",
       title: article.title,
       description: article.excerpt,
-      images: ["/logo-icon.png"],
+      images: ["/og-image.png"],
     },
   };
 }
@@ -554,7 +554,7 @@ export default async function BlogArticlePage({
       url: "https://mailmark.dev",
       logo: {
         "@type": "ImageObject",
-        url: "https://mailmark.dev/logo-icon.png",
+        url: "https://mailmark.dev/og-image.png",
       },
     },
     mainEntityOfPage: {
