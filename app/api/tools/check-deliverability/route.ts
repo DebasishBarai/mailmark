@@ -320,7 +320,20 @@ export async function POST(request: NextRequest) {
     checkBlacklist(domain),
   ]);
 
-  const checks = { spf, dkim, dmarc, mx, blacklist };
+  // Amazon SES Easy DKIM uses randomly-generated selectors that can't be
+  // discovered via common-name guessing. If SPF includes amazonses.com and
+  // no selectors were found, infer that SES Easy DKIM is configured.
+  const resolvedDkim: typeof dkim =
+    !dkim.valid && spf.record?.includes("amazonses.com")
+      ? {
+          valid: true,
+          selectors: ["Amazon SES"],
+          details:
+            "Amazon SES Easy DKIM detected. DKIM signing is managed by Amazon SES with dynamically-generated selectors.",
+        }
+      : dkim;
+
+  const checks = { spf, dkim: resolvedDkim, dmarc, mx, blacklist };
   const score = calculateScore(checks);
   const reputationStatus: "healthy" | "warning" | "critical" =
     score >= 80 ? "healthy" : score >= 50 ? "warning" : "critical";
