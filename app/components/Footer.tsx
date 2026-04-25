@@ -8,6 +8,13 @@ const footerLinks = {
     { label: "How It Works", href: "#how-it-works" },
     { label: "FAQ", href: "#faq" },
   ],
+  Tools: [
+    { label: "All Tools", href: "/tools" },
+    { label: "Deliverability Checker", href: "/tools/email-deliverability-checker" },
+    { label: "Savings Calculator", href: "/tools/ses-savings-calculator" },
+    { label: "Subject Line Generator", href: "/tools/subject-line-generator" },
+    { label: "Lead Finder", href: "/tools/lead-finder" },
+  ],
   Resources: [
     { label: "Blog", href: "/blog" },
     { label: "Documentation", href: "/docs" },
@@ -32,7 +39,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-gray-100 bg-white px-6 py-16 dark:border-gray-700 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
-        <div className="grid gap-12 md:grid-cols-5">
+        <div className="grid gap-12 md:grid-cols-6">
           {/* Brand */}
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2">

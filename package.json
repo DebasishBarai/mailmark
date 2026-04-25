@@ -11,6 +11,7 @@
     "remotion:render": "bunx remotion render remotion/index.ts MailmarkPromo out/mailmark-promo.mp4"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.0",
     "@aws-sdk/client-s3": "^3.995.0",
     "@aws-sdk/client-ses": "^3.995.0",
     "@aws-sdk/client-sesv2": "^3.995.0",

@@ -22,8 +22,9 @@
 14. [npm SDK](#npm-sdk)
 15. [Billing & Subscriptions](#billing--subscriptions)
 16. [Affiliate Program](#affiliate-program)
-17. [Frequently Asked Questions](#frequently-asked-questions)
-18. [Key URLs](#key-urls)
+17. [Free Tools](#free-tools)
+18. [Frequently Asked Questions](#frequently-asked-questions)
+19. [Key URLs](#key-urls)
 
 ---
 
@@ -611,6 +612,32 @@ Mailmark runs a **30% recurring commission** affiliate program.
 
 ---
 
+## Free Tools
+
+Mailmark offers four free tools that require no signup. These tools help businesses improve their email deliverability, reduce costs, write better cold emails, and find B2B leads.
+
+### Email Deliverability Checker
+**URL**: https://mailmark.dev/tools/email-deliverability-checker
+
+Test your domain's email deliverability instantly. Checks SPF, DKIM (15 common selectors), DMARC, MX records, and blacklist status across 5 major DNSBLs. Returns an overall health score (0-100) with actionable recommendations. Rate limited to 10 checks per hour per IP. No signup required.
+
+### SES Savings Calculator
+**URL**: https://mailmark.dev/tools/ses-savings-calculator
+
+Compare the cost of your current email provider (Mailchimp, SendGrid, Instantly, Lemlist, Mailgun, Postmark, Brevo, or raw SES) against Mailmark pricing at any volume from 1,000 to 500,000 emails per month. Pure frontend tool with instant side-by-side cost comparison.
+
+### Cold Email Subject Line Generator
+**URL**: https://mailmark.dev/tools/subject-line-generator
+
+AI-powered subject line generator for cold email outreach. Enter your industry, what you are offering, and your preferred tone (Casual, Professional, Direct, Friendly, or Urgent). Generates 8 subject lines with tips on why each one works. Powered by Claude. Rate limited to 5 generations per day per IP. No signup required.
+
+### B2B Lead Finder
+**URL**: https://mailmark.dev/tools/lead-finder
+
+Search for B2B contacts by industry, job title, company size, and country. Unauthenticated users see a preview with blurred results and are prompted to sign in. Authenticated users get real leads from the Apollo.io People Search API with full email addresses. Rate limited to 5 searches per day per authenticated user.
+
+---
+
 ## Frequently Asked Questions
 
 **What is Mailmark?**
@@ -675,6 +702,12 @@ All further sends are blocked until the next calendar month (when the quota rese
 | Security | https://mailmark.dev/security |
 | Email deliverability guide | https://mailmark.dev/guides/email-deliverability |
 | DNS setup guide | https://mailmark.dev/guides/dns-setup |
+| Free tools | https://mailmark.dev/tools |
+| Email deliverability checker | https://mailmark.dev/tools/email-deliverability-checker |
+| SES savings calculator | https://mailmark.dev/tools/ses-savings-calculator |
+| Subject line generator | https://mailmark.dev/tools/subject-line-generator |
+| Lead finder | https://mailmark.dev/tools/lead-finder |
+| System status | https://mailmark.dev/status |
 | REST API base URL | https://api.mailmark.dev |
 
 ---
