@@ -4,7 +4,7 @@ import Footer from "../../components/Footer";
 import SubjectLineGenerator from "./SubjectLineGenerator";
 
 export const metadata: Metadata = {
-  title: "Free Cold Email Subject Line Generator - AI Powered | Mailmark",
+  title: "Free Cold Email Subject Line Generator - AI Powered",
   description:
     "Tired of your cold emails getting ignored? Generate high-converting subject lines with AI. Tailored to your industry and offer. Free, instant, no signup.",
   keywords: [

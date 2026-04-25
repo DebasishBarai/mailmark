@@ -4,7 +4,7 @@ import Footer from "../../components/Footer";
 import SavingsCalculator from "./SavingsCalculator";
 
 export const metadata: Metadata = {
-  title: "SES Savings Calculator - Compare Email Costs | Mailmark",
+  title: "SES Savings Calculator - Compare Email Costs",
   description:
     "Calculate how much you could save by switching from Mailchimp, SendGrid, Instantly, or other email providers to Mailmark powered by AWS SES.",
   keywords: [

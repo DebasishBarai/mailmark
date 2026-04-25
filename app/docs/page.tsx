@@ -4,7 +4,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Documentation - Mailmark",
+  title: "Documentation",
   description:
     "Everything you need to set up and use Mailmark, from adding your first domain to running advanced email campaigns.",
 };

@@ -4,7 +4,7 @@ import Footer from "../../components/Footer";
 import LeadFinder from "./LeadFinder";
 
 export const metadata: Metadata = {
-  title: "Free B2B Lead Finder - Find Cold Email Leads | Mailmark",
+  title: "Free B2B Lead Finder - Find Cold Email Leads",
   description:
     "Stop wasting hours searching for leads. Find verified B2B contacts by industry, job title, and company size. Export and start emailing in minutes.",
   keywords: [

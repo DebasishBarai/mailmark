@@ -4,7 +4,7 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Troubleshooting - Mailmark Docs",
+  title: "Troubleshooting",
   description: "Fix common Mailmark issues: emails not sending, domain verification failures, bounces, and rejections.",
 };
 

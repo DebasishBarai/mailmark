@@ -4,7 +4,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Free Email Tools - Mailmark",
+  title: "Free Email Tools",
   description:
     "Free tools to improve your email deliverability, reduce costs, and write better cold emails. No signup required.",
 };

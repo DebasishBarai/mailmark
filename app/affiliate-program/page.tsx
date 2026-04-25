@@ -4,7 +4,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Affiliate Program - Mailmark",
+  title: "Affiliate Program",
   description:
     "Earn 30% recurring commission for every customer you refer to Mailmark. Join our affiliate program today.",
 };

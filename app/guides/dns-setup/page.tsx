@@ -4,7 +4,7 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
-  title: "DNS Setup Guide - Mailmark",
+  title: "DNS Setup Guide",
   description:
     "Step-by-step guide to setting up MX, SPF, DKIM, and DMARC DNS records for your domain in Mailmark.",
 };

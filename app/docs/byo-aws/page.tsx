@@ -4,7 +4,7 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
-  title: "Bring your own AWS account (BYO-AWS) - Mailmark Docs",
+  title: "Bring your own AWS account (BYO-AWS)",
   description:
     "Connect your own AWS account to Mailmark. Deploy SES, S3, Lambda and SNS inside your account via CloudFormation, and keep full ownership of your email data.",
 };
