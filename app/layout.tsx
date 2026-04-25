@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     title: "Mailmark - Email Hosting & Campaigns for Your Domain",
     description:
       "Add your domain, create unlimited mailboxes, and run powerful email campaigns. A complete email platform with inbox, sent, outbox, and built-in campaign tools.",
-    images: ["/logo-icon.png"],
+    images: ["/og-image.png"],
   },
   icons: {
     icon: [
