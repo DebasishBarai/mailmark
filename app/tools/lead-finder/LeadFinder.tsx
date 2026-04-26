@@ -163,7 +163,7 @@ function LeadFinderInner({ isAuthenticated }: { isAuthenticated: boolean }) {
             </span>
           </div>
           <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl dark:text-white">
-            Find Your Next Customers in Seconds
+            Free B2B Lead Finder — Search Verified Contacts by Industry and Title
           </h1>
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
             Stop wasting hours searching for leads. Find B2B contacts by
@@ -510,7 +510,7 @@ function LeadFinderInner({ isAuthenticated }: { isAuthenticated: boolean }) {
       <section className="bg-gradient-to-r from-violet-600 to-purple-700 px-6 py-16">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-white">
-            You found your leads. Now reach their inbox.
+            Send Cold Email Campaigns That Land in the Inbox — Not Spam
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-violet-100">
             Mailmark gives you everything to go from lead list to landing in
