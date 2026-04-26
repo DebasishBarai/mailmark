@@ -9,8 +9,8 @@ const footerLinks = {
     { label: "FAQ", href: "#faq" },
   ],
   Tools: [
+    { label: "All Tools", href: "/tools" },
     { label: "Deliverability Checker", href: "/tools/email-deliverability-checker" },
-    { label: "Savings Calculator", href: "/tools/ses-savings-calculator" },
     { label: "Subject Line Generator", href: "/tools/subject-line-generator" },
     { label: "Lead Finder", href: "/tools/lead-finder" },
   ],
