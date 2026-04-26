@@ -311,7 +311,7 @@ export default function SubjectLineGenerator() {
             domain setup, inbox warming, and blacklist monitoring.
           </p>
           <Link
-            href="https://mailmark.dev"
+            href="https://www.mailmark.dev"
             className="mt-6 inline-flex rounded-full bg-white px-8 py-3.5 text-base font-semibold text-violet-700 shadow-lg transition-all hover:bg-violet-50 hover:shadow-xl"
           >
             Get Started Free

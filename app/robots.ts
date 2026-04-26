@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/api/", "/dashboard/", "/_next/"],
     },
-    sitemap: "https://mailmark.dev/sitemap.xml",
+    sitemap: "https://www.mailmark.dev/sitemap.xml",
   };
 }
