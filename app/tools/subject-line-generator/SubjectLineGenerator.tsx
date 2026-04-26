@@ -134,7 +134,7 @@ export default function SubjectLineGenerator() {
             </span>
           </div>
           <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl dark:text-white">
-            Write Subject Lines That Actually Get Opened
+            Cold Email Subject Line Generator — AI-Powered, Free
           </h1>
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
             Tired of your cold emails getting ignored? Our AI generates subject
@@ -303,7 +303,7 @@ export default function SubjectLineGenerator() {
       <section className="bg-gradient-to-r from-violet-600 to-purple-700 px-6 py-16">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-white">
-            Great subject lines deserve great deliverability
+            Make Sure Your Emails Reach the Inbox — Not Just the Subject Line
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-violet-100">
             What good is a perfect subject line if your email lands in spam?

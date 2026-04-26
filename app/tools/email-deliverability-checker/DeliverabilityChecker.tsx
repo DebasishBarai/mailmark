@@ -249,7 +249,7 @@ export default function DeliverabilityChecker() {
             </span>
           </div>
           <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl dark:text-white">
-            Test Your Email Deliverability
+            Free Email Deliverability Test: Check If Your Emails Land in Spam
           </h1>
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
             Struggling with low open rates? Your emails might be landing in
@@ -318,6 +318,54 @@ export default function DeliverabilityChecker() {
                 </span>
               </div>
             )}
+          </div>
+        </div>
+      </section>
+
+      {/* What This Tool Checks */}
+      <section className="bg-gray-50 px-6 py-12 dark:bg-gray-800/50">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            What This Tool Checks
+          </h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            Enter any domain and our checker runs five live DNS and reputation tests in seconds.
+          </p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            {[
+              {
+                label: "SPF Record",
+                desc: "Verifies that a valid Sender Policy Framework record exists, listing servers authorized to send email from your domain.",
+              },
+              {
+                label: "DKIM Signature",
+                desc: "Checks for DomainKeys Identified Mail selectors so receiving servers can verify your emails haven't been altered in transit.",
+              },
+              {
+                label: "DMARC Policy",
+                desc: "Confirms a DMARC record is in place and reports what policy (none, quarantine, or reject) is applied to failing messages.",
+              },
+              {
+                label: "MX Records",
+                desc: "Looks up your mail exchange records to confirm your domain is properly set up to send and receive email.",
+              },
+              {
+                label: "Blacklist Status",
+                desc: "Cross-references your domain against major spam blacklists including Spamhaus, Barracuda, and SORBS to flag any listings.",
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+              >
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {item.label}
+                </p>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -489,7 +537,7 @@ export default function DeliverabilityChecker() {
       <section className="bg-gradient-to-r from-violet-600 to-purple-700 px-6 py-16">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-white">
-            Stop landing in spam. Start reaching the inbox.
+            Fix Your Email Deliverability — Automated Domain Setup, Inbox Warming &amp; Monitoring
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-violet-100">
             Mailmark fixes your deliverability on autopilot. Automated domain

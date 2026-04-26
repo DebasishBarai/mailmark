@@ -94,6 +94,29 @@ const providers: Record<string, Provider> = {
   },
 };
 
+const faqItems = [
+  {
+    q: "How much cheaper is AWS SES compared to Mailchimp or SendGrid?",
+    a: "AWS SES charges $0.10 per 1,000 emails. At 50,000 emails per month that is $5 in sending costs versus roughly $299 on Mailchimp or $89.95 on SendGrid. Mailmark wraps SES in a complete platform — inbox warming, domain setup, analytics, and campaign tools — starting at $10/month, still a fraction of the cost of traditional providers.",
+  },
+  {
+    q: "What is included in a Mailmark plan?",
+    a: "Every Mailmark plan includes multi-domain management, 28-day inbox warming, automatic SPF/DKIM/DMARC setup, blacklist monitoring, open and click tracking, bounce suppression, a REST API, campaign analytics, and a built-in email client. You get a complete sending platform without managing AWS infrastructure yourself.",
+  },
+  {
+    q: "Can I use AWS SES directly without Mailmark?",
+    a: "Yes, you can use raw AWS SES at $0.10 per 1,000 emails. However, you would need to build and maintain your own infrastructure for authentication setup, bounce handling, suppression lists, campaign management, and deliverability monitoring. Mailmark provides all of that out of the box, saving significant engineering time.",
+  },
+  {
+    q: "Are these cost estimates accurate?",
+    a: "The estimates are based on publicly available pricing pages for each provider and are accurate as of April 2026. Actual costs can vary depending on your specific plan, billing region, add-ons, and usage patterns. Always verify current pricing directly with each provider before making a decision.",
+  },
+  {
+    q: "How do I switch from my current email provider to Mailmark?",
+    a: "Add your sending domain to Mailmark, update your DNS records (Mailmark generates them for you), and start sending. The process takes under 10 minutes for most setups. Mailmark also runs a 28-day inbox warming sequence on new domains to protect your sender reputation during the transition.",
+  },
+];
+
 function getMailmarkPlan(volume: number): { name: string; price: number } {
   if (volume <= 1000) return { name: "Starter", price: 10 };
   if (volume <= 25000) return { name: "Pro", price: 50 };
@@ -150,7 +173,7 @@ export default function SavingsCalculator() {
             </span>
           </div>
           <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl dark:text-white">
-            SES Savings Calculator
+            Email Cost Calculator: Compare SendGrid, Mailchimp &amp; AWS SES Pricing
           </h1>
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
             See how much you could save by switching to Mailmark, powered by AWS
@@ -358,7 +381,7 @@ export default function SavingsCalculator() {
       <section className="bg-gradient-to-r from-violet-600 to-purple-700 px-6 py-16">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-white">
-            Switch to Mailmark and start saving
+            Cut Your Email Bill by Up to 90% — Switch to AWS SES with Mailmark
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-violet-100">
             Get enterprise-grade email infrastructure at AWS SES pricing.
@@ -408,6 +431,27 @@ export default function SavingsCalculator() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="bg-white px-6 py-16 dark:bg-gray-900">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Frequently Asked Questions
+          </h2>
+          <div className="mt-8 space-y-6">
+            {faqItems.map((item) => (
+              <div key={item.q}>
+                <h3 className="font-semibold text-gray-900 dark:text-white">
+                  {item.q}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                  {item.a}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
