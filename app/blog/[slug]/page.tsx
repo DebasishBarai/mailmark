@@ -502,7 +502,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const article = articles[slug];
   if (!article) return { title: "Article Not Found" };
-  const url = `https://mailmark.dev/blog/${slug}`;
+  const url = `https://www.mailmark.dev/blog/${slug}`;
   return {
     title: article.title,
     description: article.excerpt,
@@ -546,20 +546,20 @@ export default async function BlogArticlePage({
     author: {
       "@type": "Organization",
       name: "Mailmark",
-      url: "https://mailmark.dev",
+      url: "https://www.mailmark.dev",
     },
     publisher: {
       "@type": "Organization",
       name: "Mailmark",
-      url: "https://mailmark.dev",
+      url: "https://www.mailmark.dev",
       logo: {
         "@type": "ImageObject",
-        url: "https://mailmark.dev/og-image.png",
+        url: "https://www.mailmark.dev/og-image.png",
       },
     },
     mainEntityOfPage: {
       "@type": "WebPage",
-      "@id": `https://mailmark.dev/blog/${slug}`,
+      "@id": `https://www.mailmark.dev/blog/${slug}`,
     },
   };
 

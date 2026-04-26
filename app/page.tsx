@@ -18,10 +18,10 @@ export const metadata: Metadata = {
     "Add your domain, create unlimited mailboxes, and run powerful email campaigns. A complete email platform with inbox, sent, outbox, and built-in campaign tools.",
   openGraph: {
     type: "website",
-    url: "https://mailmark.dev",
+    url: "https://www.mailmark.dev",
   },
   alternates: {
-    canonical: "https://mailmark.dev",
+    canonical: "https://www.mailmark.dev",
   },
 };
 
@@ -29,8 +29,8 @@ const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "Mailmark",
-  url: "https://mailmark.dev",
-  logo: "https://mailmark.dev/og-image.png",
+  url: "https://www.mailmark.dev",
+  logo: "https://www.mailmark.dev/og-image.png",
   description:
     "Add your domain, create unlimited mailboxes, and run powerful email campaigns.",
 };
@@ -39,7 +39,7 @@ const websiteSchema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   name: "Mailmark",
-  url: "https://mailmark.dev",
+  url: "https://www.mailmark.dev",
 };
 
 export default function Home() {

@@ -15,7 +15,7 @@ const geistSans = GeistSans;
 const geistMono = GeistMono;
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://mailmark.dev"),
+  metadataBase: new URL("https://www.mailmark.dev"),
   title: {
     default: "Mailmark - Email Hosting & Campaigns for Your Domain",
     template: "%s | Mailmark",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     title: "Mailmark - Email Hosting & Campaigns for Your Domain",
     description:
       "Add your domain, create unlimited mailboxes, and run powerful email campaigns. A complete email platform with inbox, sent, outbox, and built-in campaign tools.",
-    url: "https://mailmark.dev",
+    url: "https://www.mailmark.dev",
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Mailmark" }],
   },
   twitter: {
