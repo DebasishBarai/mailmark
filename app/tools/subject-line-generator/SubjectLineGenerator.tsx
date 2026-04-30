@@ -134,7 +134,7 @@ export default function SubjectLineGenerator() {
             </span>
           </div>
           <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl dark:text-white">
-            Cold Email Subject Line Generator — AI-Powered, Free
+            Cold Email Subject Line Generator, AI-Powered, Free
           </h1>
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
             Tired of your cold emails getting ignored? Our AI generates subject
@@ -199,11 +199,10 @@ export default function SubjectLineGenerator() {
                     type="button"
                     onClick={() => setTone(t.value)}
                     disabled={loading}
-                    className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                      tone === t.value
+                    className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${tone === t.value
                         ? "bg-violet-600 text-white shadow-sm"
                         : "border border-gray-200 bg-white text-gray-600 hover:border-violet-300 hover:text-violet-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-violet-600"
-                    }`}
+                      }`}
                   >
                     {t.label}
                   </button>

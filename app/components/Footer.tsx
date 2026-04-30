@@ -13,6 +13,7 @@ const footerLinks = {
     { label: "Deliverability Checker", href: "/tools/email-deliverability-checker" },
     { label: "Subject Line Generator", href: "/tools/subject-line-generator" },
     { label: "Lead Finder", href: "/tools/lead-finder" },
+    { label: "Email List Validator", href: "/tools/email-list-validator" },
   ],
   Resources: [
     { label: "Blog", href: "/blog" },

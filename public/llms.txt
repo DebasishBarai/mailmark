@@ -614,7 +614,7 @@ Mailmark runs a **30% recurring commission** affiliate program.
 
 ## Free Tools
 
-Mailmark offers four free tools that require no signup. These tools help businesses improve their email deliverability, reduce costs, write better cold emails, and find B2B leads.
+Mailmark offers five free tools that require no signup. These tools help businesses improve their email deliverability, reduce costs, write better cold emails, find B2B leads, and clean email lists.
 
 ### Email Deliverability Checker
 **URL**: https://mailmark.dev/tools/email-deliverability-checker
@@ -635,6 +635,11 @@ AI-powered subject line generator for cold email outreach. Enter your industry, 
 **URL**: https://mailmark.dev/tools/lead-finder
 
 Search for B2B contacts by industry, job title, company size, and country. Unauthenticated users see a preview with blurred results and are prompted to sign in. Authenticated users get real leads from the Apollo.io People Search API with full email addresses. Rate limited to 5 searches per day per authenticated user.
+
+### Email List Validator
+**URL**: https://mailmark.dev/tools/email-list-validator
+
+Validate up to 100 email addresses at once. Checks syntax, MX records (DNS-based mail server verification), disposable email detection (30+ known disposable providers), role-based address detection (info@, admin@, support@, etc.), and free provider flagging (Gmail, Yahoo, Outlook, etc.). Returns each email as Valid, Risky, or Invalid with a detailed reason. Supports CSV upload and CSV export of results. Completely free, no signup required, no usage limits.
 
 ---
 
@@ -707,6 +712,7 @@ All further sends are blocked until the next calendar month (when the quota rese
 | SES savings calculator | https://mailmark.dev/tools/ses-savings-calculator |
 | Subject line generator | https://mailmark.dev/tools/subject-line-generator |
 | Lead finder | https://mailmark.dev/tools/lead-finder |
+| Email list validator | https://mailmark.dev/tools/email-list-validator |
 | System status | https://mailmark.dev/status |
 | REST API base URL | https://api.mailmark.dev |
 

@@ -32,6 +32,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/tools/ses-savings-calculator`, priority: 0.8, changeFrequency: "monthly" },
     { url: `${BASE_URL}/tools/subject-line-generator`, priority: 0.8, changeFrequency: "monthly" },
     { url: `${BASE_URL}/tools/lead-finder`, priority: 0.8, changeFrequency: "monthly" },
+    { url: `${BASE_URL}/tools/email-list-validator`, priority: 0.8, changeFrequency: "monthly" },
     { url: `${BASE_URL}/about`, priority: 0.5, changeFrequency: "monthly" },
     { url: `${BASE_URL}/contact`, priority: 0.5, changeFrequency: "monthly" },
     { url: `${BASE_URL}/careers`, priority: 0.5, changeFrequency: "monthly" },
