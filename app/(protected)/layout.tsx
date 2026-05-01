@@ -168,6 +168,16 @@ function TrialGate({ children }: { children: ReactNode }) {
 
 const MB_COLORS = ["#7c3aed", "#0891b2", "#059669", "#d97706", "#db2777", "#4f46e5"];
 
+function MailboxUnreadBadge({ mailboxId }: { mailboxId: Id<"mailboxes"> }) {
+  const count = useQuery(api.emails.countUnreadByMailbox, { mailboxId });
+  if (!count) return null;
+  return (
+    <span className="ml-auto rounded-full bg-violet-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+      {count}
+    </span>
+  );
+}
+
 function DomainSubNav({ domainId, collapsed }: { domainId: Id<"domains">; collapsed: boolean }) {
   const domain = useQuery(api.domains.getById, { domainId });
   const mailboxes = useQuery(api.mailboxes.listByDomain, domain ? { domainId: domain._id } : "skip");
@@ -198,6 +208,7 @@ function DomainSubNav({ domainId, collapsed }: { domainId: Id<"domains">; collap
               {mb.address[0].toUpperCase()}
             </div>
             <span className="truncate">{mb.address}</span>
+            <MailboxUnreadBadge mailboxId={mb._id} />
           </Link>
         ))}
       </div>

@@ -116,6 +116,35 @@ export const countByFolder = query({
   },
 });
 
+export const countUnreadByMailbox = query({
+  args: {
+    mailboxId: v.id("mailboxes"),
+  },
+  handler: async (ctx, { mailboxId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return 0;
+
+    const mailbox = await ctx.db.get(mailboxId);
+    if (!mailbox) return 0;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || mailbox.userId !== user._id) return 0;
+
+    const results = await ctx.db
+      .query("emails")
+      .withIndex("by_mailbox_folder", (q) =>
+        q.eq("mailboxId", mailboxId).eq("folder", "inbox")
+      )
+      .collect();
+
+    return results.filter((e) => !e.read).length;
+  },
+});
+
 export const getById = query({
   args: { emailId: v.id("emails") },
   handler: async (ctx, { emailId }) => {
