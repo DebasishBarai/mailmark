@@ -150,6 +150,19 @@ export const resume = mutation({
   },
 });
 
+// ── Internal (called by send pipeline) ──
+
+export const getActiveByDomainId = internalQuery({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }) => {
+    return await ctx.db
+      .query("warmingSchedules")
+      .withIndex("by_domain_id", (q) => q.eq("domainId", domainId))
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .first();
+  },
+});
+
 // ── Internal (called by cron) ──
 
 export const listActiveSchedules = internalQuery({

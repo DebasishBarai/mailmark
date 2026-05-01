@@ -160,6 +160,17 @@ export const sendEmail = action({
       );
     }
 
+    // Warming schedule enforcement
+    const warmingSchedule = await ctx.runQuery(
+      internal.warmingSchedules.getActiveByDomainId,
+      { domainId: mailbox.domainId }
+    );
+    if (warmingSchedule && warmingSchedule.sentToday >= warmingSchedule.dailyLimit) {
+      throw new Error(
+        `Warming limit reached for today (${warmingSchedule.dailyLimit} emails on day ${warmingSchedule.currentDay} of ${warmingSchedule.totalDays}). Sending will resume tomorrow.`
+      );
+    }
+
     const fromAddress = mailbox.displayName
       ? `${mailbox.displayName} <${mailbox.fullAddress}>`
       : mailbox.fullAddress;
@@ -217,6 +228,12 @@ export const sendEmail = action({
       })
     );
     const sesMessageId = sesResponse.MessageId;
+
+    if (warmingSchedule) {
+      await ctx.runMutation(internal.warmingSchedules.incrementSentToday, {
+        scheduleId: warmingSchedule._id,
+      });
+    }
 
     // Save raw email to S3
     const s3Key = `${mailbox.domain}/${mailbox.address}/${emailFolder}/${messageId}.eml`;
@@ -468,6 +485,18 @@ export const sendScheduledEmail = internalAction({
       return;
     }
 
+    // Warming schedule enforcement
+    const warmingSchedule = await ctx.runQuery(
+      internal.warmingSchedules.getActiveByDomainId,
+      { domainId: emails.domainId }
+    );
+    if (warmingSchedule && warmingSchedule.sentToday >= warmingSchedule.dailyLimit) {
+      console.log(
+        `[sendScheduledEmail] warming limit reached for domain ${emails.domain}, skipping messageId=${messageId}`
+      );
+      return;
+    }
+
     // Read the pre-built raw MIME from S3
     const aws = await clientsForMailboxResult(emails);
     const response = await aws.s3.send(
@@ -493,6 +522,12 @@ export const sendScheduledEmail = internalAction({
         Content: { Raw: { Data: new TextEncoder().encode(rawEmail) } },
       })
     );
+
+    if (warmingSchedule) {
+      await ctx.runMutation(internal.warmingSchedules.incrementSentToday, {
+        scheduleId: warmingSchedule._id,
+      });
+    }
 
     // Find the outbox email record by messageId and move it to sent
     await ctx.runMutation(internal.emails.markScheduledEmailAsSentByMessageId, {
@@ -658,6 +693,17 @@ export const sendEmailViaApi = internalAction({
       );
     }
 
+    // Warming schedule enforcement
+    const warmingSchedule = await ctx.runQuery(
+      internal.warmingSchedules.getActiveByDomainId,
+      { domainId: mailbox.domainId }
+    );
+    if (warmingSchedule && warmingSchedule.sentToday >= warmingSchedule.dailyLimit) {
+      throw new Error(
+        `Warming limit reached for today (${warmingSchedule.dailyLimit} emails on day ${warmingSchedule.currentDay} of ${warmingSchedule.totalDays}). Sending will resume tomorrow.`
+      );
+    }
+
     const fromAddress = mailbox.displayName
       ? `${mailbox.displayName} <${mailbox.fullAddress}>`
       : mailbox.fullAddress;
@@ -699,6 +745,12 @@ export const sendEmailViaApi = internalAction({
         Content: { Raw: { Data: new TextEncoder().encode(rawEmail) } },
       })
     );
+
+    if (warmingSchedule) {
+      await ctx.runMutation(internal.warmingSchedules.incrementSentToday, {
+        scheduleId: warmingSchedule._id,
+      });
+    }
 
     const s3Key = `${mailbox.domain}/${mailbox.address}/sent/${messageId}.eml`;
     await awsViaApi.s3.send(
