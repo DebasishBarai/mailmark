@@ -170,6 +170,26 @@ function getRawEmail(emailStr: string): string {
   return emailStr;
 }
 
+function MailboxSidebarItem({ mb, currentMailboxId }: { mb: Doc<"mailboxes">; currentMailboxId: Id<"mailboxes"> }) {
+  const unread = useQuery(api.emails.countUnreadByMailbox, { mailboxId: mb._id });
+  return (
+    <Link
+      href={`/mailbox/${mb._id}`}
+      className={`flex items-center justify-between truncate rounded-md px-2 py-1 text-[10px] transition-colors ${mb._id === currentMailboxId
+        ? "bg-violet-50 dark:bg-violet-900/20 font-medium text-violet-700 dark:text-violet-300"
+        : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+        }`}
+    >
+      <span className="truncate">{mb.fullAddress}</span>
+      {unread && unread > 0 && mb._id !== currentMailboxId && (
+        <span className="ml-1 shrink-0 rounded-full bg-violet-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+          {unread}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 export default function MailboxPage() {
   const { mailboxId } = useParams<{ mailboxId: string }>();
   const mbId = mailboxId as Id<"mailboxes">;
@@ -1152,16 +1172,7 @@ export default function MailboxPage() {
               </p>
               <div className="space-y-1">
                 {domainMailboxes.map((mb: Doc<"mailboxes">) => (
-                  <Link
-                    key={mb._id}
-                    href={`/mailbox/${mb._id}`}
-                    className={`block truncate rounded-md px-2 py-1 text-[10px] transition-colors ${mb._id === mbId
-                      ? "bg-violet-50 dark:bg-violet-900/20 font-medium text-violet-700 dark:text-violet-300"
-                      : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      }`}
-                  >
-                    {mb.fullAddress}
-                  </Link>
+                  <MailboxSidebarItem key={mb._id} mb={mb} currentMailboxId={mbId} />
                 ))}
               </div>
             </div>
