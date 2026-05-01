@@ -1186,7 +1186,7 @@ export default function MailboxPage() {
   const handleReply = () => {
     if (!selectedEmail || !emailBody) return;
     setComposeMode("reply");
-    setComposeTo([selectedEmail.from]);
+    setComposeTo([getRawEmail(selectedEmail.from)]);
     setComposeGroupIds([]);
     setComposeToInput("");
     setComposeCc([]);
@@ -1214,8 +1214,8 @@ export default function MailboxPage() {
     if (!selectedEmail || !emailBody || !mailbox) return;
     const myAddress = mailbox.fullAddress;
     const recipients = [
-      selectedEmail.from,
-      ...selectedEmail.to.filter((addr) => addr !== myAddress),
+      getRawEmail(selectedEmail.from),
+      ...selectedEmail.to.map(getRawEmail).filter((addr) => addr !== myAddress),
     ];
     setComposeMode("replyAll");
     setComposeTo(recipients);
