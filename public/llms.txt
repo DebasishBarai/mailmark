@@ -614,7 +614,7 @@ Mailmark runs a **30% recurring commission** affiliate program.
 
 ## Free Tools
 
-Mailmark offers five free tools that require no signup. These tools help businesses improve their email deliverability, reduce costs, write better cold emails, find B2B leads, and clean email lists.
+Mailmark offers seven free tools that require no signup. These tools help businesses improve their email deliverability, reduce costs, write better cold emails, find B2B leads, clean email lists, test for spam, and create professional signatures.
 
 ### Email Deliverability Checker
 **URL**: https://mailmark.dev/tools/email-deliverability-checker
@@ -640,6 +640,16 @@ Search for B2B contacts by industry, job title, company size, and country. Unaut
 **URL**: https://mailmark.dev/tools/email-list-validator
 
 Validate up to 100 email addresses at once. Checks syntax, MX records (DNS-based mail server verification), disposable email detection (30+ known disposable providers), role-based address detection (info@, admin@, support@, etc.), and free provider flagging (Gmail, Yahoo, Outlook, etc.). Returns each email as Valid, Risky, or Invalid with a detailed reason. Supports CSV upload and CSV export of results. Completely free, no signup required, no usage limits.
+
+### Email Spam Score Tester
+**URL**: https://mailmark.dev/tools/spam-score-tester
+
+Test your email subject line and body for spam risk before sending. Checks for spam trigger words (80+ common phrases), excessive capitalization, punctuation abuse, subject line length, link density, body content length, unsubscribe link presence, and personalization tokens. Returns a spam risk score (0-100) with per-check breakdown and recommendations. Pure frontend tool, completely free, no signup required.
+
+### Email Signature Generator
+**URL**: https://mailmark.dev/tools/email-signature-generator
+
+Create professional HTML email signatures with a live preview. Fill in your name, title, company, phone, email, website, social links, and headshot URL. Choose from 3 styles (Professional, Modern, Minimal) and 8+ accent colors. Copy the generated HTML or plain text with one click. Compatible with Gmail, Outlook, Apple Mail, and Thunderbird. Pure frontend tool, completely free, no signup required, no watermark.
 
 ---
 
@@ -713,6 +723,8 @@ All further sends are blocked until the next calendar month (when the quota rese
 | Subject line generator | https://mailmark.dev/tools/subject-line-generator |
 | Lead finder | https://mailmark.dev/tools/lead-finder |
 | Email list validator | https://mailmark.dev/tools/email-list-validator |
+| Spam score tester | https://mailmark.dev/tools/spam-score-tester |
+| Email signature generator | https://mailmark.dev/tools/email-signature-generator |
 | System status | https://mailmark.dev/status |
 | REST API base URL | https://api.mailmark.dev |
 

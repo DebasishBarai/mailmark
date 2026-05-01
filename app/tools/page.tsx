@@ -120,6 +120,50 @@ const tools = [
     ),
     available: true,
   },
+  {
+    title: "Email Spam Score Tester",
+    description:
+      "Check your email for spam trigger words, excessive caps, and formatting red flags. Get an instant spam risk score with recommendations.",
+    href: "/tools/spam-score-tester",
+    icon: (
+      <svg
+        className="h-6 w-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        strokeWidth={1.5}
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 9v3.75m0-10.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+        />
+      </svg>
+    ),
+    available: true,
+  },
+  {
+    title: "Email Signature Generator",
+    description:
+      "Create a professional HTML email signature with your photo, social links, and custom colors. Works with Gmail, Outlook, and Apple Mail.",
+    href: "/tools/email-signature-generator",
+    icon: (
+      <svg
+        className="h-6 w-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        strokeWidth={1.5}
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"
+        />
+      </svg>
+    ),
+    available: true,
+  },
 ];
 
 export default function ToolsPage() {
