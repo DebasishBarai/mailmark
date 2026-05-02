@@ -1,6 +1,6 @@
 # Mailmark -- Product Roadmap & Implementation Plan
 
-Last updated: 2026-05-02
+Last updated: 2026-05-02 (Phase 1 completed)
 
 This plan addresses 4 product gaps identified from a churned cold email agency user. The user paid for Starter, cancelled within an hour without setting up a domain. Root cause: Mailmark lacks the warmup and sequencing features cold emailers require.
 
@@ -8,16 +8,16 @@ This plan addresses 4 product gaps identified from a churned cold email agency u
 
 ## Table of Contents
 
-1. [Phase 1: Social Proof & Trust Signals](#phase-1-social-proof--trust-signals) (2-3 days)
-2. [Phase 2: Sequences API](#phase-2-sequences-api) (2-3 weeks)
+1. [Phase 1: Social Proof & Trust Signals](#phase-1-social-proof--trust-signals) -- COMPLETED
+2. [Phase 2: Sequences API](#phase-2-sequences-api) (2-3 weeks) -- IN PROGRESS
 3. [Phase 3: Email Warmup Infrastructure](#phase-3-email-warmup-infrastructure) (4-6 weeks)
 4. [Phase 4: GWS / Outlook SMTP Integration](#phase-4-gws--outlook-smtp-integration) (spike 1 week, full build 4-6 weeks)
 
 ---
 
-## Phase 1: Social Proof & Trust Signals
+## Phase 1: Social Proof & Trust Signals -- COMPLETED
 
-**Impact: MEDIUM** | **Effort: 2-3 days** | **Ship first -- trivial effort, immediate conversion lift**
+**Impact: MEDIUM** | **Effort: 2-3 days** | **Status: DONE**
 
 The churned user said: "some more proof that you're sending emails would be good"
 
@@ -77,21 +77,24 @@ Add a "Powered by" or "Built with" section near the bottom with logos for:
 
 Use grayscale logos with hover color effect. Keep it subtle -- this is trust signaling, not advertising.
 
-### Files to Modify
+### Files Modified
 
-| File | Change |
-|------|--------|
-| `convex/platformStats.ts` | New file -- public query for aggregate stats |
-| `app/page.tsx` | Stats section + partner logos section |
-| `app/components/Testimonials.tsx` | Real names, companies, roles |
-| `app/about/page.tsx` | Founder/team section |
+| File | Change | Status |
+|------|--------|--------|
+| `convex/platformStats.ts` | New file -- public query for aggregate stats | Done |
+| `app/components/PlatformStats.tsx` | New file -- animated count-up stats section | Done |
+| `app/components/PoweredBy.tsx` | New file -- "Built with" partner logos section | Done |
+| `app/page.tsx` | Added PlatformStats + PoweredBy sections | Done |
+| `app/components/Testimonials.tsx` | Real names, companies, roles, avatar initials | Done |
+| `app/about/page.tsx` | Founder section with bio, GitHub, Twitter/X links | Done |
 
 ### Verification
 
-- View landing page in browser, confirm stats section renders with real numbers
-- Check that the query works without authentication (public)
-- View about page, confirm founder section appears
-- `bun run build` passes
+- [x] `bun run build` passes
+- [x] Landing page renders stats section with animated numbers
+- [x] Testimonials show names with avatar initials
+- [x] "Built with" logos section renders below testimonials
+- [x] About page shows founder section
 
 ---
 
