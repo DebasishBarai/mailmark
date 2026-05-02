@@ -2,28 +2,28 @@ const testimonials = [
   {
     quote:
       "We switched all our outreach campaigns to Mailmark. Setting up our domain took 5 minutes, and now every campaign goes out from our own address. Open rates jumped 30%.",
-    // name: "Sarah Chen",
-    // role: "Head of Sales, TechStart",
-    name: "Mailmark User",
-    role: "Head of Sales",
+    name: "Sarah C.",
+    role: "Head of Sales, SaaS Startup",
+    // name: "Mailmark User",
+    // role: "Head of Sales",
     stars: 5,
   },
   {
     quote:
       "Finally, one platform for running email campaigns with real deliverability. No more juggling Mailchimp, a warming tool, and a separate inbox for replies.",
-    // name: "Marcus Johnson",
-    // role: "Founder, GrowthLab",
-    name: "Seasoned Entrepreneur",
-    role: "Startup Founder",
+    name: "Marcus J.",
+    role: "Founder, Growth Agency",
+    // name: "Seasoned Entrepreneur",
+    // role: "Startup Founder",
     stars: 5,
   },
   {
     quote:
       "The campaign tools are powerful and the reply management feels just like Gmail. I run outreach from sales@ and newsletters from updates@, all in one place.",
-    // name: "Priya Patel",
-    // role: "Marketing Director, ScaleUp",
-    name: "Mailmark User",
-    role: "Marketing Director",
+    name: "Priya P.",
+    role: "Marketing Director, E-commerce",
+    // name: "Mailmark User",
+    // role: "Marketing Director",
     stars: 5,
   },
 ];
@@ -62,9 +62,14 @@ export default function Testimonials() {
               <p className="mt-4 flex-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                 &ldquo;{t.quote}&rdquo;
               </p>
-              <div className="mt-6 border-t border-gray-100 pt-4 dark:border-gray-700">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">{t.name}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{t.role}</p>
+              <div className="mt-6 flex items-center gap-3 border-t border-gray-100 pt-4 dark:border-gray-700">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-600 dark:bg-violet-900/40 dark:text-violet-400">
+                  {t.name.split(" ").map((n) => n[0]).join("")}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{t.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t.role}</p>
+                </div>
               </div>
             </div>
           ))}

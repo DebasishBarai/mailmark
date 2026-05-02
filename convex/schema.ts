@@ -278,6 +278,51 @@ export default defineSchema({
   //   .index("by_test_id", ["testId"])
   //   .index("by_message_id", ["messageId"]),
 
+  sequences: defineTable({
+    userId: v.id("users"),
+    domainId: v.id("domains"),
+    mailboxId: v.id("mailboxes"),
+    name: v.string(),
+    status: v.union(v.literal("active"), v.literal("paused"), v.literal("completed")),
+    steps: v.array(
+      v.union(
+        v.object({
+          type: v.literal("send_email"),
+          subject: v.string(),
+          html: v.string(),
+        }),
+        v.object({
+          type: v.literal("delay"),
+          delayMs: v.number(),
+        })
+      )
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_domain_id", ["domainId"]),
+
+  sequenceEnrollments: defineTable({
+    sequenceId: v.id("sequences"),
+    contactEmail: v.string(),
+    mergeFields: v.optional(v.any()),
+    currentStep: v.number(),
+    status: v.union(
+      v.literal("active"),
+      v.literal("completed"),
+      v.literal("replied"),
+      v.literal("cancelled"),
+      v.literal("bounced")
+    ),
+    enrolledAt: v.number(),
+    completedAt: v.optional(v.number()),
+    lastStepAt: v.optional(v.number()),
+    scheduledJobId: v.optional(v.string()),
+  })
+    .index("by_sequence_id", ["sequenceId"])
+    .index("by_sequence_status", ["sequenceId", "status"])
+    .index("by_sequence_email", ["sequenceId", "contactEmail"]),
+
   api_keys: defineTable({
     userId: v.id("users"),
     domainId: v.id("domains"),

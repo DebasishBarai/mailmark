@@ -7,6 +7,8 @@ import FeatureShowcase from "./components/FeatureShowcase";
 import PersonalizationDemo from "./components/PersonalizationDemo";
 import FeatureGrid from "./components/FeatureGrid";
 import Testimonials from "./components/Testimonials";
+import PlatformStats from "./components/PlatformStats";
+import PoweredBy from "./components/PoweredBy";
 import Pricing from "./components/Pricing";
 import FAQ from "./components/FAQ";
 import CTABanner from "./components/CTABanner";
@@ -60,7 +62,9 @@ export default function Home() {
       <FeatureShowcase />
       <PersonalizationDemo />
       <FeatureGrid />
+      <PlatformStats />
       <Testimonials />
+      <PoweredBy />
       <Pricing />
       <FAQ />
       <CTABanner />
