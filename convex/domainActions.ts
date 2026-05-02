@@ -258,6 +258,7 @@ export const verifyDns = action({
     // VerifiedForSendingStatus is the authoritative "can this domain send email" flag from SES.
     // It is more stable than DkimAttributes.Status which can transiently flap.
     const sesVerified = result.VerifiedForSendingStatus === true;
+    const sesMailFromVerified = result.MailFromAttributes?.MailFromDomainStatus === "SUCCESS";
 
     // Sticky verification: once a record is verified, never flip it back to false
     // from a user-triggered check. DNS propagation and SES internal state are
@@ -266,10 +267,9 @@ export const verifyDns = action({
 
     const status = {
       domainId,
-      // Use sesVerified (VerifiedForSendingStatus) as the primary verified flag - it is
-      // what SES actually uses to gate outgoing email, and it is stickied so a transient
-      // SES response can't unexpectedly lock users out of their mailboxes.
-      verified: sticky(sesVerified, domain.verified),
+      // Require both VerifiedForSendingStatus (DKIM) and MailFromDomainStatus (MAIL FROM)
+      // to be verified before marking the domain as fully verified.
+      verified: sticky(sesVerified && sesMailFromVerified, domain.verified),
       mxVerified: sticky(mxVerified, domain.mxVerified),
       spfVerified: sticky(spfVerified, domain.spfVerified),
       dkimVerified: sticky(dkimVerified, domain.dkimVerified),
