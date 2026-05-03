@@ -2,45 +2,45 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useEffect, useRef, useState } from "react";
+import RollingCounter from "./RollingCounter";
 
-function AnimatedNumber({ value }: { value: number }) {
-  const [display, setDisplay] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  const hasAnimated = useRef(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || hasAnimated.current || value === 0) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting || hasAnimated.current) return;
-        hasAnimated.current = true;
-        observer.disconnect();
-
-        const duration = 2000;
-        const start = performance.now();
-
-        function tick(now: number) {
-          const elapsed = now - start;
-          const progress = Math.min(elapsed / duration, 1);
-          const eased = 1 - Math.pow(1 - progress, 3);
-          setDisplay(Math.floor(eased * value));
-          if (progress < 1) requestAnimationFrame(tick);
-        }
-
-        requestAnimationFrame(tick);
-      },
-      { threshold: 0.3 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [value]);
-
-  return <span ref={ref}>{display.toLocaleString()}</span>;
-}
+// function AnimatedNumber({ value }: { value: number }) {
+//   const [display, setDisplay] = useState(0);
+//   const ref = useRef<HTMLSpanElement>(null);
+//   const hasAnimated = useRef(false);
+//
+//   useEffect(() => {
+//     const el = ref.current;
+//     if (!el || hasAnimated.current || value === 0) return;
+//
+//     const observer = new IntersectionObserver(
+//       ([entry]) => {
+//         if (!entry.isIntersecting || hasAnimated.current) return;
+//         hasAnimated.current = true;
+//         observer.disconnect();
+//
+//         const duration = 2000;
+//         const start = performance.now();
+//
+//         function tick(now: number) {
+//           const elapsed = now - start;
+//           const progress = Math.min(elapsed / duration, 1);
+//           const eased = 1 - Math.pow(1 - progress, 3);
+//           setDisplay(Math.floor(eased * value));
+//           if (progress < 1) requestAnimationFrame(tick);
+//         }
+//
+//         requestAnimationFrame(tick);
+//       },
+//       { threshold: 0.3 }
+//     );
+//
+//     observer.observe(el);
+//     return () => observer.disconnect();
+//   }, [value]);
+//
+//   return <span ref={ref}>{display.toLocaleString()}</span>;
+// }
 
 const statsConfig = [
   {
@@ -88,7 +88,7 @@ export default function PlatformStats() {
                 {s.icon}
               </div>
               <p className="mt-4 text-3xl font-extrabold text-gray-900 dark:text-white">
-                {stats ? <AnimatedNumber value={stats[s.key]} /> : "-"}
+                {stats ? <RollingCounter value={stats[s.key]} /> : "-"}
               </p>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{s.label}</p>
             </div>

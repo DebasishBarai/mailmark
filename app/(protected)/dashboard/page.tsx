@@ -10,6 +10,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer,
 } from "recharts";
 import { AddDomainModal } from "../../components/AddDomainModal";
+import RollingCounter from "../../components/RollingCounter";
 
 export default function DashboardPage() {
   const domains = useQuery(api.domains.listForCurrentUser);
@@ -52,7 +53,7 @@ export default function DashboardPage() {
             {isLoading ? (
               <span className="inline-block h-8 w-8 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
             ) : (
-              domainCount
+              <RollingCounter value={domainCount} />
             )}
           </p>
           <span className="mt-2 inline-block rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
@@ -66,7 +67,7 @@ export default function DashboardPage() {
             {statsLoading ? (
               <span className="inline-block h-8 w-8 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
             ) : (
-              emailStats?.totalSent ?? 0
+              <RollingCounter value={emailStats?.totalSent ?? 0} />
             )}
           </p>
           <span className="mt-2 inline-block rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
@@ -80,7 +81,7 @@ export default function DashboardPage() {
             {statsLoading ? (
               <span className="inline-block h-8 w-8 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
             ) : (
-              <>{emailStats?.deliveryRate ?? 0}%</>
+              <RollingCounter value={emailStats?.deliveryRate ?? 0} suffix="%" />
             )}
           </p>
           {!statsLoading && emailStats && (
@@ -102,7 +103,7 @@ export default function DashboardPage() {
             {statsLoading ? (
               <span className="inline-block h-8 w-8 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
             ) : (
-              <>{emailStats?.openRate ?? 0}%</>
+              <RollingCounter value={emailStats?.openRate ?? 0} suffix="%" />
             )}
           </p>
           {!statsLoading && emailStats && (
