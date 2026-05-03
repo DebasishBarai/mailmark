@@ -2005,6 +2005,16 @@ export default function MailboxPage() {
                       Cancel Sequence
                     </button>
                   )}
+                  <div className="mx-0.5 h-4 w-px bg-gray-200 dark:bg-gray-700" />
+                  <button
+                    onClick={() => { setExpandedSequenceId(null); setSelectedEnrollmentIds(new Set()); }}
+                    className="rounded-md p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300"
+                    title="Close"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
               </div>
 
