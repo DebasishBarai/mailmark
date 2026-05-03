@@ -653,6 +653,8 @@ export default function MailboxPage() {
       resetComposeState();
     }
     setSelectedEmailId(emailId);
+    setExpandedSequenceId(null);
+    setSelectedEnrollmentIds(new Set());
     setEmailBody(null);
     setEmailAttachments([]);
 
@@ -1136,6 +1138,8 @@ export default function MailboxPage() {
                 onClick={() => {
                   setActiveFolder(folder.key);
                   setSelectedEmailId(null);
+                  setExpandedSequenceId(null);
+                  setSelectedEnrollmentIds(new Set());
                   setEmailBody(null);
                   closeMobile();
                 }}
@@ -1402,7 +1406,7 @@ export default function MailboxPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Email list */}
-        <div className={`flex min-w-0 max-w-[100vw] flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 md:shrink-0 ${selectedEmailId || showCompose ? "hidden md:flex md:w-80" : "flex-1"}`}>
+        <div className={`flex min-w-0 max-w-[100vw] flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 md:shrink-0 ${selectedEmailId || showCompose || expandedSequenceId ? "hidden md:flex md:w-80" : "flex-1"}`}>
           {/* List header */}
           <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700/50 px-4 py-2">
             <div className="flex items-center gap-2">
@@ -1473,7 +1477,7 @@ export default function MailboxPage() {
           </div>
           <div className="flex-1 overflow-x-hidden overflow-y-auto">
             {activeFolder === "follow-ups" ? (
-              <div className="p-3 space-y-2">
+              <div className="divide-y divide-gray-50 dark:divide-gray-700/30">
                 {!mailboxSequences || mailboxSequences.length === 0 ? (
                   <div className="flex h-full items-center justify-center py-16">
                     <div className="text-center">
@@ -1481,178 +1485,44 @@ export default function MailboxPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
                       </svg>
                       <p className="mt-3 text-sm font-medium text-gray-900 dark:text-white">No follow-ups yet</p>
-                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Add follow-up steps when composing an email</p>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Add follow-up steps when composing a campaign email</p>
                     </div>
                   </div>
                 ) : (
                   mailboxSequences.map((seq) => (
-                    <div key={seq._id} className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 overflow-hidden">
-                      <button
-                        onClick={() => {
-                          if (expandedSequenceId === seq._id) {
-                            setExpandedSequenceId(null);
-                            setSelectedEnrollmentIds(new Set());
-                          } else {
-                            setExpandedSequenceId(seq._id);
-                            setSelectedEnrollmentIds(new Set());
-                          }
-                        }}
-                        className="w-full p-3 text-left hover:bg-gray-100 dark:hover:bg-gray-600/50 transition-colors"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <svg className={`h-3 w-3 text-gray-400 transition-transform ${expandedSequenceId === seq._id ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                              </svg>
-                              <p className="truncate text-xs font-semibold text-gray-900 dark:text-white">{seq.name}</p>
-                            </div>
-                            <div className="mt-1 ml-4.5 flex flex-wrap gap-1.5">
-                              <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                                seq.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                : seq.status === "paused" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                                : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                              }`}>
-                                <span className={`h-1 w-1 rounded-full ${seq.status === "active" ? "bg-green-500" : seq.status === "paused" ? "bg-amber-500" : "bg-gray-400"}`} />
-                                {seq.status}
-                              </span>
-                              <span className="text-[10px] text-gray-500 dark:text-gray-400">{seq.steps.length} steps</span>
-                            </div>
-                            <div className="mt-1.5 ml-4.5 flex flex-wrap gap-x-2 text-[10px] text-gray-500 dark:text-gray-400">
-                              <span>{seq.stats.total} enrolled</span>
-                              {seq.stats.active > 0 && <span className="text-green-600 dark:text-green-400">{seq.stats.active} active</span>}
-                              {seq.stats.replied > 0 && <span className="text-blue-600 dark:text-blue-400">{seq.stats.replied} replied</span>}
-                              {seq.stats.completed > 0 && <span>{seq.stats.completed} done</span>}
-                              {seq.stats.bounced > 0 && <span className="text-red-600 dark:text-red-400">{seq.stats.bounced} bounced</span>}
-                            </div>
-                          </div>
+                    <button
+                      key={seq._id}
+                      onClick={() => {
+                        setExpandedSequenceId(seq._id);
+                        setSelectedEnrollmentIds(new Set());
+                        setSelectedEmailId(null);
+                      }}
+                      className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${expandedSequenceId === seq._id ? "bg-violet-50 dark:bg-violet-900/20" : ""}`}
+                    >
+                      <div className={`mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                        seq.status === "active" ? "bg-green-100 dark:bg-green-900/30" : seq.status === "paused" ? "bg-amber-100 dark:bg-amber-900/30" : "bg-gray-100 dark:bg-gray-700"
+                      }`}>
+                        <svg className={`h-4 w-4 ${seq.status === "active" ? "text-green-600 dark:text-green-400" : seq.status === "paused" ? "text-amber-600 dark:text-amber-400" : "text-gray-500"}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
+                        </svg>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{seq.name}</p>
+                        <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-gray-500 dark:text-gray-400">
+                          <span>{seq.stats.total} enrolled</span>
+                          {seq.stats.active > 0 && <span className="text-green-600 dark:text-green-400">{seq.stats.active} active</span>}
+                          {seq.stats.replied > 0 && <span className="text-blue-600 dark:text-blue-400">{seq.stats.replied} replied</span>}
                         </div>
-                      </button>
-                      {expandedSequenceId === seq._id && (
-                        <div className="border-t border-gray-200 dark:border-gray-600">
-                          <div className="px-3 py-2 flex items-center justify-between bg-gray-100/50 dark:bg-gray-700/30">
-                            <div className="flex items-center gap-2">
-                              {seq.status === "active" && (
-                                <button
-                                  onClick={() => pauseSequence({ sequenceId: seq._id })}
-                                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/40"
-                                >
-                                  <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
-                                  </svg>
-                                  Pause All
-                                </button>
-                              )}
-                              {seq.status === "paused" && (
-                                <button
-                                  onClick={() => resumeSequence({ sequenceId: seq._id })}
-                                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/40"
-                                >
-                                  <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
-                                  </svg>
-                                  Resume All
-                                </button>
-                              )}
-                              {seq.status !== "completed" && (
-                                <button
-                                  onClick={() => cancelSequence({ sequenceId: seq._id })}
-                                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
-                                >
-                                  <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                  Cancel All
-                                </button>
-                              )}
-                            </div>
-                            {selectedEnrollmentIds.size > 0 && (
-                              <button
-                                onClick={async () => {
-                                  for (const id of selectedEnrollmentIds) {
-                                    await cancelEnrollment({ enrollmentId: id as Id<"sequenceEnrollments"> });
-                                  }
-                                  setSelectedEnrollmentIds(new Set());
-                                }}
-                                className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
-                              >
-                                <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                                Cancel Selected ({selectedEnrollmentIds.size})
-                              </button>
-                            )}
-                          </div>
-                          <div className="max-h-60 overflow-y-auto">
-                            {!sequenceEnrollments ? (
-                              <div className="p-3 text-center text-[10px] text-gray-400">Loading enrollments...</div>
-                            ) : sequenceEnrollments.length === 0 ? (
-                              <div className="p-3 text-center text-[10px] text-gray-400">No contacts enrolled</div>
-                            ) : (
-                              <div>
-                                <div className="px-3 py-1.5 flex items-center gap-2 border-b border-gray-100 dark:border-gray-700/50">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedEnrollmentIds.size === sequenceEnrollments.filter(e => e.status === "active").length && sequenceEnrollments.filter(e => e.status === "active").length > 0}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setSelectedEnrollmentIds(new Set(sequenceEnrollments.filter(en => en.status === "active").map(en => en._id)));
-                                      } else {
-                                        setSelectedEnrollmentIds(new Set());
-                                      }
-                                    }}
-                                    className="h-3 w-3 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
-                                  />
-                                  <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                                    Select all active ({sequenceEnrollments.filter(e => e.status === "active").length})
-                                  </span>
-                                </div>
-                                {sequenceEnrollments.map((enrollment) => (
-                                  <div key={enrollment._id} className="px-3 py-1.5 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700/30 border-b border-gray-50 dark:border-gray-700/20 last:border-0">
-                                    {enrollment.status === "active" && (
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedEnrollmentIds.has(enrollment._id)}
-                                        onChange={(e) => {
-                                          const next = new Set(selectedEnrollmentIds);
-                                          if (e.target.checked) next.add(enrollment._id);
-                                          else next.delete(enrollment._id);
-                                          setSelectedEnrollmentIds(next);
-                                        }}
-                                        className="h-3 w-3 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
-                                      />
-                                    )}
-                                    {enrollment.status !== "active" && <div className="w-3" />}
-                                    <span className="flex-1 truncate text-[11px] text-gray-700 dark:text-gray-300">{enrollment.contactEmail}</span>
-                                    <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${
-                                      enrollment.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                      : enrollment.status === "replied" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                                      : enrollment.status === "completed" ? "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                                      : enrollment.status === "bounced" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                      : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                                    }`}>
-                                      {enrollment.status}
-                                    </span>
-                                    <span className="text-[9px] text-gray-400">step {enrollment.currentStep}/{seq.steps.length}</span>
-                                    {enrollment.status === "active" && (
-                                      <button
-                                        onClick={() => cancelEnrollment({ enrollmentId: enrollment._id })}
-                                        title="Cancel this enrollment"
-                                        className="rounded p-0.5 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                      >
-                                        <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                      </button>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                      <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                        seq.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : seq.status === "paused" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                      }`}>
+                        <span className={`h-1 w-1 rounded-full ${seq.status === "active" ? "bg-green-500" : seq.status === "paused" ? "bg-amber-500" : "bg-gray-400"}`} />
+                        {seq.status}
+                      </span>
+                    </button>
                   ))
                 )}
               </div>
@@ -2069,8 +1939,220 @@ export default function MailboxPage() {
           );
         })()}
 
+        {/* Sequence detail panel */}
+        {!showCompose && !selectedEmailId && expandedSequenceId && (() => {
+          const selectedSeq = mailboxSequences?.find((s) => s._id === expandedSequenceId);
+          if (!selectedSeq) return null;
+          return (
+            <div className="min-w-0 flex-1 overflow-y-auto bg-white dark:bg-gray-800 p-4 md:p-8">
+              <div className="mb-6 flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setExpandedSequenceId(null); setSelectedEnrollmentIds(new Set()); }}
+                      className="md:hidden rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                      </svg>
+                    </button>
+                    <h2 className="break-words text-lg font-semibold text-gray-900 dark:text-white md:text-xl">{selectedSeq.name}</h2>
+                  </div>
+                  <div className="mt-2 flex items-center gap-3">
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                      selectedSeq.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : selectedSeq.status === "paused" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                      : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                    }`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${selectedSeq.status === "active" ? "bg-green-500" : selectedSeq.status === "paused" ? "bg-amber-500" : "bg-gray-400"}`} />
+                      {selectedSeq.status}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{selectedSeq.steps.length} steps</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">via {selectedSeq.mailboxAddress}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {selectedSeq.status === "active" && (
+                    <button
+                      onClick={() => pauseSequence({ sequenceId: selectedSeq._id })}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+                      </svg>
+                      Pause
+                    </button>
+                  )}
+                  {selectedSeq.status === "paused" && (
+                    <button
+                      onClick={() => resumeSequence({ sequenceId: selectedSeq._id })}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/40 border border-green-200 dark:border-green-800"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                      </svg>
+                      Resume
+                    </button>
+                  )}
+                  {selectedSeq.status !== "completed" && (
+                    <button
+                      onClick={() => { cancelSequence({ sequenceId: selectedSeq._id }); setExpandedSequenceId(null); }}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-800"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      Cancel Sequence
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Stats summary */}
+              <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{selectedSeq.stats.total}</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">Total</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+                  <p className="text-lg font-semibold text-green-600 dark:text-green-400">{selectedSeq.stats.active}</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">Active</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+                  <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">{selectedSeq.stats.replied}</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">Replied</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+                  <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">{selectedSeq.stats.completed}</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">Completed</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+                  <p className="text-lg font-semibold text-red-600 dark:text-red-400">{selectedSeq.stats.bounced}</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">Bounced</p>
+                </div>
+              </div>
+
+              {/* Steps overview */}
+              <div className="mb-6">
+                <h3 className="mb-3 text-sm font-medium text-gray-900 dark:text-white">Sequence Steps</h3>
+                <div className="space-y-2">
+                  {selectedSeq.steps.map((step, idx) => (
+                    <div key={idx} className="flex items-center gap-3 rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-[10px] font-bold text-violet-600 dark:text-violet-400">{idx + 1}</span>
+                      {step.type === "send_email" ? (
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-gray-900 dark:text-white">Send Email</p>
+                          <p className="truncate text-[11px] text-gray-500 dark:text-gray-400">{step.subject}</p>
+                        </div>
+                      ) : (
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-gray-900 dark:text-white">Wait</p>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400">{Math.round(step.delayMs / 86400000)} day{Math.round(step.delayMs / 86400000) !== 1 ? "s" : ""}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Enrollments */}
+              <div>
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                    Enrollments {sequenceEnrollments ? `(${sequenceEnrollments.length})` : ""}
+                  </h3>
+                  {selectedEnrollmentIds.size > 0 && (
+                    <button
+                      onClick={async () => {
+                        for (const id of selectedEnrollmentIds) {
+                          await cancelEnrollment({ enrollmentId: id as Id<"sequenceEnrollments"> });
+                        }
+                        setSelectedEnrollmentIds(new Set());
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-800"
+                    >
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      Cancel Selected ({selectedEnrollmentIds.size})
+                    </button>
+                  )}
+                </div>
+                {!sequenceEnrollments ? (
+                  <div className="py-8 text-center text-sm text-gray-400">Loading enrollments...</div>
+                ) : sequenceEnrollments.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-gray-400">No contacts enrolled yet</div>
+                ) : (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={selectedEnrollmentIds.size === sequenceEnrollments.filter(e => e.status === "active").length && sequenceEnrollments.filter(e => e.status === "active").length > 0}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedEnrollmentIds(new Set(sequenceEnrollments.filter(en => en.status === "active").map(en => en._id)));
+                          } else {
+                            setSelectedEnrollmentIds(new Set());
+                          }
+                        }}
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                      />
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        Select all active ({sequenceEnrollments.filter(e => e.status === "active").length})
+                      </span>
+                    </div>
+                    <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                      {sequenceEnrollments.map((enrollment) => (
+                        <div key={enrollment._id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                          {enrollment.status === "active" ? (
+                            <input
+                              type="checkbox"
+                              checked={selectedEnrollmentIds.has(enrollment._id)}
+                              onChange={(e) => {
+                                const next = new Set(selectedEnrollmentIds);
+                                if (e.target.checked) next.add(enrollment._id);
+                                else next.delete(enrollment._id);
+                                setSelectedEnrollmentIds(next);
+                              }}
+                              className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                            />
+                          ) : (
+                            <div className="w-3.5" />
+                          )}
+                          <span className="flex-1 truncate text-sm text-gray-700 dark:text-gray-300">{enrollment.contactEmail}</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">step {enrollment.currentStep}/{selectedSeq.steps.length}</span>
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                            enrollment.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : enrollment.status === "replied" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            : enrollment.status === "completed" ? "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                            : enrollment.status === "bounced" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                          }`}>
+                            {enrollment.status}
+                          </span>
+                          {enrollment.status === "active" && (
+                            <button
+                              onClick={() => cancelEnrollment({ enrollmentId: enrollment._id })}
+                              title="Cancel this enrollment"
+                              className="rounded p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* No email selected */}
-        {!showCompose && !selectedEmailId && (
+        {!showCompose && !selectedEmailId && !expandedSequenceId && (
           <div className="hidden flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900 md:flex">
             <div className="text-center">
               <svg className="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
