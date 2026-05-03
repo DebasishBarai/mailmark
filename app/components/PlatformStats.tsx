@@ -10,21 +10,33 @@ function AnimatedNumber({ value }: { value: number }) {
   const hasAnimated = useRef(false);
 
   useEffect(() => {
-    if (hasAnimated.current || value === 0) return;
-    hasAnimated.current = true;
+    const el = ref.current;
+    if (!el || hasAnimated.current || value === 0) return;
 
-    const duration = 1500;
-    const start = performance.now();
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || hasAnimated.current) return;
+        hasAnimated.current = true;
+        observer.disconnect();
 
-    function tick(now: number) {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay(Math.floor(eased * value));
-      if (progress < 1) requestAnimationFrame(tick);
-    }
+        const duration = 2000;
+        const start = performance.now();
 
-    requestAnimationFrame(tick);
+        function tick(now: number) {
+          const elapsed = now - start;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          setDisplay(Math.floor(eased * value));
+          if (progress < 1) requestAnimationFrame(tick);
+        }
+
+        requestAnimationFrame(tick);
+      },
+      { threshold: 0.3 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [value]);
 
   return <span ref={ref}>{display.toLocaleString()}</span>;
