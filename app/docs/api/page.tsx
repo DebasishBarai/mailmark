@@ -437,7 +437,7 @@ const ENDPOINTS: Endpoint[] = [
     path: "/v1/sequences",
     title: "Create Sequence",
     description:
-      "Creates a new automated email sequence. A sequence is a series of steps: send_email steps deliver an email, delay steps wait a specified duration before proceeding. The first step must be send_email. Supports merge field placeholders like {{firstName}} in subject and html.",
+      "Creates a new automated email sequence for campaign-style sends (one email per recipient). A sequence is a series of steps: send_email steps deliver an email, delay steps wait a specified duration before proceeding. The first step must be send_email. Supports merge field placeholders like {{firstName}} in subject and html.",
     fields: [
       {
         name: "name",

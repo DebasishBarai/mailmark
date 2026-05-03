@@ -112,7 +112,8 @@ Use the dashboard UI to compose and send emails, or use the REST API / npm SDK t
 
 ### Sequences (Automated Follow-ups)
 - Multi-step automated email sequences with configurable delays
-- Integrated into the compose flow: add follow-up steps when writing an email
+- Available for campaign sends only (one email per recipient) -- not for normal multi-recipient sends
+- Integrated into the campaign compose flow: add follow-up steps when writing a campaign email
 - Merge field personalization ({{firstName}}, {{company}}, custom fields)
 - Automatic reply detection: stops the sequence when a contact replies
 - Pause, resume, or cancel sequences at any time
@@ -375,11 +376,13 @@ Campaigns let you send bulk emails to a large list of recipients from any of you
 Use merge tags in the subject or body to personalize emails per recipient:
 - `{{firstName}}`, `{{lastName}}`, `{{company}}`, and any custom fields from your CSV import
 
-### Follow-up Sequences
-Configure multi-stage automated follow-ups:
-- Stage 1: Initial email
+### Follow-up Sequences (Campaign mode only)
+Configure multi-stage automated follow-ups when sending in campaign mode (one email per recipient). Follow-ups are not available for normal sends where multiple recipients share one email.
+- Stage 1: Initial campaign email (sent immediately)
 - Stage 2: Follow-up if no reply after N days
 - Stage 3: Second follow-up if still no reply
+- Automatic reply detection stops the sequence for that contact
+- Select individual or all enrollments to pause/cancel from the Follow-ups tab
 
 ### Campaign Analytics
 Real-time metrics per campaign:

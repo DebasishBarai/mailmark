@@ -241,6 +241,13 @@ export default function MailboxPage() {
   const pauseSequence = useMutation(api.sequenceActions.pause);
   const resumeSequence = useMutation(api.sequenceActions.resume);
   const cancelSequence = useMutation(api.sequenceActions.cancel);
+  const cancelEnrollment = useMutation(api.sequenceActions.cancelEnrollment);
+  const [expandedSequenceId, setExpandedSequenceId] = useState<Id<"sequences"> | null>(null);
+  const [selectedEnrollmentIds, setSelectedEnrollmentIds] = useState<Set<string>>(new Set());
+  const sequenceEnrollments = useQuery(
+    api.sequenceActions.listEnrollments,
+    expandedSequenceId ? { sequenceId: expandedSequenceId } : "skip"
+  );
   const cancelScheduledEmailMutation = useMutation(api.emails.cancelScheduledEmail);
   const fetchEmailBody = useAction(api.ses.fetchEmailBody);
   const getAttachment = useAction(api.ses.getAttachment);
@@ -806,23 +813,6 @@ export default function MailboxPage() {
         body: fullBody,
         attachments: attachmentData.length > 0 ? attachmentData : undefined,
       });
-      if (followUpSteps.length > 0 && mailbox?.domainId) {
-        const sequenceSteps: Array<{ type: "send_email"; subject: string; html: string } | { type: "delay"; delayMs: number }> = [
-          { type: "send_email" as const, subject: composeSubject, html: fullBody },
-        ];
-        for (const fu of followUpSteps) {
-          sequenceSteps.push({ type: "delay" as const, delayMs: fu.delayDays * 86400000 });
-          sequenceSteps.push({ type: "send_email" as const, subject: fu.subject, html: fu.body });
-        }
-        const contacts = allRecipients.map((email) => ({ email }));
-        await createAndEnrollSequence({
-          mailboxId: mbId,
-          domainId: mailbox.domainId,
-          name: `Follow-up: ${composeSubject.slice(0, 50)}`,
-          steps: sequenceSteps,
-          contacts,
-        });
-      }
       resetComposeState();
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to send email. Please try again.");
@@ -918,23 +908,6 @@ export default function MailboxPage() {
         attachments: attachmentData.length > 0 ? attachmentData : undefined,
         scheduledAt,
       });
-      if (followUpSteps.length > 0 && mailbox?.domainId) {
-        const sequenceSteps: Array<{ type: "send_email"; subject: string; html: string } | { type: "delay"; delayMs: number }> = [
-          { type: "send_email" as const, subject: composeSubject, html: fullBody },
-        ];
-        for (const fu of followUpSteps) {
-          sequenceSteps.push({ type: "delay" as const, delayMs: fu.delayDays * 86400000 });
-          sequenceSteps.push({ type: "send_email" as const, subject: fu.subject, html: fu.body });
-        }
-        const contacts = allRecipients.map((email) => ({ email }));
-        await createAndEnrollSequence({
-          mailboxId: mbId,
-          domainId: mailbox.domainId,
-          name: `Follow-up: ${composeSubject.slice(0, 50)}`,
-          steps: sequenceSteps,
-          contacts,
-        });
-      }
       resetComposeState();
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to schedule email. Please try again.");
@@ -1513,65 +1486,172 @@ export default function MailboxPage() {
                   </div>
                 ) : (
                   mailboxSequences.map((seq) => (
-                    <div key={seq._id} className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-3">
-                      <div className="flex items-start justify-between">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-semibold text-gray-900 dark:text-white">{seq.name}</p>
-                          <div className="mt-1 flex flex-wrap gap-1.5">
-                            <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                              seq.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                              : seq.status === "paused" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                              : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                            }`}>
-                              <span className={`h-1 w-1 rounded-full ${seq.status === "active" ? "bg-green-500" : seq.status === "paused" ? "bg-amber-500" : "bg-gray-400"}`} />
-                              {seq.status}
-                            </span>
-                            <span className="text-[10px] text-gray-500 dark:text-gray-400">{seq.steps.length} steps</span>
-                          </div>
-                          <div className="mt-1.5 flex flex-wrap gap-x-2 text-[10px] text-gray-500 dark:text-gray-400">
-                            <span>{seq.stats.total} enrolled</span>
-                            {seq.stats.active > 0 && <span className="text-green-600 dark:text-green-400">{seq.stats.active} active</span>}
-                            {seq.stats.replied > 0 && <span className="text-blue-600 dark:text-blue-400">{seq.stats.replied} replied</span>}
-                            {seq.stats.completed > 0 && <span>{seq.stats.completed} done</span>}
-                            {seq.stats.bounced > 0 && <span className="text-red-600 dark:text-red-400">{seq.stats.bounced} bounced</span>}
+                    <div key={seq._id} className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 overflow-hidden">
+                      <button
+                        onClick={() => {
+                          if (expandedSequenceId === seq._id) {
+                            setExpandedSequenceId(null);
+                            setSelectedEnrollmentIds(new Set());
+                          } else {
+                            setExpandedSequenceId(seq._id);
+                            setSelectedEnrollmentIds(new Set());
+                          }
+                        }}
+                        className="w-full p-3 text-left hover:bg-gray-100 dark:hover:bg-gray-600/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <svg className={`h-3 w-3 text-gray-400 transition-transform ${expandedSequenceId === seq._id ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                              </svg>
+                              <p className="truncate text-xs font-semibold text-gray-900 dark:text-white">{seq.name}</p>
+                            </div>
+                            <div className="mt-1 ml-4.5 flex flex-wrap gap-1.5">
+                              <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                seq.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                : seq.status === "paused" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                              }`}>
+                                <span className={`h-1 w-1 rounded-full ${seq.status === "active" ? "bg-green-500" : seq.status === "paused" ? "bg-amber-500" : "bg-gray-400"}`} />
+                                {seq.status}
+                              </span>
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400">{seq.steps.length} steps</span>
+                            </div>
+                            <div className="mt-1.5 ml-4.5 flex flex-wrap gap-x-2 text-[10px] text-gray-500 dark:text-gray-400">
+                              <span>{seq.stats.total} enrolled</span>
+                              {seq.stats.active > 0 && <span className="text-green-600 dark:text-green-400">{seq.stats.active} active</span>}
+                              {seq.stats.replied > 0 && <span className="text-blue-600 dark:text-blue-400">{seq.stats.replied} replied</span>}
+                              {seq.stats.completed > 0 && <span>{seq.stats.completed} done</span>}
+                              {seq.stats.bounced > 0 && <span className="text-red-600 dark:text-red-400">{seq.stats.bounced} bounced</span>}
+                            </div>
                           </div>
                         </div>
-                        <div className="ml-2 flex items-center gap-1">
-                          {seq.status === "active" && (
-                            <button
-                              onClick={() => pauseSequence({ sequenceId: seq._id })}
-                              title="Pause"
-                              className="rounded p-1 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-amber-600"
-                            >
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
-                              </svg>
-                            </button>
-                          )}
-                          {seq.status === "paused" && (
-                            <button
-                              onClick={() => resumeSequence({ sequenceId: seq._id })}
-                              title="Resume"
-                              className="rounded p-1 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-green-600"
-                            >
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
-                              </svg>
-                            </button>
-                          )}
-                          {seq.status !== "completed" && (
-                            <button
-                              onClick={() => cancelSequence({ sequenceId: seq._id })}
-                              title="Cancel"
-                              className="rounded p-1 text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600"
-                            >
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          )}
+                      </button>
+                      {expandedSequenceId === seq._id && (
+                        <div className="border-t border-gray-200 dark:border-gray-600">
+                          <div className="px-3 py-2 flex items-center justify-between bg-gray-100/50 dark:bg-gray-700/30">
+                            <div className="flex items-center gap-2">
+                              {seq.status === "active" && (
+                                <button
+                                  onClick={() => pauseSequence({ sequenceId: seq._id })}
+                                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/40"
+                                >
+                                  <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+                                  </svg>
+                                  Pause All
+                                </button>
+                              )}
+                              {seq.status === "paused" && (
+                                <button
+                                  onClick={() => resumeSequence({ sequenceId: seq._id })}
+                                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/40"
+                                >
+                                  <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                                  </svg>
+                                  Resume All
+                                </button>
+                              )}
+                              {seq.status !== "completed" && (
+                                <button
+                                  onClick={() => cancelSequence({ sequenceId: seq._id })}
+                                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
+                                >
+                                  <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                  Cancel All
+                                </button>
+                              )}
+                            </div>
+                            {selectedEnrollmentIds.size > 0 && (
+                              <button
+                                onClick={async () => {
+                                  for (const id of selectedEnrollmentIds) {
+                                    await cancelEnrollment({ enrollmentId: id as Id<"sequenceEnrollments"> });
+                                  }
+                                  setSelectedEnrollmentIds(new Set());
+                                }}
+                                className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
+                              >
+                                <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Cancel Selected ({selectedEnrollmentIds.size})
+                              </button>
+                            )}
+                          </div>
+                          <div className="max-h-60 overflow-y-auto">
+                            {!sequenceEnrollments ? (
+                              <div className="p-3 text-center text-[10px] text-gray-400">Loading enrollments...</div>
+                            ) : sequenceEnrollments.length === 0 ? (
+                              <div className="p-3 text-center text-[10px] text-gray-400">No contacts enrolled</div>
+                            ) : (
+                              <div>
+                                <div className="px-3 py-1.5 flex items-center gap-2 border-b border-gray-100 dark:border-gray-700/50">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedEnrollmentIds.size === sequenceEnrollments.filter(e => e.status === "active").length && sequenceEnrollments.filter(e => e.status === "active").length > 0}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedEnrollmentIds(new Set(sequenceEnrollments.filter(en => en.status === "active").map(en => en._id)));
+                                      } else {
+                                        setSelectedEnrollmentIds(new Set());
+                                      }
+                                    }}
+                                    className="h-3 w-3 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                                  />
+                                  <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                    Select all active ({sequenceEnrollments.filter(e => e.status === "active").length})
+                                  </span>
+                                </div>
+                                {sequenceEnrollments.map((enrollment) => (
+                                  <div key={enrollment._id} className="px-3 py-1.5 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700/30 border-b border-gray-50 dark:border-gray-700/20 last:border-0">
+                                    {enrollment.status === "active" && (
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedEnrollmentIds.has(enrollment._id)}
+                                        onChange={(e) => {
+                                          const next = new Set(selectedEnrollmentIds);
+                                          if (e.target.checked) next.add(enrollment._id);
+                                          else next.delete(enrollment._id);
+                                          setSelectedEnrollmentIds(next);
+                                        }}
+                                        className="h-3 w-3 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                                      />
+                                    )}
+                                    {enrollment.status !== "active" && <div className="w-3" />}
+                                    <span className="flex-1 truncate text-[11px] text-gray-700 dark:text-gray-300">{enrollment.contactEmail}</span>
+                                    <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${
+                                      enrollment.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                      : enrollment.status === "replied" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                      : enrollment.status === "completed" ? "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                                      : enrollment.status === "bounced" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                      : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                    }`}>
+                                      {enrollment.status}
+                                    </span>
+                                    <span className="text-[9px] text-gray-400">step {enrollment.currentStep}/{seq.steps.length}</span>
+                                    {enrollment.status === "active" && (
+                                      <button
+                                        onClick={() => cancelEnrollment({ enrollmentId: enrollment._id })}
+                                        title="Cancel this enrollment"
+                                        className="rounded p-0.5 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                      >
+                                        <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -2539,6 +2619,7 @@ export default function MailboxPage() {
               )}
             </div>
             {/* Follow-up steps builder */}
+            {sendMode === "campaign" && (
             <div className="mt-3 border-t border-gray-100 dark:border-gray-700/50 pt-3">
                 <button
                   type="button"
@@ -2624,6 +2705,7 @@ export default function MailboxPage() {
                   </div>
                 )}
               </div>
+            )}
             {(() => {
               const invalidRecipients = composeTo.filter((e) => verificationResults[e.toLowerCase()]?.isValid === false);
               if (invalidRecipients.length > 0) return (
@@ -2711,7 +2793,7 @@ export default function MailboxPage() {
                   {showSendDropdown && (
                     <div className="absolute bottom-full left-0 z-20 mb-1 w-60 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
                       <button
-                        onClick={() => { if (!usesMergeFields) { setSendMode("send"); setShowSendDropdown(false); } }}
+                        onClick={() => { if (!usesMergeFields) { setSendMode("send"); setShowSendDropdown(false); setFollowUpSteps([]); setShowFollowUps(false); } }}
                         disabled={usesMergeFields}
                         className={`flex w-full items-start gap-3 px-4 py-3 text-left text-sm transition-colors ${usesMergeFields ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50 dark:hover:bg-gray-700"} ${sendMode === "send" ? "bg-violet-50 dark:bg-violet-900/20" : ""}`}
                       >
