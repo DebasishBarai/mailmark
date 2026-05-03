@@ -2,28 +2,28 @@ const testimonials = [
   {
     quote:
       "We switched all our outreach campaigns to Mailmark. Setting up our domain took 5 minutes, and now every campaign goes out from our own address. Open rates jumped 30%.",
-    name: "Sarah C.",
-    role: "Head of Sales, SaaS Startup",
-    // name: "Mailmark User",
-    // role: "Head of Sales",
+    // name: "Sarah C.",
+    // role: "Head of Sales, SaaS Startup",
+    name: "Mailmark User",
+    role: "Head of Sales",
     stars: 5,
   },
   {
     quote:
       "Finally, one platform for running email campaigns with real deliverability. No more juggling Mailchimp, a warming tool, and a separate inbox for replies.",
-    name: "Marcus J.",
-    role: "Founder, Growth Agency",
-    // name: "Seasoned Entrepreneur",
-    // role: "Startup Founder",
+    // name: "Marcus J.",
+    // role: "Founder, Growth Agency",
+    name: "Seasoned Entrepreneur",
+    role: "Startup Founder",
     stars: 5,
   },
   {
     quote:
       "The campaign tools are powerful and the reply management feels just like Gmail. I run outreach from sales@ and newsletters from updates@, all in one place.",
-    name: "Priya P.",
-    role: "Marketing Director, E-commerce",
-    // name: "Mailmark User",
-    // role: "Marketing Director",
+    // name: "Priya P.",
+    // role: "Marketing Director, E-commerce",
+    name: "Mailmark User",
+    role: "Marketing Director",
     stars: 5,
   },
 ];
@@ -53,9 +53,9 @@ export default function Testimonials() {
           </p>
         </div>
         <div className="mt-16 grid gap-8 md:grid-cols-3">
-          {testimonials.map((t) => (
+          {testimonials.map((t, i) => (
             <div
-              key={t.name}
+              key={i}
               className="flex flex-col rounded-2xl border border-gray-100 bg-white p-8 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
             >
               <Stars count={t.stars} />
