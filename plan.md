@@ -1,6 +1,6 @@
 # Mailmark -- Product Roadmap & Implementation Plan
 
-Last updated: 2026-05-03 (Phase 2 completed)
+Last updated: 2026-05-03 (Phase 2 completed, Phase 3 architecture revised)
 
 This plan addresses 4 product gaps identified from a churned cold email agency user. The user paid for Starter, cancelled within an hour without setting up a domain. Root cause: Mailmark lacks the warmup and sequencing features cold emailers require.
 
@@ -449,45 +449,69 @@ The churned user said: "warmup is the hardest piece, pure sending I can do easil
 The existing warming system in `convex/warmingSchedules.ts` is volume-ramping only:
 - Tracks `sentToday` vs `dailyLimit` over 28 days (5 to 250 emails/day)
 - Gates user-initiated sends but does NOT actually send any warmup emails
-- No warmup pool, no simulated engagement, no inbox/spam tracking
+- No warmup partners, no real engagement, no inbox/spam tracking
 - UI at `app/(protected)/warming/page.tsx` shows schedule progress
 
 ### What Cold Emailers Expect
 
-A warmup pool where real emails are exchanged between pool members with automated engagement signals:
-- Real emails sent between pool accounts
-- Automated opens (load tracking pixel)
-- Automated replies with natural-sounding content
-- Spam rescue (move from spam to inbox, mark as important)
-- Health score based on inbox placement rate
+Real emails exchanged with real Gmail accounts, with real engagement signals:
+- Emails sent from the user's Mailmark mailbox to platform-owned Gmail accounts
+- Emails sent back from those Gmail accounts to the user's mailbox
+- Real Gmail inbox/spam placement detection (not simulated)
+- Automated opens, replies, and spam rescue via Gmail API
+- Health score based on actual Gmail inbox placement rate
 - Volume ramping (slow/normal/fast)
 
 ### Architecture Overview
 
 The warmup system has 3 layers:
 
-1. **Pool Management** -- Users opt mailboxes into the warmup pool
-2. **Email Exchange Engine** -- Cron-driven system that pairs pool members and sends warmup emails
-3. **Engagement Simulation** -- Automated opens, replies, and spam rescue on received warmup emails
+1. **Platform Warmup Accounts** -- Founder-owned Gmail accounts stored in the database, shared across all users. Scalable: add more rows to add more capacity.
+2. **Email Exchange Engine** -- Cron-driven system that sends warmup emails between each user's Mailmark mailbox and the platform Gmail accounts, then uses the Gmail API for real engagement.
+3. **Per-Mailbox Warmup Tracking** -- Each enrolled mailbox tracks its own progress (day, speed, health score, daily counts).
+
+### Key Design Decision: Platform-Owned Gmail Accounts
+
+Rather than a shared user-to-user pool, Mailmark maintains its own set of Gmail accounts that serve as warmup partners for all users. This means:
+
+- Users do not need to connect their own Gmail accounts
+- Warmup works on day 1 for any user, with zero setup beyond clicking "Start Warmup"
+- Real Gmail inbox/spam placement detection is available to every user automatically
+- Capacity scales by adding more Gmail accounts to the `platformWarmupAccounts` table -- no code changes needed
 
 ### 3a. Schema Additions
 
 **Modify: `convex/schema.ts`**
 
 ```
-warmupPool: defineTable({
+platformWarmupAccounts: defineTable({
+  email: string,                  // founder-owned Gmail account e.g. warmup1@gmail.com
+  provider: "gmail",              // gmail only for now, future-proof for outlook
+  accessToken: string,            // OAuth access token
+  refreshToken: string,           // OAuth refresh token (long-lived)
+  tokenExpiresAt: number,         // access token expiry timestamp
+  status: "active" | "paused" | "token_expired",
+  dailySentCount: number,         // emails sent today via this account
+  dailyReceivedCount: number,     // emails received today by this account
+  lastResetAt: number,            // when daily counts were last zeroed (reset at midnight)
+})
+  .index("by_status", ["status"])
+  .index("by_email", ["email"])
+
+// Per-mailbox warmup enrollment and progress tracking
+warmupMailboxes: defineTable({
   userId: Id<"users">,
   mailboxId: Id<"mailboxes">,
   domainId: Id<"domains">,
   status: "active" | "paused",
   speed: "slow" | "normal" | "fast",
-  dailyLimit: number,           // max warmup emails to SEND per day (determined by speed + day)
+  dailyLimit: number,             // max warmup emails to send per day (set by speed + currentDay)
   sentToday: number,
   receivedToday: number,
-  currentDay: number,           // days since joining pool
-  healthScore: number,          // 0-100, based on inbox placement rate
-  inboxRate: number,            // percentage of warmup emails landing in inbox (not spam)
-  joinedAt: number,
+  currentDay: number,             // days since warmup started
+  healthScore: number,            // 0-100, weighted from inboxRate + openRate + replyRate
+  inboxRate: number,              // % of warmup emails landing in Gmail inbox (real placement)
+  startedAt: number,
   lastActivityAt: optional number,
 })
   .index("by_user_id", ["userId"])
@@ -495,32 +519,33 @@ warmupPool: defineTable({
   .index("by_status", ["status"])
 
 warmupEmails: defineTable({
-  fromPoolId: Id<"warmupPool">,
-  toPoolId: Id<"warmupPool">,
-  fromMailboxId: Id<"mailboxes">,
-  toMailboxId: Id<"mailboxes">,
+  warmupMailboxId: Id<"warmupMailboxes">,      // the user's enrolled mailbox
+  platformAccountId: Id<"platformWarmupAccounts">,  // which platform Gmail was involved
+  direction: "outbound" | "inbound",           // outbound = mailbox→gmail, inbound = gmail→mailbox
+  fromAddress: string,
+  toAddress: string,
   messageId: string,
   subject: string,
   sentAt: number,
-  // Engagement tracking
+  // Engagement (populated by Gmail API checks)
   openedAt: optional number,
   repliedAt: optional number,
   repliedMessageId: optional string,
-  // Placement detection
-  placement: optional "inbox" | "spam" | "unknown",
+  // Real placement from Gmail API
+  placement: "inbox" | "spam" | "unknown",
   rescuedFromSpam: optional boolean,
   markedImportant: optional boolean,
 })
-  .index("by_from_pool", ["fromPoolId"])
-  .index("by_to_pool", ["toPoolId"])
+  .index("by_warmup_mailbox", ["warmupMailboxId"])
+  .index("by_platform_account", ["platformAccountId"])
   .index("by_message_id", ["messageId"])
   .index("by_sent_date", ["sentAt"])
 
 warmupContentTemplates: defineTable({
   category: "business" | "personal" | "newsletter" | "notification",
-  subjects: Array<string>,       // 10-20 subject variations per category
-  bodies: Array<string>,         // 10-20 body variations per category
-  replyBodies: Array<string>,    // 5-10 reply variations
+  subjects: Array<string>,        // 10-20 subject variations per category
+  bodies: Array<string>,          // 10-20 body variations per category
+  replyBodies: Array<string>,     // 5-10 reply variations
 })
 ```
 
@@ -533,9 +558,10 @@ Quality warmup requires diverse, natural-sounding email content. ESPs detect rep
 ```
 Approach:
   - Seed database with 50+ subject/body template pairs across 4 categories
-  - Each template has merge slots: {{senderName}}, {{recipientName}}, {{company}}, {{topic}}
+  - Each template has merge slots: {{senderName}}, {{recipientName}}, {{topic}}
   - Subjects and bodies are randomly paired at send time (not always the same combo)
   - Reply bodies are separate templates, shorter and more casual
+  - Different platform accounts receive different content variations to avoid patterns
 
 Content categories:
   1. Business -- meeting requests, project updates, proposals
@@ -554,412 +580,413 @@ or anything that looks like a campaign. ESPs penalize warmup content that
 looks automated.
 ```
 
-### 3c. Pool Management
+### 3c. Mailbox Enrollment Management
 
 **New file: `convex/warmupPool.ts`**
 
 ```
 --- Mutations (authenticated, called from UI) ---
 
-joinPool(mailboxId, speed):
+startWarmup(mailboxId, speed):
   1. Verify user owns the mailbox
   2. Verify the domain's DNS is fully configured (SPF + DKIM + DMARC)
-  3. Check no existing active pool entry for this mailbox
+  3. Check no existing active warmupMailboxes entry for this mailbox
   4. Calculate initial dailyLimit based on speed:
-     - slow: start at 2/day, reach 20/day over 4+ weeks
+     - slow:   start at 2/day, reach 20/day over 4+ weeks
      - normal: start at 5/day, reach 20/day over 2-3 weeks
-     - fast: start at 10/day, reach 20/day over 1-2 weeks
-  5. Insert warmupPool row with status "active", currentDay 1
-  6. Return the pool entry
+     - fast:   start at 10/day, reach 20/day over 1-2 weeks
+  5. Insert warmupMailboxes row with status "active", currentDay 1
+  6. Return the entry
 
-leavePool(poolId):
-  1. Verify user owns the pool entry
+pauseWarmup(warmupMailboxId):
+  1. Verify user owns the entry
   2. Set status to "paused"
-  3. Note: does not delete -- preserves history and health score
+  3. Does not delete -- preserves history and health score
 
-updateSpeed(poolId, speed):
-  1. Verify user owns the pool entry
+resumeWarmup(warmupMailboxId):
+  1. Verify user owns the entry
+  2. Set status to "active"
+
+updateSpeed(warmupMailboxId, speed):
+  1. Verify user owns the entry
   2. Update speed and recalculate dailyLimit for current day
 
 --- Queries (authenticated) ---
 
-getPoolStatus(mailboxId):
-  Return current pool entry with stats for the mailbox
+getWarmupStatus(mailboxId):
+  Return current warmupMailboxes entry with stats for the mailbox
 
-getPoolHistory(poolId, days):
-  Return daily aggregates of warmup emails sent/received, inbox rate, health score
+getWarmupHistory(warmupMailboxId, days):
+  Return daily aggregates of emails sent/received, inbox rate, health score
 
 --- Internal queries (called by cron) ---
 
-listActivePoolEntries():
-  Return all pool entries where status === "active"
-
-getPoolEntryByMailboxId(mailboxId):
-  Return pool entry for a given mailbox
+listActiveWarmupMailboxes():
+  Return all warmupMailboxes entries where status === "active"
 ```
 
-### 3d. Email Exchange Engine (the core cron)
+### 3d. Platform Account Management
+
+**New file: `convex/platformWarmupAccounts.ts`**
+
+Admin-only functions for managing the platform Gmail accounts. These are called from a protected admin UI, not by regular users.
+
+```
+--- Mutations (admin only, no userId scoping) ---
+
+addAccount(email, accessToken, refreshToken, tokenExpiresAt):
+  Insert a new platformWarmupAccounts row with status "active", dailySentCount 0
+
+pauseAccount(accountId):
+  Set status to "paused" -- excludes this account from the next round
+
+activateAccount(accountId):
+  Set status to "active"
+
+removeAccount(accountId):
+  Delete the row -- only do this if the account is decommissioned
+
+--- Queries (admin only) ---
+
+listAllAccounts():
+  Return all accounts with current dailySentCount, dailyReceivedCount, status
+
+--- Internal ---
+
+getAvailableAccounts():
+  Return accounts where status === "active" AND dailySentCount < 450
+  Sorted by dailySentCount ASC (least-used first for load balancing)
+
+refreshTokenIfNeeded(accountId):
+  If tokenExpiresAt < Date.now() + 5 minutes:
+    POST to Google token endpoint with refreshToken
+    Update accessToken and tokenExpiresAt
+    Return fresh accessToken
+  If refresh fails (token revoked):
+    Set status = "token_expired"
+    Throw error so the engine skips this account
+```
+
+### 3e. Gmail API Functions
+
+**New file: `convex/warmupGmail.ts`**
+
+All Gmail API interactions for the warmup system. Uses the platform accounts' OAuth tokens.
+
+```
+sendViaGmail(accountId, to, subject, html, inReplyToMessageId?):
+  1. refreshTokenIfNeeded(accountId)
+  2. Build RFC 2822 MIME message
+     - Include In-Reply-To header if inReplyToMessageId is set
+     - Include X-Warmup-Id header with the warmupEmails record ID
+     - Do NOT include unsubscribe headers
+  3. POST to Gmail API: /gmail/v1/users/me/messages/send
+  4. Return messageId from response
+
+checkPlacement(accountId, messageId):
+  1. refreshTokenIfNeeded(accountId)
+  2. GET /gmail/v1/users/me/messages?q=rfc822msgid:{messageId}
+  3. Check labelIds on the result:
+     - Contains "INBOX" → placement = "inbox"
+     - Contains "SPAM" → placement = "spam"
+     - Not found yet → placement = "unknown"
+  4. Return { placement, isImportant: labelIds.includes("IMPORTANT") }
+
+rescueFromSpam(accountId, messageId):
+  1. refreshTokenIfNeeded(accountId)
+  2. Find the Gmail message ID for the given RFC messageId
+  3. POST /gmail/v1/users/me/messages/{id}/modify:
+     { addLabelIds: ["INBOX", "IMPORTANT"], removeLabelIds: ["SPAM"] }
+
+markImportant(accountId, messageId):
+  1. refreshTokenIfNeeded(accountId)
+  2. POST /gmail/v1/users/me/messages/{id}/modify:
+     { addLabelIds: ["IMPORTANT"] }
+
+replyViaGmail(accountId, originalMessageId, to, subject, html):
+  Calls sendViaGmail with inReplyToMessageId = originalMessageId
+```
+
+### 3f. Email Exchange Engine (the core cron)
 
 **New file: `convex/warmupEngine.ts`**
 
-This is the heart of the warmup system. A cron job that runs every 30 minutes during business hours, pairs pool members, and sends warmup emails between them.
+Cron job that runs every 30 minutes. For each active user mailbox, sends warmup emails to platform Gmail accounts and triggers engagement on previously received emails.
 
 ```
 internalAction runWarmupRound():
-  1. Fetch all active pool entries
-  2. If fewer than 2 entries, log and exit (need at least 2 accounts to warm each other)
-  3. For each pool entry that hasn't hit its dailyLimit:
-     a. Pick a random OTHER pool entry as the recipient
-        - Avoid sending to the same recipient consecutively
-        - Avoid sending to mailboxes on the same domain
-        - Prefer recipients who haven't received many warmup emails today
-     b. Generate warmup email content via warmupContent.generateWarmupEmail()
-     c. Send the email using SES (NOT via sendEmailViaApi -- warmup emails
-        should bypass quota checks, unsubscribe filtering, and recipient
-        verification since both sides are pool members)
-        - Use the sender's mailbox SES credentials
-        - Include a tracking pixel for open detection
-        - Include a special X-Warmup-Id header with the warmupEmail record ID
-        - Do NOT include unsubscribe headers (these are not campaigns)
-     d. Create a warmupEmails record with sentAt = now, placement = "unknown"
-     e. Increment sentToday on the sender's pool entry
-     f. Increment receivedToday on the recipient's pool entry
-  4. Log: sent X warmup emails this round
+  1. Fetch all active warmupMailboxes entries (listActiveWarmupMailboxes)
+  2. Fetch available platform accounts (getAvailableAccounts -- sorted by dailySentCount ASC)
+  3. If no platform accounts available → log "all platform accounts at daily capacity" and exit
 
-Pairing algorithm details:
-  - Shuffle the active pool entries
-  - For each entry with remaining capacity (sentToday < dailyLimit):
-    - Filter candidates: different domain, different user, not the last recipient
-    - Pick a random candidate from the filtered list
-    - If no valid candidate exists, skip this entry for this round
-  - This ensures variety: no two accounts warm each other exclusively
+  --- Outbound: user mailbox → platform Gmail accounts ---
+
+  4. For each active warmupMailboxes entry where sentToday < dailyLimit:
+     a. Pick 2-3 platform accounts from the available list
+        - Rotate selection day-to-day (don't always pick the same accounts)
+        - Pick accounts with lowest dailySentCount first (natural load balancing)
+     b. For each selected platform account:
+        - Generate warmup email content via warmupContent.generateWarmupEmail()
+        - Send via SES from the user's mailbox (bypass quota checks and unsubscribe
+          filtering -- warmup sends are internal platform traffic)
+          * Include X-Warmup-Id header with warmupEmails record ID
+          * Include tracking pixel
+          * Do NOT include unsubscribe headers
+        - Create warmupEmails record: direction="outbound", placement="unknown"
+        - Increment warmupMailboxes.sentToday
+        - Increment platformWarmupAccounts.dailyReceivedCount
+
+  --- Inbound: platform Gmail accounts → user mailbox ---
+
+  5. For each active warmupMailboxes entry where receivedToday < dailyLimit:
+     a. Pick 1-2 platform accounts
+     b. For each selected account:
+        - Generate warmup email content
+        - Send via Gmail API (sendViaGmail) to the user's mailbox address
+        - Create warmupEmails record: direction="inbound", placement="unknown"
+        - Increment warmupMailboxes.receivedToday
+        - Increment platformWarmupAccounts.dailySentCount
+
+  6. Log: sent X outbound, Y inbound warmup emails this round
 ```
 
-### 3e. Engagement Simulation
+### 3g. Engagement Simulation
 
 **New file: `convex/warmupEngagement.ts`**
 
-After warmup emails are sent, simulate realistic engagement from the receiving side.
+Cron job running every 30 minutes (offset 15 min from the exchange engine). Uses the Gmail API to perform real engagement actions on outbound warmup emails received by platform accounts.
 
 ```
-internalAction simulateEngagement():
-  Runs every 30 minutes (offset from the send cron by 15 min)
+internalAction runEngagementRound():
+  1. Fetch outbound warmupEmails sent in the last 4 hours where openedAt is null
+     (direction="outbound" -- these landed in platform Gmail accounts)
+  2. For each email:
 
-  1. Fetch warmup emails sent in the last 2 hours where openedAt is null
-  2. For each email (with probability to simulate realistic engagement):
-     a. Open simulation (80-90% of emails):
-        - HTTP GET to /track/open/{messageId}.gif
-        - This triggers the existing open tracking pixel handler
-        - Add random delay: schedule this 5-60 minutes after send time
-        - Update warmupEmails.openedAt
+     a. Check placement via Gmail API (checkPlacement):
+        - If "inbox": proceed to engagement
+        - If "spam":  rescue first (rescueFromSpam), then engage
+        - If "unknown": skip this round, check again next round
+        - Update warmupEmails.placement
 
-     b. Reply simulation (20-30% of opened emails):
+     b. Open simulation (85% of inbox emails):
+        - HTTP GET to the tracking pixel URL embedded in the email
+          (this fires the existing open tracking handler in convex/http.ts)
+        - Set warmupEmails.openedAt = now + random(5-60 min) via scheduler
+        - Random delay: schedule 5-60 minutes after sentAt to look human
+
+     c. Mark as important (45% of opened emails):
+        - Call markImportant(platformAccountId, messageId) via Gmail API
+        - Set warmupEmails.markedImportant = true
+
+     d. Reply simulation (25% of opened emails):
         - Generate reply content via warmupContent.generateWarmupReply()
-        - Send reply from the RECIPIENT's mailbox back to the SENDER's mailbox
-        - Use "Re: {originalSubject}" as subject
-        - Include In-Reply-To header referencing original messageId
-        - Update warmupEmails.repliedAt and repliedMessageId
-        - Random delay: 10-120 minutes after open
-
-     c. Mark as important (40-50% of opened emails):
-        - This is tracked in warmupEmails.markedImportant
-        - Note: we can't actually mark emails as important in the recipient's
-          inbox from outside (no IMAP access to Mailmark mailboxes since they're
-          SES-based). This field is for future use when we add Gmail/Outlook
-          account support. For now, the open + reply signals are what matter.
+        - Call replyViaGmail(platformAccountId, messageId, userMailboxAddress, ...)
+        - Set warmupEmails.repliedAt, repliedMessageId
+        - Random delay: 15-120 minutes after open time
 
   Randomization is critical:
-    - Not every email should be opened (80-90%, not 100%)
-    - Not every opened email should be replied to (20-30%)
-    - Delays should vary (don't open all emails exactly 5 min after send)
+    - 85% open rate (not 100% -- 15% of emails are "ignored")
+    - 45% mark as important (of opened)
+    - 25% reply rate (of opened)
+    - All delays randomized -- never process all emails at the same second
     - Use Math.random() for all probabilistic decisions
 ```
 
-### 3f. Placement Detection
+### 3h. Placement Detection for Inbound Warmup Emails
 
-When a warmup email arrives at a Mailmark mailbox (via the inbound email webhook), detect whether it landed in inbox or spam.
+When a platform Gmail account sends an email to a user's Mailmark mailbox (direction="inbound"), placement is detected via the existing SES inbound webhook -- if it arrives, it's inbox (SES mailboxes have no spam folder).
 
 **Modify: `convex/http.ts`** (inbound email processing)
 
 ```
 After storing the inbound email:
-  1. Check X-Warmup-Id header or match against warmupEmails by messageId
+  1. Check X-Warmup-Id header or match warmupEmails by messageId
   2. If this is a warmup email:
-     - Mark placement as "inbox" (if it arrived, it's in the inbox)
-     - Update the warmupEmails record
-     - Do NOT show warmup emails in the user's mailbox UI
-       (tag them with a folder like "_warmup" or filter them client-side)
+     - Update warmupEmails.placement = "inbox"
+     - Store the email with folder = "_warmup" (NOT "inbox")
+     - Do NOT show in user's regular mailbox UI
 ```
 
-For spam detection: since Mailmark mailboxes are SES-based and don't have a spam folder concept, placement detection is limited. The real signal comes when users add Gmail/Outlook accounts to the pool (Phase 4 integration). For now:
-- Emails that arrive = "inbox"
-- Emails that don't arrive within 30 min = "unknown" (could be spam, could be delayed)
-
-### 3g. Health Score Calculation
+### 3i. Health Score Calculation
 
 **Add to `convex/warmupPool.ts`:**
 
 ```
-internalMutation recalculateHealthScore(poolId):
-  1. Fetch warmup emails received by this pool entry in the last 7 days
+internalMutation recalculateHealthScore(warmupMailboxId):
+  1. Fetch outbound warmupEmails for this mailbox in the last 7 days
+     (direction="outbound" -- these are the ones that landed in Gmail)
   2. Calculate:
-     - inboxRate = (emails with placement "inbox") / (total received) * 100
-     - replyRate = (emails with repliedAt set) / (total received) * 100
-     - openRate = (emails with openedAt set) / (total received) * 100
+     - inboxRate = emails where placement="inbox" / total * 100
+     - openRate  = emails where openedAt is set / total * 100
+     - replyRate = emails where repliedAt is set / total * 100
   3. healthScore = weighted average:
-     - inboxRate * 0.6 (most important signal)
-     - openRate * 0.2
+     - inboxRate * 0.6   (most important -- real Gmail placement signal)
+     - openRate  * 0.2
      - replyRate * 0.2
-  4. Update pool entry with healthScore and inboxRate
+  4. Update warmupMailboxes with healthScore and inboxRate
 
 Run daily via cron after the day-advance job.
 ```
 
-### 3h. Daily Advancement Cron
+### 3j. Daily Advancement Cron
 
-**Modify: `convex/warmupEngine.ts`:**
+**Add to `convex/warmupEngine.ts`:**
 
 ```
 internalAction advanceWarmupDay():
-  For each active pool entry:
-    1. Increment currentDay
-    2. Recalculate dailyLimit based on speed and currentDay:
-       Slow:   day 1-7: 2, day 8-14: 5, day 15-21: 10, day 22-28: 15, day 29+: 20
-       Normal: day 1-3: 5, day 4-7: 10, day 8-14: 15, day 15-21: 20, day 22+: 20
-       Fast:   day 1-3: 10, day 4-7: 15, day 8-14: 20, day 15+: 20
-    3. Reset sentToday and receivedToday to 0
-    4. Recalculate health score
+  1. For each active warmupMailboxes entry:
+     a. Increment currentDay
+     b. Recalculate dailyLimit based on speed and currentDay:
+        Slow:   day 1-7: 2, day 8-14: 5, day 15-21: 10, day 22-28: 15, day 29+: 20
+        Normal: day 1-3: 5, day 4-7: 10, day 8-14: 15, day 15-21: 20, day 22+: 20
+        Fast:   day 1-3: 10, day 4-7: 15, day 8-14: 20, day 15+: 20
+     c. Reset sentToday = 0, receivedToday = 0
+     d. Recalculate health score (recalculateHealthScore)
+
+  2. Reset daily counters on all platformWarmupAccounts:
+     - dailySentCount = 0
+     - dailyReceivedCount = 0
+     - lastResetAt = Date.now()
 ```
 
-### 3i. Cron Registration
+### 3k. Cron Registration
 
 **Modify: `convex/crons.ts`:**
 
 ```typescript
-// Every 30 minutes: send warmup emails between pool members
-crons.interval("warmup email exchange", { minutes: 30 }, internal.warmupEngine.runWarmupRound, {});
+// Every 30 minutes: send warmup emails (mailbox <-> platform Gmail accounts)
+crons.interval("warmup exchange", { minutes: 30 }, internal.warmupEngine.runWarmupRound, {});
 
-// Every 30 minutes (offset): simulate engagement on received warmup emails
-crons.interval("warmup engagement", { minutes: 30 }, internal.warmupEngagement.simulateEngagement, {});
+// Every 30 minutes (offset 15 min): Gmail engagement on received warmup emails
+crons.interval("warmup engagement", { minutes: 30 }, internal.warmupEngagement.runEngagementRound, {});
 
-// Daily at 6:30 AM UTC: advance warmup pool days and recalculate scores
-crons.daily("advance warmup pool", { hourUTC: 6, minuteUTC: 30 }, internal.warmupEngine.advanceWarmupDay, {});
+// Daily at 6:30 AM UTC: advance days, reset counters, recalculate health scores
+crons.daily("advance warmup day", { hourUTC: 6, minuteUTC: 30 }, internal.warmupEngine.advanceWarmupDay, {});
 ```
 
-### 3j. Gmail & Outlook Account Support (the differentiator)
+### 3l. Admin UI for Platform Accounts
 
-This is what makes Mailmark's warmup work with accounts beyond its own SES-based mailboxes. Users can connect their Gmail and Outlook accounts to the warmup pool.
+**New page: `app/(protected)/admin/warmup-accounts/page.tsx`**
 
-**Modify: `convex/schema.ts`:**
-
-```
-externalMailAccounts: defineTable({
-  userId: Id<"users">,
-  provider: "gmail" | "outlook",
-  email: string,
-  // OAuth tokens (encrypted at rest)
-  accessToken: string,
-  refreshToken: string,
-  tokenExpiresAt: number,
-  // IMAP/SMTP config (derived from provider, but stored for quick access)
-  imapHost: string,
-  imapPort: number,
-  smtpHost: string,
-  smtpPort: number,
-  // Pool participation
-  warmupPoolId: optional Id<"warmupPool">,
-  status: "active" | "disconnected" | "token_expired",
-  connectedAt: number,
-  lastSyncAt: optional number,
-})
-  .index("by_user_id", ["userId"])
-  .index("by_email", ["email"])
-  .index("by_provider", ["provider"])
-```
-
-**OAuth Flow:**
-
-For Gmail:
-1. User clicks "Connect Gmail" in the warming UI
-2. Redirect to Google OAuth consent screen
-3. Request scopes: `gmail.send`, `gmail.readonly`, `gmail.modify` (for marking as important, moving from spam)
-4. On callback, store access + refresh tokens in `externalMailAccounts`
-5. Use tokens to send via Gmail SMTP and read via Gmail API/IMAP
-
-For Outlook:
-1. User clicks "Connect Outlook" in the warming UI
-2. Redirect to Microsoft OAuth consent screen
-3. Request scopes: `Mail.Send`, `Mail.ReadWrite`, `Mail.Read`
-4. On callback, store tokens
-5. Use tokens to send via Microsoft Graph API and read inbox
-
-**New file: `convex/externalMail.ts`**
+A protected admin page (founder-only, gated by a hardcoded Clerk userId check) for managing platform Gmail accounts.
 
 ```
---- OAuth ---
+Platform Warmup Accounts
 
-getGmailAuthUrl(redirectUri): string
-  Build Google OAuth URL with required scopes
+  email                     status          sent today   received today   [actions]
+  warmup1@gmail.com         active          127          89               [Pause] [Remove]
+  warmup2@gmail.com         active          134          102              [Pause] [Remove]
+  warmup3@gmail.com         token_expired   0            0                [Reconnect] [Remove]
 
-handleGmailCallback(code, redirectUri):
-  Exchange code for tokens, store in externalMailAccounts
+  Total capacity: ~900 outbound emails/day (3 active accounts × 450 limit)
+  Active user mailboxes in warmup: 47
 
-getOutlookAuthUrl(redirectUri): string
-  Build Microsoft OAuth URL with required scopes
-
-handleOutlookCallback(code, redirectUri):
-  Exchange code for tokens, store in externalMailAccounts
-
-refreshAccessToken(accountId):
-  If token is expired, use refresh token to get new access token
-
---- Sending ---
-
-sendViaGmail(accountId, to, subject, html):
-  1. Refresh token if needed
-  2. Build RFC 2822 email
-  3. Send via Gmail API (messages.send) or SMTP
-  4. Return messageId
-
-sendViaOutlook(accountId, to, subject, html):
-  1. Refresh token if needed
-  2. Send via Microsoft Graph API (sendMail)
-  3. Return messageId
-
---- Reading (for placement detection) ---
-
-checkGmailPlacement(accountId, messageId):
-  1. Search Gmail for the message
-  2. Check labels: INBOX, SPAM, IMPORTANT
-  3. Return { placement: "inbox" | "spam", isImportant: boolean }
-
-checkOutlookPlacement(accountId, messageId):
-  1. Search Outlook for the message
-  2. Check folder: Inbox, Junk Email
-  3. Return { placement: "inbox" | "spam" }
-
---- Spam Rescue ---
-
-rescueFromSpamGmail(accountId, messageId):
-  1. Remove SPAM label
-  2. Add INBOX label
-  3. Optionally add IMPORTANT label
-
-rescueFromSpamOutlook(accountId, messageId):
-  1. Move message from Junk Email to Inbox
+  [+ Connect Gmail Account]  -- triggers OAuth flow, creates row on callback
 ```
 
-**Modify warmup engine to support external accounts:**
+Adding a new account: click "Connect Gmail Account", authorize via Google OAuth, tokens stored in `platformWarmupAccounts`. The new account is immediately included in the next warmup round. No code changes needed to scale.
 
-The `runWarmupRound` function needs to detect whether a pool entry's mailbox is a Mailmark SES mailbox or an external Gmail/Outlook account, and use the appropriate send method:
-
-```
-When sending a warmup email:
-  - If sender is Mailmark mailbox: use SES SendEmailCommand (existing path)
-  - If sender is external Gmail: use sendViaGmail
-  - If sender is external Outlook: use sendViaOutlook
-
-When checking placement (engagement simulation):
-  - If recipient is Mailmark mailbox: check inbound email webhook arrival
-  - If recipient is external Gmail: use checkGmailPlacement (true inbox/spam detection!)
-  - If recipient is external Outlook: use checkOutlookPlacement
-
-When rescuing from spam:
-  - If recipient is Mailmark mailbox: not possible (SES has no spam folder)
-  - If recipient is external Gmail: use rescueFromSpamGmail (move SPAM -> INBOX)
-  - If recipient is external Outlook: use rescueFromSpamOutlook (move Junk -> Inbox)
-```
-
-This is the key differentiator: Gmail and Outlook accounts in the pool enable REAL placement detection and spam rescue, which SES-only mailboxes cannot do.
-
-### 3k. Warming UI
+### 3m. Warming UI (User-Facing)
 
 **Modify: `app/(protected)/warming/page.tsx`**
 
-Replace the current basic warming schedule UI with a full warmup dashboard:
+Replace the current basic warming schedule UI with a full warmup dashboard. No Gmail connection required from the user -- just click "Start Warmup".
 
 ```
 Sections:
-1. "Your Warmup Pool" -- list of mailboxes in the pool with:
-   - Health score (color-coded: green > 80, yellow 50-80, red < 50)
-   - Inbox rate percentage
-   - Current day / speed
-   - Daily sent/received counts
-   - Pause/resume toggle
+
+1. "Your Mailboxes in Warmup" -- list of enrolled mailboxes:
+   - Health score badge (green >80, yellow 50-80, red <50)
+   - Inbox rate % (real Gmail placement)
+   - Current day / speed label
+   - Sent today / Received today
+   - Pause/Resume toggle
    - Speed selector (slow/normal/fast)
 
-2. "Add to Pool" -- button to add a Mailmark mailbox
-   - Dropdown of mailboxes not yet in the pool
+2. "Add Mailbox to Warmup" -- for mailboxes not yet enrolled:
+   - Dropdown of eligible mailboxes (DNS verified, not already active)
    - Speed selection
+   - "Start Warmup" button
 
-3. "Connect External Account" -- buttons for Gmail and Outlook
-   - Shows connected accounts with status
-   - Disconnect option
+3. "Warmup Activity" -- chart per mailbox, last 14 days:
+   - Emails sent per day (outbound to Gmail)
+   - Emails received per day (inbound from Gmail)
+   - Inbox rate trend line
+   - Health score trend line
 
-4. "Warmup Activity" -- chart showing last 7-14 days:
-   - Emails sent per day
-   - Emails received per day
-   - Inbox rate trend
-   - Health score trend
-
-5. "Recent Warmup Emails" -- table of last 20 warmup emails:
-   - From, To, Subject, Sent At, Opened, Replied, Placement
+4. "Recent Warmup Emails" -- table of last 20 warmup emails:
+   - Direction, From, To, Subject, Sent, Opened, Replied, Placement
 ```
 
-### 3l. Warmup Email Filtering
+### 3n. Warmup Email Filtering
 
-Warmup emails should NOT appear in the user's regular mailbox inbox. They clutter the UI and confuse users.
+Warmup emails arriving at a user's Mailmark mailbox must not appear in the regular inbox.
 
 **Modify: `convex/http.ts`** (inbound email processing)
 
 ```
-When an inbound email has X-Warmup-Id header or matches a warmupEmails record:
-  - Store the email with folder = "_warmup" instead of "inbox"
-  - This way existing queries filtered by folder "inbox" won't show warmup emails
-  - The warming UI can query emails with folder "_warmup" to show warmup activity
+When an inbound email has X-Warmup-Id header or matches a warmupEmails record by messageId:
+  - Store with folder = "_warmup" instead of "inbox"
+  - Existing inbox queries (filtered by folder "inbox") will never show these
+  - The warming dashboard queries folder "_warmup" for the activity table
 ```
 
 ### Files to Create/Modify
 
 | File | Change |
 |------|--------|
-| `convex/schema.ts` | Add `warmupPool`, `warmupEmails`, `warmupContentTemplates`, `externalMailAccounts` tables |
-| `convex/warmupPool.ts` | **New** -- pool management mutations/queries + health score |
-| `convex/warmupContent.ts` | **New** -- email content generation |
-| `convex/warmupEngine.ts` | **New** -- core cron: pair members, send warmup emails, advance days |
-| `convex/warmupEngagement.ts` | **New** -- engagement simulation: opens, replies, spam rescue |
-| `convex/externalMail.ts` | **New** -- Gmail/Outlook OAuth, send, read, spam rescue |
+| `convex/schema.ts` | Add `platformWarmupAccounts`, `warmupMailboxes`, `warmupEmails`, `warmupContentTemplates` tables |
+| `convex/platformWarmupAccounts.ts` | **New** -- admin CRUD + getAvailableAccounts + token refresh |
+| `convex/warmupPool.ts` | **New** -- user mailbox enrollment mutations/queries + health score |
+| `convex/warmupContent.ts` | **New** -- email content generation (50+ templates, 4 categories) |
+| `convex/warmupGmail.ts` | **New** -- Gmail API: send, checkPlacement, rescueFromSpam, markImportant, reply |
+| `convex/warmupEngine.ts` | **New** -- exchange cron (outbound + inbound sends) + advanceWarmupDay |
+| `convex/warmupEngagement.ts` | **New** -- engagement cron: placement check, open pixel, mark important, reply |
 | `convex/crons.ts` | Register 3 new cron jobs |
-| `convex/http.ts` | Warmup email detection in inbound handler, filter to _warmup folder |
+| `convex/http.ts` | Detect warmup emails in inbound handler, store in _warmup folder |
 | `convex/warmingSchedules.ts` | Keep existing for backward compat (volume gating still useful) |
-| `app/(protected)/warming/page.tsx` | Full warmup dashboard rewrite |
+| `app/(protected)/warming/page.tsx` | Full warmup dashboard rewrite (no external account connection UI) |
+| `app/(protected)/admin/warmup-accounts/page.tsx` | **New** -- admin page to manage platform Gmail accounts |
 
 ### External Dependencies
 
-- **Google Cloud Console**: Create OAuth app, request `gmail.send`, `gmail.readonly`, `gmail.modify` scopes. Approval takes 2-4 weeks for sensitive scopes.
-- **Microsoft Azure AD**: Register app, request `Mail.Send`, `Mail.ReadWrite` permissions. Approval process varies.
-- **Start OAuth app registration early** -- it runs in parallel with development.
+- **Google Cloud Console**: Create OAuth app, request `gmail.send`, `gmail.readonly`, `gmail.modify` scopes. Approval takes 2-4 weeks for sensitive scopes. Register early -- this runs in parallel with development.
+- **Token security**: OAuth tokens stored in Convex. Consider encrypting at rest in a Convex action before storing (Convex has no native field-level encryption).
+
+### Capacity Planning
+
+Gmail's sending limit is 500 emails/day per account. The engine uses 450 as a safe buffer.
+
+| Platform accounts | Daily outbound capacity | Comfortable for N user mailboxes |
+|-------------------|------------------------|----------------------------------|
+| 5 | 2,250 | ~225 mailboxes (10 emails/day each) |
+| 10 | 4,500 | ~450 mailboxes |
+| 20 | 9,000 | ~900 mailboxes |
+
+Add accounts to the `platformWarmupAccounts` table as the user base grows. The engine picks them up immediately.
 
 ### Risks & Mitigations
 
 | Risk | Mitigation |
 |------|-----------|
-| Small pool = accounts warming themselves (detectable by ESPs) | Minimum pool size of 5+ before enabling. Encourage early adoption with free warmup period. |
-| Google/Microsoft revoke OAuth access | Token refresh on every use. Alert user if token expires. Graceful degradation. |
-| Warmup content detected as automated | Large content library (50+ templates). Random pairing prevents repetitive patterns. |
-| ESP rate limiting on warmup sends | Respect per-provider limits: Gmail 500/day, Outlook 300/day. Daily limits per pool entry. |
-| Warmup emails landing in spam defeats the purpose | Spam rescue (Gmail/Outlook accounts). Start with very low volume. Health score monitoring. |
+| Google flags platform accounts for high-volume automated patterns | Vary content (50+ templates), vary timing (random delays), vary engagement rates (not 100% open). Keep per-account daily volume well under Gmail limits. |
+| OAuth token revoked or expired | refreshTokenIfNeeded runs before every API call. Token-expired accounts are skipped and flagged in admin UI for reconnection. |
+| Warmup content detected as automated | Large template library. Subjects and bodies randomly paired. Different platform accounts receive different content. |
+| Platform accounts at daily capacity (too many users) | Admin adds more accounts via admin UI. Capacity table in this doc makes the threshold visible. |
+| Inbound warmup emails appear in user inbox | X-Warmup-Id header + messageId match routes them to _warmup folder in inbound webhook handler. |
 
 ### Verification
 
-1. Join 3+ test mailboxes to the pool (mix of Mailmark + Gmail)
-2. Wait for cron to fire (or trigger manually)
-3. Verify warmup emails appear in warmupEmails table
-4. Verify engagement simulation fires (opens tracked)
-5. Verify Gmail placement detection works (inbox vs spam)
-6. Verify health scores update daily
-7. Verify warmup emails don't appear in regular mailbox inbox
-8. `bun run build` passes
+1. Add 2+ platform Gmail accounts via admin UI
+2. Enroll a test mailbox in warmup (any speed)
+3. Wait for `runWarmupRound` cron to fire (or trigger manually)
+4. Verify outbound warmup emails appear in `warmupEmails` table with direction="outbound"
+5. Verify inbound warmup emails arrive at the test mailbox in folder "_warmup" (not inbox)
+6. Wait for `runEngagementRound` to fire
+7. Verify Gmail API placement check updates `warmupEmails.placement` to "inbox" or "spam"
+8. Verify opens tracked (openedAt set), replies sent (repliedAt set)
+9. Verify health score updates daily
+10. `bun run build` passes
 
 ---
 
@@ -969,7 +996,7 @@ When an inbound email has X-Warmup-Id header or matches a warmupEmails record:
 
 The churned user said: "connecting GWS/outlook on clients end would have client carry the risk"
 
-This is separate from Phase 3's Gmail/Outlook warmup support. Phase 3 connects external accounts for warmup only. Phase 4 extends that to allow sending campaigns and sequences through those accounts.
+This is separate from Phase 3's warmup infrastructure. Phase 3 uses platform-owned Gmail accounts to warm user mailboxes. Phase 4 lets users connect their own Gmail/Outlook accounts as the sending identity for campaigns and sequences.
 
 ### Why This Matters for Cold Emailers
 
@@ -1105,7 +1132,7 @@ Add a "Sending Method" section per mailbox:
 | File | Change |
 |------|--------|
 | `convex/lib/sendProvider.ts` | **New** -- provider abstraction layer |
-| `convex/externalMail.ts` | Extend with sending capabilities (already created in Phase 3 for warmup) |
+| `convex/externalMail.ts` | **New** -- user-connected Gmail/Outlook OAuth + send (separate from Phase 3 platform accounts) |
 | `convex/schema.ts` | Add `smtpConfigs` table |
 | `convex/ses.ts` | Refactor to use provider abstraction |
 | `convex/sequenceActions.ts` | Route sends through provider abstraction |
@@ -1136,10 +1163,10 @@ Add a "Sending Method" section per mailbox:
 | 1 | Phase 1 | Social proof shipped (stats, founder, testimonials, logos) |
 | 1-2 | Phase 2 | Sequence processing engine + HTTP endpoints |
 | 3 | Phase 2 | Reply/bounce detection + API docs. Sequences API complete. |
-| 3 | Phase 3 | Start Google/Microsoft OAuth app registration (runs in parallel) |
-| 4-5 | Phase 3 | Warmup pool core: schema, pool management, exchange engine, content |
-| 6-7 | Phase 3 | Engagement simulation, health scores, warming UI |
-| 8-9 | Phase 3 | Gmail/Outlook account connection for warmup pool |
+| 3 | Phase 3 | Start Google OAuth app registration for platform accounts (runs in parallel) |
+| 4-5 | Phase 3 | Schema, platform account management, exchange engine, content templates |
+| 6-7 | Phase 3 | Gmail API engagement (placement, rescue, reply), health scores |
+| 8 | Phase 3 | Warming UI, admin UI, warmup email filtering |
 | 10 | Phase 4 | Spike: validate OAuth sending in Convex |
 | 11-14 | Phase 4 | Provider abstraction, Gmail/Outlook/SMTP sending |
 
@@ -1160,7 +1187,14 @@ Add a "Sending Method" section per mailbox:
 | `convex/warmingSchedules.ts` -- volume ramping (gates sends) | Done (legacy, keep) |
 | `convex/warmingActions.ts` -- daily schedule advancement | Done (legacy, keep) |
 | `convex/crons.ts` -- domain cleanup, warming advance, health checks | Done |
-| `app/(protected)/warming/page.tsx` -- basic warming UI | Done (will be rewritten in Phase 3) |
+| `app/(protected)/warming/page.tsx` -- basic warming UI | Done (will be rewritten in Phase 3k) |
+| `convex/platformWarmupAccounts.ts` -- platform Gmail account management | Phase 3 |
+| `convex/warmupPool.ts` -- mailbox enrollment + health score | Phase 3 |
+| `convex/warmupContent.ts` -- warmup email templates | Phase 3 |
+| `convex/warmupGmail.ts` -- Gmail API: send, placement, rescue, reply | Phase 3 |
+| `convex/warmupEngine.ts` -- exchange cron + daily advance | Phase 3 |
+| `convex/warmupEngagement.ts` -- engagement cron | Phase 3 |
+| `app/(protected)/admin/warmup-accounts/page.tsx` -- admin Gmail account UI | Phase 3 |
 | `app/(protected)/mailbox/[mailboxId]/page.tsx` -- follow-up builder + follow-ups tab | Done |
 | `app/docs/api/page.tsx` -- API docs with sequences endpoints | Done |
 | `public/llms.txt` -- sequences feature + API documentation | Done |
