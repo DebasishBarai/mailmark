@@ -416,6 +416,194 @@ const ENDPOINTS: Endpoint[] = [
       return { path: "/v1/send", body };
     },
   },
+  // ── Sequences ──────────────────────────────────────────────────────────────
+  {
+    id: "list-sequences",
+    method: "GET",
+    path: "/v1/sequences",
+    title: "List Sequences",
+    description:
+      "Returns all sequences created by the authenticated user. Each sequence includes its status, step count, and enrollment statistics (total, active, completed, replied, bounced, cancelled).",
+    returns: "Array of Sequence objects with stats.",
+    curlTemplate: (key) =>
+      `curl -X GET ${BASE_URL}/v1/sequences \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}"`,
+    npmTemplate: (key) =>
+      `import { Mailmark } from 'mailmark-sdk';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst sequences = await client.listSequences();\nconsole.log(sequences);`,
+    buildRequest: () => ({ path: "/v1/sequences" }),
+  },
+  {
+    id: "create-sequence",
+    method: "POST",
+    path: "/v1/sequences",
+    title: "Create Sequence",
+    description:
+      "Creates a new automated email sequence. A sequence is a series of steps: send_email steps deliver an email, delay steps wait a specified duration before proceeding. The first step must be send_email. Supports merge field placeholders like {{firstName}} in subject and html.",
+    fields: [
+      {
+        name: "name",
+        label: "Name",
+        type: "text",
+        required: true,
+        description: "A descriptive name for this sequence.",
+        placeholder: "Welcome Series",
+      },
+      {
+        name: "from",
+        label: "From",
+        type: "text",
+        required: true,
+        description: "Full address of the sender mailbox. Must be an existing mailbox on your domain.",
+        placeholder: "hello@yourdomain.com",
+      },
+      {
+        name: "steps",
+        label: "Steps (JSON)",
+        type: "textarea",
+        required: true,
+        description: 'JSON array of steps. Each step is { "type": "send_email", "subject": "...", "html": "..." } or { "type": "delay", "delayMs": 86400000 }.',
+        placeholder: '[{"type":"send_email","subject":"Welcome {{firstName}}","html":"<p>Hello!</p>"},{"type":"delay","delayMs":86400000},{"type":"send_email","subject":"Follow up","html":"<p>Checking in</p>"}]',
+      },
+    ],
+    returns: "Sequence object with id, name, status, steps, and createdAt.",
+    notes: [
+      "First step must be send_email (a sequence cannot start with a delay).",
+      "delayMs is in milliseconds (86400000 = 1 day).",
+      "Use {{fieldName}} placeholders in subject/html for merge field personalization.",
+    ],
+    curlTemplate: (key, v) => {
+      const body: Record<string, unknown> = {
+        name: v.name || "Welcome Series",
+        from: v.from || "hello@yourdomain.com",
+        steps: v.steps ? JSON.parse(v.steps) : [
+          { type: "send_email", subject: "Welcome {{firstName}}", html: "<p>Hello!</p>" },
+          { type: "delay", delayMs: 86400000 },
+          { type: "send_email", subject: "Follow up", html: "<p>Checking in</p>" },
+        ],
+      };
+      return `curl -X POST ${BASE_URL}/v1/sequences \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}" \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify(body, null, 2).replace(/'/g, "\\'")}'`;
+    },
+    npmTemplate: (key, v) => {
+      return `import { Mailmark } from 'mailmark-sdk';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst sequence = await client.createSequence({\n  name: '${v.name || "Welcome Series"}',\n  from: '${v.from || "hello@yourdomain.com"}',\n  steps: [\n    { type: 'send_email', subject: 'Welcome {{firstName}}', html: '<p>Hello!</p>' },\n    { type: 'delay', delayMs: 86400000 },\n    { type: 'send_email', subject: 'Follow up', html: '<p>Checking in</p>' },\n  ],\n});\nconsole.log(sequence);`;
+    },
+    buildRequest: (v) => {
+      const body: Record<string, unknown> = {
+        name: v.name,
+        from: v.from,
+        steps: v.steps ? JSON.parse(v.steps) : [],
+      };
+      return { path: "/v1/sequences", body };
+    },
+  },
+  {
+    id: "enroll-contacts",
+    method: "POST",
+    path: "/v1/sequences/:sequenceId/enroll",
+    title: "Enroll Contacts",
+    description:
+      "Enroll one or more contacts into a sequence. Each contact will start receiving sequence emails from step 1. Contacts already actively enrolled are skipped. Maximum 100 contacts per request.",
+    fields: [
+      {
+        name: "sequenceId",
+        label: "Sequence ID",
+        type: "text",
+        required: true,
+        description: "The ID of the sequence to enroll contacts into.",
+        placeholder: "sequences:abc123",
+        inPath: true,
+      },
+      {
+        name: "contacts",
+        label: "Contacts (JSON)",
+        type: "textarea",
+        required: true,
+        description: 'JSON array of contacts. Each: { "email": "...", "mergeFields": { "firstName": "..." } }.',
+        placeholder: '[{"email":"jane@example.com","mergeFields":{"firstName":"Jane"}},{"email":"bob@example.com","mergeFields":{"firstName":"Bob"}}]',
+      },
+    ],
+    returns: '{ "enrolled": 2, "skipped": 0, "enrollmentIds": [...] }',
+    notes: [
+      "Sequence must be in 'active' status.",
+      "Contacts already enrolled with 'active' status are skipped (not duplicated).",
+      "mergeFields are used to personalize {{placeholder}} tags in email steps.",
+    ],
+    curlTemplate: (key, v) => {
+      const contacts = v.contacts ? JSON.parse(v.contacts) : [{ email: "jane@example.com", mergeFields: { firstName: "Jane" } }];
+      return `curl -X POST ${BASE_URL}/v1/sequences/${v.sequenceId || ":sequenceId"}/enroll \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}" \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify({ contacts }, null, 2).replace(/'/g, "\\'")}'`;
+    },
+    npmTemplate: (key, v) => {
+      return `import { Mailmark } from 'mailmark-sdk';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst result = await client.enrollContacts('${v.sequenceId || "sequences:abc123"}', {\n  contacts: [\n    { email: 'jane@example.com', mergeFields: { firstName: 'Jane' } },\n    { email: 'bob@example.com', mergeFields: { firstName: 'Bob' } },\n  ],\n});\nconsole.log(result);`;
+    },
+    buildRequest: (v) => {
+      const body = { contacts: v.contacts ? JSON.parse(v.contacts) : [] };
+      return { path: `/v1/sequences/${v.sequenceId}/enroll`, body };
+    },
+  },
+  {
+    id: "pause-sequence",
+    method: "PATCH",
+    path: "/v1/sequences/:sequenceId",
+    title: "Pause / Resume Sequence",
+    description:
+      'Pause or resume a sequence. Pausing prevents new step executions (scheduled steps will check sequence status before sending). Resume re-enables processing.',
+    fields: [
+      {
+        name: "sequenceId",
+        label: "Sequence ID",
+        type: "text",
+        required: true,
+        description: "The ID of the sequence to update.",
+        placeholder: "sequences:abc123",
+        inPath: true,
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        required: true,
+        description: "Set to 'paused' to pause or 'active' to resume.",
+        options: ["paused", "active"],
+      },
+    ],
+    returns: "Updated sequence object.",
+    curlTemplate: (key, v) => {
+      return `curl -X PATCH ${BASE_URL}/v1/sequences/${v.sequenceId || ":sequenceId"} \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"status": "${v.status || "paused"}"}'`;
+    },
+    npmTemplate: (key, v) => {
+      return `import { Mailmark } from 'mailmark-sdk';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst result = await client.updateSequence('${v.sequenceId || "sequences:abc123"}', {\n  status: '${v.status || "paused"}',\n});\nconsole.log(result);`;
+    },
+    buildRequest: (v) => {
+      return { path: `/v1/sequences/${v.sequenceId}`, body: { status: v.status } };
+    },
+  },
+  {
+    id: "cancel-sequence",
+    method: "DELETE",
+    path: "/v1/sequences/:sequenceId",
+    title: "Cancel Sequence",
+    description:
+      "Cancel a sequence permanently. Sets sequence status to 'completed' and cancels all active enrollments. Scheduled follow-up emails will not be sent.",
+    fields: [
+      {
+        name: "sequenceId",
+        label: "Sequence ID",
+        type: "text",
+        required: true,
+        description: "The ID of the sequence to cancel.",
+        placeholder: "sequences:abc123",
+        inPath: true,
+      },
+    ],
+    returns: '{ "id": "...", "status": "completed", "cancelledEnrollments": 42 }',
+    curlTemplate: (key, v) => {
+      return `curl -X DELETE ${BASE_URL}/v1/sequences/${v.sequenceId || ":sequenceId"} \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}"`;
+    },
+    npmTemplate: (key, v) => {
+      return `import { Mailmark } from 'mailmark-sdk';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst result = await client.cancelSequence('${v.sequenceId || "sequences:abc123"}');\nconsole.log(result);`;
+    },
+    buildRequest: (v) => {
+      return { path: `/v1/sequences/${v.sequenceId}` };
+    },
+  },
 ];
 
 const NAV = [
@@ -441,6 +629,16 @@ const NAV = [
   {
     label: "Send Email",
     children: [{ label: "Send / Schedule", id: "send-email" }],
+  },
+  {
+    label: "Sequences",
+    children: [
+      { label: "List Sequences", id: "list-sequences" },
+      { label: "Create Sequence", id: "create-sequence" },
+      { label: "Enroll Contacts", id: "enroll-contacts" },
+      { label: "Pause / Resume", id: "pause-sequence" },
+      { label: "Cancel Sequence", id: "cancel-sequence" },
+    ],
   },
 ];
 

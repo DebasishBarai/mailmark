@@ -182,6 +182,37 @@ export const completeEnrollment = internalMutation({
   },
 });
 
+export const markRepliedByEmail = internalMutation({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    senderEmail: v.string(),
+  },
+  handler: async (ctx, { mailboxId, senderEmail }) => {
+    const email = senderEmail.toLowerCase();
+
+    const sequences = await ctx.db
+      .query("sequences")
+      .filter((q) => q.eq(q.field("mailboxId"), mailboxId))
+      .collect();
+
+    for (const seq of sequences) {
+      const enrollment = await ctx.db
+        .query("sequenceEnrollments")
+        .withIndex("by_sequence_email", (q) =>
+          q.eq("sequenceId", seq._id).eq("contactEmail", email)
+        )
+        .first();
+
+      if (enrollment && enrollment.status === "active") {
+        await ctx.db.patch(enrollment._id, {
+          status: "replied",
+          completedAt: Date.now(),
+        });
+      }
+    }
+  },
+});
+
 export const getEnrollmentStats = internalQuery({
   args: { sequenceId: v.id("sequences") },
   handler: async (ctx, { sequenceId }) => {

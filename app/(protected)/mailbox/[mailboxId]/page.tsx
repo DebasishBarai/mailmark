@@ -20,6 +20,7 @@ const folderConfig: { key: string; label: string; navHidden?: boolean }[] = [
   { key: "sent", label: "Sent" },
   { key: "outbox", label: "Outbox" },
   { key: "drafts", label: "Drafts" },
+  { key: "follow-ups", label: "Follow-ups" },
 ];
 
 const folderIcons: Record<string, string> = {
@@ -27,6 +28,7 @@ const folderIcons: Record<string, string> = {
   sent: "M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5",
   outbox: "M9 8.25H7.5a2.25 2.25 0 00-2.25 2.25v9a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H15m0-3l-3-3m0 0l-3 3m3-3V15",
   drafts: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10",
+  "follow-ups": "M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3",
   campaigns: "M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46",
 };
 
@@ -234,6 +236,11 @@ export default function MailboxPage() {
   const sendEmail = useAction(api.ses.sendEmail);
   const verifyEmailsAction = useAction(api.emailVerification.verifyEmails);
   const scheduleEmailAction = useAction(api.ses.scheduleEmail);
+  const createAndEnrollSequence = useAction(api.sequenceActions.createAndEnrollWithFirstSent);
+  const mailboxSequences = useQuery(api.sequenceActions.getByMailbox, { mailboxId: mbId });
+  const pauseSequence = useMutation(api.sequenceActions.pause);
+  const resumeSequence = useMutation(api.sequenceActions.resume);
+  const cancelSequence = useMutation(api.sequenceActions.cancel);
   const cancelScheduledEmailMutation = useMutation(api.emails.cancelScheduledEmail);
   const fetchEmailBody = useAction(api.ses.fetchEmailBody);
   const getAttachment = useAction(api.ses.getAttachment);
@@ -292,6 +299,9 @@ export default function MailboxPage() {
   };
   const [composeAttachments, setComposeAttachments] = useState<AttachmentEntry[]>([]);
   const attachmentIdRef = useRef(0);
+  type FollowUpStep = { delayDays: number; subject: string; body: string };
+  const [followUpSteps, setFollowUpSteps] = useState<FollowUpStep[]>([]);
+  const [showFollowUps, setShowFollowUps] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvImportRef = useRef<HTMLInputElement>(null);
   const importMenuRef = useRef<HTMLDivElement>(null);
@@ -717,6 +727,8 @@ export default function MailboxPage() {
     setMergeColumns([]);
     setMergeEmailColumn("");
     setMergePreviewIndex(0);
+    setFollowUpSteps([]);
+    setShowFollowUps(false);
     setVerificationResults({});
   };
 
@@ -794,6 +806,23 @@ export default function MailboxPage() {
         body: fullBody,
         attachments: attachmentData.length > 0 ? attachmentData : undefined,
       });
+      if (followUpSteps.length > 0 && mailbox?.domainId) {
+        const sequenceSteps: Array<{ type: "send_email"; subject: string; html: string } | { type: "delay"; delayMs: number }> = [
+          { type: "send_email" as const, subject: composeSubject, html: fullBody },
+        ];
+        for (const fu of followUpSteps) {
+          sequenceSteps.push({ type: "delay" as const, delayMs: fu.delayDays * 86400000 });
+          sequenceSteps.push({ type: "send_email" as const, subject: fu.subject, html: fu.body });
+        }
+        const contacts = allRecipients.map((email) => ({ email }));
+        await createAndEnrollSequence({
+          mailboxId: mbId,
+          domainId: mailbox.domainId,
+          name: `Follow-up: ${composeSubject.slice(0, 50)}`,
+          steps: sequenceSteps,
+          contacts,
+        });
+      }
       resetComposeState();
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to send email. Please try again.");
@@ -840,6 +869,25 @@ export default function MailboxPage() {
           });
         }
       }
+      if (followUpSteps.length > 0 && mailbox?.domainId) {
+        const sequenceSteps: Array<{ type: "send_email"; subject: string; html: string } | { type: "delay"; delayMs: number }> = [
+          { type: "send_email" as const, subject: composeSubject, html: fullBody },
+        ];
+        for (const fu of followUpSteps) {
+          sequenceSteps.push({ type: "delay" as const, delayMs: fu.delayDays * 86400000 });
+          sequenceSteps.push({ type: "send_email" as const, subject: fu.subject, html: fu.body });
+        }
+        const contacts = hasMergeData
+          ? mergeRecipients.map((r) => ({ email: r.email, mergeFields: r.fields }))
+          : recipients.map((email) => ({ email }));
+        await createAndEnrollSequence({
+          mailboxId: mbId,
+          domainId: mailbox.domainId,
+          name: `Follow-up: ${composeSubject.slice(0, 50)}`,
+          steps: sequenceSteps,
+          contacts,
+        });
+      }
       resetComposeState();
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to send campaign. Please try again.");
@@ -870,6 +918,23 @@ export default function MailboxPage() {
         attachments: attachmentData.length > 0 ? attachmentData : undefined,
         scheduledAt,
       });
+      if (followUpSteps.length > 0 && mailbox?.domainId) {
+        const sequenceSteps: Array<{ type: "send_email"; subject: string; html: string } | { type: "delay"; delayMs: number }> = [
+          { type: "send_email" as const, subject: composeSubject, html: fullBody },
+        ];
+        for (const fu of followUpSteps) {
+          sequenceSteps.push({ type: "delay" as const, delayMs: fu.delayDays * 86400000 });
+          sequenceSteps.push({ type: "send_email" as const, subject: fu.subject, html: fu.body });
+        }
+        const contacts = allRecipients.map((email) => ({ email }));
+        await createAndEnrollSequence({
+          mailboxId: mbId,
+          domainId: mailbox.domainId,
+          name: `Follow-up: ${composeSubject.slice(0, 50)}`,
+          steps: sequenceSteps,
+          contacts,
+        });
+      }
       resetComposeState();
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to schedule email. Please try again.");
@@ -915,6 +980,25 @@ export default function MailboxPage() {
             batchId,
           });
         }
+      }
+      if (followUpSteps.length > 0 && mailbox?.domainId) {
+        const sequenceSteps: Array<{ type: "send_email"; subject: string; html: string } | { type: "delay"; delayMs: number }> = [
+          { type: "send_email" as const, subject: composeSubject, html: fullBody },
+        ];
+        for (const fu of followUpSteps) {
+          sequenceSteps.push({ type: "delay" as const, delayMs: fu.delayDays * 86400000 });
+          sequenceSteps.push({ type: "send_email" as const, subject: fu.subject, html: fu.body });
+        }
+        const contacts = hasMergeData
+          ? mergeRecipients.map((r) => ({ email: r.email, mergeFields: r.fields }))
+          : recipients.map((email) => ({ email }));
+        await createAndEnrollSequence({
+          mailboxId: mbId,
+          domainId: mailbox.domainId,
+          name: `Follow-up: ${composeSubject.slice(0, 50)}`,
+          steps: sequenceSteps,
+          contacts,
+        });
       }
       resetComposeState();
     } catch (err) {
@@ -1415,7 +1499,84 @@ export default function MailboxPage() {
             </div>
           </div>
           <div className="flex-1 overflow-x-hidden overflow-y-auto">
-            {emails.length === 0 ? (
+            {activeFolder === "follow-ups" ? (
+              <div className="p-3 space-y-2">
+                {!mailboxSequences || mailboxSequences.length === 0 ? (
+                  <div className="flex h-full items-center justify-center py-16">
+                    <div className="text-center">
+                      <svg className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
+                      </svg>
+                      <p className="mt-3 text-sm font-medium text-gray-900 dark:text-white">No follow-ups yet</p>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Add follow-up steps when composing an email</p>
+                    </div>
+                  </div>
+                ) : (
+                  mailboxSequences.map((seq) => (
+                    <div key={seq._id} className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-3">
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-gray-900 dark:text-white">{seq.name}</p>
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                              seq.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                              : seq.status === "paused" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                              : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                            }`}>
+                              <span className={`h-1 w-1 rounded-full ${seq.status === "active" ? "bg-green-500" : seq.status === "paused" ? "bg-amber-500" : "bg-gray-400"}`} />
+                              {seq.status}
+                            </span>
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400">{seq.steps.length} steps</span>
+                          </div>
+                          <div className="mt-1.5 flex flex-wrap gap-x-2 text-[10px] text-gray-500 dark:text-gray-400">
+                            <span>{seq.stats.total} enrolled</span>
+                            {seq.stats.active > 0 && <span className="text-green-600 dark:text-green-400">{seq.stats.active} active</span>}
+                            {seq.stats.replied > 0 && <span className="text-blue-600 dark:text-blue-400">{seq.stats.replied} replied</span>}
+                            {seq.stats.completed > 0 && <span>{seq.stats.completed} done</span>}
+                            {seq.stats.bounced > 0 && <span className="text-red-600 dark:text-red-400">{seq.stats.bounced} bounced</span>}
+                          </div>
+                        </div>
+                        <div className="ml-2 flex items-center gap-1">
+                          {seq.status === "active" && (
+                            <button
+                              onClick={() => pauseSequence({ sequenceId: seq._id })}
+                              title="Pause"
+                              className="rounded p-1 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-amber-600"
+                            >
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+                              </svg>
+                            </button>
+                          )}
+                          {seq.status === "paused" && (
+                            <button
+                              onClick={() => resumeSequence({ sequenceId: seq._id })}
+                              title="Resume"
+                              className="rounded p-1 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-green-600"
+                            >
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                              </svg>
+                            </button>
+                          )}
+                          {seq.status !== "completed" && (
+                            <button
+                              onClick={() => cancelSequence({ sequenceId: seq._id })}
+                              title="Cancel"
+                              className="rounded p-1 text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600"
+                            >
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : emails.length === 0 ? (
               <div className="flex h-full items-center justify-center">
                 <div className="text-center">
                   <div className="mb-4 text-5xl">📭</div>
@@ -2377,6 +2538,92 @@ export default function MailboxPage() {
                 </div>
               )}
             </div>
+            {/* Follow-up steps builder */}
+            <div className="mt-3 border-t border-gray-100 dark:border-gray-700/50 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowFollowUps(!showFollowUps)}
+                  className="flex w-full items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                >
+                  <svg className={`h-3 w-3 transition-transform ${showFollowUps ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
+                  </svg>
+                  Add Follow-ups {followUpSteps.length > 0 && `(${followUpSteps.length})`}
+                </button>
+                {showFollowUps && (
+                  <div className="mt-3 space-y-3">
+                    {followUpSteps.map((step, index) => (
+                      <div key={index} className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/50 text-[10px] font-bold text-violet-700 dark:text-violet-300">
+                              {index + 1}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">If no reply after</span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={30}
+                              value={step.delayDays}
+                              onChange={(e) => {
+                                const newSteps = [...followUpSteps];
+                                newSteps[index] = { ...newSteps[index], delayDays: Math.max(1, parseInt(e.target.value) || 1) };
+                                setFollowUpSteps(newSteps);
+                              }}
+                              className="w-14 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-0.5 text-xs text-gray-900 dark:text-white text-center focus:border-violet-500 focus:outline-none"
+                            />
+                            <span className="text-xs text-gray-500 dark:text-gray-400">day{step.delayDays !== 1 ? "s" : ""}, send:</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setFollowUpSteps(followUpSteps.filter((_, i) => i !== index))}
+                            className="rounded p-1 text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={step.subject}
+                          onChange={(e) => {
+                            const newSteps = [...followUpSteps];
+                            newSteps[index] = { ...newSteps[index], subject: e.target.value };
+                            setFollowUpSteps(newSteps);
+                          }}
+                          placeholder="Follow-up subject line"
+                          className="mb-2 w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2.5 py-1.5 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-violet-500 focus:outline-none"
+                        />
+                        <textarea
+                          value={step.body}
+                          onChange={(e) => {
+                            const newSteps = [...followUpSteps];
+                            newSteps[index] = { ...newSteps[index], body: e.target.value };
+                            setFollowUpSteps(newSteps);
+                          }}
+                          placeholder="Follow-up email body"
+                          rows={3}
+                          className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2.5 py-1.5 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-violet-500 focus:outline-none resize-none"
+                        />
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setFollowUpSteps([...followUpSteps, { delayDays: 2, subject: "", body: "" }])}
+                      className="flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors w-full justify-center"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                      Add follow-up step
+                    </button>
+                  </div>
+                )}
+              </div>
             {(() => {
               const invalidRecipients = composeTo.filter((e) => verificationResults[e.toLowerCase()]?.isValid === false);
               if (invalidRecipients.length > 0) return (

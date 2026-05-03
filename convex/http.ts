@@ -81,6 +81,13 @@ http.route({
       });
     }
 
+    // Check if sender has an active sequence enrollment and mark as replied
+    const senderEmail = fromMatch ? fromMatch[2].toLowerCase() : from.toLowerCase().replace(/.*<|>.*/g, "");
+    await ctx.runMutation(internal.sequences.markRepliedByEmail, {
+      mailboxId: mailbox._id,
+      senderEmail,
+    });
+
     // Move S3 object from domain/incoming/ to domain/mailbox/incoming/
     await ctx.runAction(internal.ses.moveIncomingEmail, {
       emailId,

@@ -1,6 +1,6 @@
 # Mailmark -- Product Roadmap & Implementation Plan
 
-Last updated: 2026-05-02 (Phase 1 completed)
+Last updated: 2026-05-03 (Phase 2 completed)
 
 This plan addresses 4 product gaps identified from a churned cold email agency user. The user paid for Starter, cancelled within an hour without setting up a domain. Root cause: Mailmark lacks the warmup and sequencing features cold emailers require.
 
@@ -9,7 +9,7 @@ This plan addresses 4 product gaps identified from a churned cold email agency u
 ## Table of Contents
 
 1. [Phase 1: Social Proof & Trust Signals](#phase-1-social-proof--trust-signals) -- COMPLETED
-2. [Phase 2: Sequences API](#phase-2-sequences-api) (2-3 weeks) -- IN PROGRESS
+2. [Phase 2: Sequences API](#phase-2-sequences-api) (2-3 weeks) -- COMPLETED
 3. [Phase 3: Email Warmup Infrastructure](#phase-3-email-warmup-infrastructure) (4-6 weeks)
 4. [Phase 4: GWS / Outlook SMTP Integration](#phase-4-gws--outlook-smtp-integration) (spike 1 week, full build 4-6 weeks)
 
@@ -98,19 +98,25 @@ Use grayscale logos with hover color effect. Keep it subtle -- this is trust sig
 
 ---
 
-## Phase 2: Sequences API
+## Phase 2: Sequences API -- COMPLETED
 
-**Impact: HIGH** | **Effort: 2-3 weeks** | **API-first differentiator for power users**
+**Impact: HIGH** | **Effort: 2-3 weeks** | **Status: DONE**
 
 The churned user said: "API first will attract most leveraged users with high volume"
 
-This is an API-only v1 -- no UI. Users create and manage sequences entirely through the REST API using their API key.
+Implemented as an integrated follow-up system within the mailbox compose flow, plus full API support.
 
-### Current State (partially built)
+### What Was Built
 
-- Schema tables `sequences` and `sequenceEnrollments` already added to `convex/schema.ts`
-- CRUD module `convex/sequences.ts` already written with all internal queries and mutations
-- Remaining: step processing engine (`convex/sequenceActions.ts`) and HTTP API endpoints (`convex/http.ts`)
+- Schema tables `sequences` and `sequenceEnrollments` in `convex/schema.ts`
+- CRUD module `convex/sequences.ts` with all internal queries and mutations
+- Step processing engine `convex/sequenceProcessing.ts` (sends emails, handles delays, completes enrollments)
+- Public API functions `convex/sequenceActions.ts` (create, pause, resume, cancel, enroll, getByMailbox, createAndEnrollWithFirstSent)
+- Reply detection in `convex/http.ts` (marks enrollment as "replied" when contact replies)
+- Follow-up builder UI integrated into mailbox compose flow
+- Follow-ups tab in mailbox folder list with stats, pause/resume/cancel controls
+- API documentation added to `app/docs/api/page.tsx`
+- Sequences section added to `public/llms.txt`
 
 ### Schema (already in `convex/schema.ts`)
 
@@ -407,8 +413,28 @@ curl https://api.mailmark.dev/v1/sequences/SEQ_ID \
   -H "Authorization: Bearer mk_..."
 ```
 
-- `bun run build` passes
-- `bun run lint` clean
+### Verification
+
+- [x] `bun run build` passes
+- [x] Follow-up builder UI renders in compose (toggle, delay/subject/body inputs)
+- [x] Sequences created on send when follow-ups are configured
+- [x] Follow-ups tab shows active sequences with stats and controls
+- [x] Reply detection marks enrollments as "replied" on inbound email
+- [x] Step processing engine handles delays and sends follow-up emails
+- [x] API docs page documents all sequence endpoints
+- [x] llms.txt updated with Sequences feature and API documentation
+
+### Files Created/Modified
+
+| File | Change | Status |
+|------|--------|--------|
+| `convex/sequenceProcessing.ts` | Step processing engine (processStep, getEnrollment, getSequence) | Done |
+| `convex/sequenceActions.ts` | Public API: create, pause, resume, cancel, enroll, getByMailbox, createAndEnrollWithFirstSent | Done |
+| `convex/sequences.ts` | Internal CRUD + markRepliedByEmail mutation | Done |
+| `convex/http.ts` | Reply detection hook in inbound email handler | Done |
+| `app/(protected)/mailbox/[mailboxId]/page.tsx` | Follow-up state, UI builder, send handler integration, Follow-ups tab | Done |
+| `app/docs/api/page.tsx` | Sequences API documentation (5 endpoints) | Done |
+| `public/llms.txt` | Sequences feature + API docs section | Done |
 
 ---
 
@@ -1126,10 +1152,15 @@ Add a "Sending Method" section per mailbox:
 | Component | Status |
 |-----------|--------|
 | `convex/schema.ts` -- sequences + enrollments tables | Done |
-| `convex/sequences.ts` -- CRUD + enrollment mutations | Done |
+| `convex/sequences.ts` -- CRUD + enrollment mutations + reply detection | Done |
+| `convex/sequenceActions.ts` -- public API (create, pause, resume, cancel, enroll, getByMailbox) | Done |
+| `convex/sequenceProcessing.ts` -- step processing engine (delays, sends, completion) | Done |
+| `convex/http.ts` -- /v1/send API, reply detection hook, quotas, warming enforcement | Done |
+| `convex/ses.ts` -- SES sending with tracking, unsubscribe, quotas | Done |
 | `convex/warmingSchedules.ts` -- volume ramping (gates sends) | Done (legacy, keep) |
 | `convex/warmingActions.ts` -- daily schedule advancement | Done (legacy, keep) |
 | `convex/crons.ts` -- domain cleanup, warming advance, health checks | Done |
 | `app/(protected)/warming/page.tsx` -- basic warming UI | Done (will be rewritten in Phase 3) |
-| `convex/http.ts` -- /v1/send API with auth, quotas, warming enforcement | Done |
-| `convex/ses.ts` -- SES sending with tracking, unsubscribe, quotas | Done |
+| `app/(protected)/mailbox/[mailboxId]/page.tsx` -- follow-up builder + follow-ups tab | Done |
+| `app/docs/api/page.tsx` -- API docs with sequences endpoints | Done |
+| `public/llms.txt` -- sequences feature + API documentation | Done |

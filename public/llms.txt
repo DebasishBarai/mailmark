@@ -19,7 +19,8 @@
 11. [Email UI](#email-ui)
 12. [Email Campaigns](#email-campaigns)
 13. [REST API](#rest-api)
-14. [npm SDK](#npm-sdk)
+14. [Sequences (Automated Follow-ups)](#sequences-automated-follow-ups)
+15. [npm SDK](#npm-sdk)
 15. [Billing & Subscriptions](#billing--subscriptions)
 16. [Affiliate Program](#affiliate-program)
 17. [Free Tools](#free-tools)
@@ -109,8 +110,18 @@ Use the dashboard UI to compose and send emails, or use the REST API / npm SDK t
 - Click tracking via redirect links
 - Bounce and complaint notifications from Amazon SES
 
+### Sequences (Automated Follow-ups)
+- Multi-step automated email sequences with configurable delays
+- Integrated into the compose flow: add follow-up steps when writing an email
+- Merge field personalization ({{firstName}}, {{company}}, custom fields)
+- Automatic reply detection: stops the sequence when a contact replies
+- Pause, resume, or cancel sequences at any time
+- Per-sequence enrollment stats: active, completed, replied, bounced, cancelled
+- Follow-ups tab in mailbox for managing active sequences
+- Full API support for creating sequences and enrolling contacts programmatically
+
 ### REST API
-- Full programmatic control: send emails, manage mailboxes, manage sender groups, list emails
+- Full programmatic control: send emails, manage mailboxes, manage sender groups, sequences, list emails
 - API keys scoped per domain
 - Supports transactional (one email to all recipients) and campaign (individual email per recipient) send modes
 - Scheduled sending (future unix timestamp)
@@ -514,6 +525,90 @@ Send an email immediately or schedule it for later.
 
 #### GET /v1/emails
 List sent emails for the domain.
+
+---
+
+### Sequences
+
+Sequences are automated multi-step email flows with configurable delays. Create a sequence with send_email and delay steps, then enroll contacts to start the automated drip. Supports merge field personalization ({{firstName}}, {{company}}, etc.). Reply detection automatically stops the sequence for a contact who replies.
+
+#### GET /v1/sequences
+List all sequences for the authenticated user.
+
+**Response**:
+```json
+[
+  {
+    "_id": "sequences:abc123",
+    "name": "Welcome Series",
+    "status": "active",
+    "steps": [...],
+    "stats": { "total": 150, "active": 80, "completed": 50, "replied": 12, "bounced": 3, "cancelled": 5 },
+    "domainName": "yourdomain.com",
+    "mailboxAddress": "hello@yourdomain.com"
+  }
+]
+```
+
+#### POST /v1/sequences
+Create a new sequence.
+
+**Body**:
+```json
+{
+  "name": "Welcome Series",
+  "from": "hello@yourdomain.com",
+  "steps": [
+    { "type": "send_email", "subject": "Welcome {{firstName}}", "html": "<p>Hello!</p>" },
+    { "type": "delay", "delayMs": 86400000 },
+    { "type": "send_email", "subject": "Follow up", "html": "<p>Checking in</p>" }
+  ]
+}
+```
+
+**Notes**:
+- First step must be `send_email` (cannot start with a delay)
+- `delayMs` is in milliseconds (86400000 = 1 day)
+- Use `{{fieldName}}` in subject/html for merge field personalization
+
+#### POST /v1/sequences/:id/enroll
+Enroll contacts into a sequence.
+
+**Body**:
+```json
+{
+  "contacts": [
+    { "email": "jane@example.com", "mergeFields": { "firstName": "Jane", "company": "Acme" } },
+    { "email": "bob@example.com", "mergeFields": { "firstName": "Bob" } }
+  ]
+}
+```
+
+**Response**:
+```json
+{ "enrolled": 2, "skipped": 0, "enrollmentIds": ["sequenceEnrollments:abc", "sequenceEnrollments:def"] }
+```
+
+**Notes**:
+- Sequence must be active
+- Max 100 contacts per request
+- Already-enrolled active contacts are skipped
+
+#### PATCH /v1/sequences/:id
+Pause or resume a sequence.
+
+**Body**:
+```json
+{ "status": "paused" }
+```
+
+#### DELETE /v1/sequences/:id
+Cancel a sequence. Sets status to "completed" and cancels all active enrollments.
+
+**Response**:
+```json
+{ "id": "sequences:abc123", "status": "completed", "cancelledEnrollments": 42 }
+```
 
 ---
 

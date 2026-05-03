@@ -29,6 +29,8 @@ import type * as mailboxes from "../mailboxes.js";
 import type * as platformStats from "../platformStats.js";
 import type * as quotas from "../quotas.js";
 import type * as senderGroups from "../senderGroups.js";
+import type * as sequenceActions from "../sequenceActions.js";
+import type * as sequenceProcessing from "../sequenceProcessing.js";
 import type * as sequences from "../sequences.js";
 import type * as ses from "../ses.js";
 import type * as subscriptions from "../subscriptions.js";
@@ -65,6 +67,8 @@ declare const fullApi: ApiFromModules<{
   platformStats: typeof platformStats;
   quotas: typeof quotas;
   senderGroups: typeof senderGroups;
+  sequenceActions: typeof sequenceActions;
+  sequenceProcessing: typeof sequenceProcessing;
   sequences: typeof sequences;
   ses: typeof ses;
   subscriptions: typeof subscriptions;
