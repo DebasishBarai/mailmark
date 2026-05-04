@@ -39,6 +39,11 @@ const faqs = [
       "Absolutely. There are no long-term contracts or cancellation fees. You can cancel from your account settings at any time and your paid plan remains active until the end of the current billing period.",
   },
   {
+    question: "Does Mailmark have email warmup?",
+    answer:
+      "Yes. Mailmark includes built-in email warmup that exchanges real emails with Gmail accounts, generates real engagement signals (opens, replies, mark-as-important), and tracks inbox vs. spam placement. Just go to the Warming page in your dashboard, select a mailbox, choose a speed, and click Start Warmup. No Gmail connection required from your side -- Mailmark handles everything automatically.",
+  },
+  {
     question: "What email clients or apps can I use with Mailmark?",
     answer:
       "Campaigns are managed through the built-in Mailmark web UI, which works in any modern browser. For managing replies, we also support IMAP and SMTP access, so you can connect your sender mailboxes to any standard email client such as Apple Mail, Thunderbird, or Outlook.",

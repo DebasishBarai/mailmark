@@ -20,12 +20,13 @@
 12. [Email Campaigns](#email-campaigns)
 13. [REST API](#rest-api)
 14. [Sequences (Automated Follow-ups)](#sequences-automated-follow-ups)
-15. [npm SDK](#npm-sdk)
-15. [Billing & Subscriptions](#billing--subscriptions)
-16. [Affiliate Program](#affiliate-program)
-17. [Free Tools](#free-tools)
-18. [Frequently Asked Questions](#frequently-asked-questions)
-19. [Key URLs](#key-urls)
+15. [Email Warmup](#email-warmup)
+16. [npm SDK](#npm-sdk)
+17. [Billing & Subscriptions](#billing--subscriptions)
+18. [Affiliate Program](#affiliate-program)
+19. [Free Tools](#free-tools)
+20. [Frequently Asked Questions](#frequently-asked-questions)
+21. [Key URLs](#key-urls)
 
 ---
 
@@ -36,6 +37,7 @@ Mailmark combines three things that businesses previously needed separate tools 
 1. **Custom domain email hosting** - Receive and send email from addresses on your own domain (e.g. hello@acme.com) without managing mail servers. Mailmark handles the infrastructure using Amazon SES. At domain setup time you can either let Mailmark host the AWS resources (the default) or deploy the same resources inside your own AWS account via CloudFormation (BYO-AWS) - see [Infrastructure: Mailmark-hosted vs BYO-AWS](#infrastructure-mailmark-hosted-vs-byo-aws).
 2. **A full email client** - An inbox, sent folder, outbox, drafts, and trash for every mailbox you create, accessible from any browser. Similar to Gmail but for your custom domain.
 3. **Email campaign tools** - Send bulk outreach and marketing emails from any of your mailboxes with mail merge, personalization, open/click tracking, automated follow-up sequences, and real-time analytics.
+4. **Email warmup** - Built-in warmup system that exchanges real emails with Gmail accounts, generates engagement signals (opens, replies, mark-as-important), rescues from spam, and tracks inbox placement -- all automated from the dashboard.
 
 Mailmark is not a shared email provider (like Gmail or Outlook). You bring your own domain. Mailmark does not provide domain registration - you must already own the domain you want to use.
 
@@ -120,6 +122,18 @@ Use the dashboard UI to compose and send emails, or use the REST API / npm SDK t
 - Per-sequence enrollment stats: active, completed, replied, bounced, cancelled
 - Follow-ups tab in mailbox for managing active sequences
 - Full API support for creating sequences and enrolling contacts programmatically
+
+### Email Warmup
+- Built-in email warmup system with real Gmail email exchange
+- Automatic outbound sends from your mailbox to platform Gmail accounts
+- Automatic inbound sends from platform Gmail accounts to your mailbox
+- Real Gmail API engagement: opens (85%), mark-as-important (45%), replies (25%)
+- Inbox vs. spam placement detection via Gmail API
+- Health score based on real inbox placement, open rate, and reply rate
+- Three speed profiles: slow (2-20/day), normal (5-20/day), fast (10-20/day)
+- Warmup emails hidden from your regular inbox (stored in _warmup folder)
+- Pause, resume, and change speed at any time from the dashboard
+- No setup beyond clicking "Start Warmup" -- no Gmail connection required from users
 
 ### REST API
 - Full programmatic control: send emails, manage mailboxes, manage sender groups, sequences, list emails
@@ -615,6 +629,53 @@ Cancel a sequence. Sets status to "completed" and cancels all active enrollments
 
 ---
 
+## Email Warmup
+
+Mailmark includes a built-in email warmup system that gradually builds domain reputation by exchanging real emails with Gmail accounts. Unlike basic volume ramping, Mailmark's warmup sends actual emails, generates real Gmail engagement signals (opens, replies, mark-as-important), and tracks inbox vs. spam placement.
+
+### How Warmup Works
+
+1. **Enroll a mailbox** - Go to Dashboard -> Warming, select a verified mailbox (SPF + DKIM + DMARC must be configured), choose a speed (slow, normal, or fast), and click "Start Warmup".
+2. **Automatic email exchange** - Mailmark sends warmup emails from your mailbox to platform Gmail accounts (outbound) and from platform Gmail accounts back to your mailbox (inbound). This happens automatically every 30 minutes.
+3. **Real Gmail engagement** - Platform Gmail accounts open your emails, mark them as important, rescue them from spam if needed, and reply -- all with randomized timing and rates to look natural.
+4. **Placement tracking** - Mailmark checks whether outbound warmup emails landed in Gmail's inbox or spam folder via the Gmail API. Your health score is calculated from real inbox placement data.
+
+### Speed Profiles
+
+| Speed  | Starting volume | Target volume | Ramp duration |
+|--------|----------------|---------------|---------------|
+| Slow   | 2/day          | 20/day        | 4+ weeks      |
+| Normal | 5/day          | 20/day        | 2-3 weeks     |
+| Fast   | 10/day         | 20/day        | 1-2 weeks     |
+
+### Health Score
+
+Each enrolled mailbox gets a health score (0-100) recalculated daily based on the last 7 days of outbound warmup emails:
+- **Inbox placement rate** (60% weight) - percentage of emails landing in Gmail inbox vs. spam
+- **Open rate** (20% weight) - percentage of emails opened
+- **Reply rate** (20% weight) - percentage of emails replied to
+
+Health score badges: green (80+), yellow (50-80), red (below 50).
+
+### Warmup Email Handling
+
+Warmup emails arriving at your Mailmark mailbox are automatically routed to a hidden "_warmup" folder and never appear in your regular inbox. The warming dashboard shows all warmup activity including direction, placement, open status, and reply status.
+
+### Dashboard Features (Dashboard -> Warming)
+
+- **Enrolled mailboxes list** - health score, inbox rate, current day, speed, sent/received today, daily limit
+- **Pause/resume/change speed** - adjust warmup at any time without losing history
+- **Activity table** - recent warmup emails with direction, from/to, subject, placement, opened, replied status
+- **Add mailbox** - enroll new mailboxes with domain and speed selection
+
+### Requirements
+
+- Domain must have SPF, DKIM, and DMARC fully verified before starting warmup
+- Only one active warmup enrollment per mailbox
+- Warmup is managed entirely from the dashboard (no API endpoints)
+
+---
+
 ## npm SDK
 
 The official Mailmark SDK for Node.js, TypeScript, and Bun.
@@ -765,6 +826,9 @@ The Starter plan supports up to 3 mailboxes on a single domain. The Pro plan giv
 **Does Mailmark support email campaigns?**
 Yes. All plans include the campaign suite - compose rich HTML emails, import or build a recipient list, schedule sends, and track opens, clicks, and deliverability in real time. Auto follow-up sequences are also supported.
 
+**Does Mailmark have email warmup?**
+Yes. Mailmark includes built-in email warmup that exchanges real emails with Gmail accounts, generates real engagement signals (opens, replies, mark-as-important), and tracks inbox vs. spam placement. Go to Dashboard -> Warming to enroll a mailbox. No Gmail connection required from users -- Mailmark handles everything automatically.
+
 **Is there a free trial?**
 Yes. Every plan comes with a 7-day free trial - no credit card required. You get full access to all features during the trial. After 7 days, the account pauses until a paid plan is chosen.
 
@@ -804,6 +868,7 @@ All further sends are blocked until the next calendar month (when the quota rese
 | Troubleshooting | https://mailmark.dev/docs/troubleshooting |
 | Pricing | https://mailmark.dev/#pricing |
 | Billing (dashboard) | https://mailmark.dev/billing |
+| Email warmup | https://mailmark.dev/warming |
 | Developer (API keys) | https://mailmark.dev/developer |
 | Affiliate program | https://mailmark.dev/affiliate-program |
 | Blog | https://mailmark.dev/blog |

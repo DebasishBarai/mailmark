@@ -27,4 +27,28 @@ crons.interval(
   {}
 );
 
+// Every 30 minutes: send warmup emails (mailbox <-> platform Gmail accounts)
+crons.interval(
+  "warmup exchange",
+  { minutes: 30 },
+  internal.warmupEngine.runWarmupRound,
+  {}
+);
+
+// Every 30 minutes (offset 15 min): Gmail engagement on received warmup emails
+crons.interval(
+  "warmup engagement",
+  { minutes: 30 },
+  internal.warmupEngagement.runEngagementRound,
+  {}
+);
+
+// Daily at 6:30 AM UTC: advance warmup days, reset counters, recalculate health scores
+crons.daily(
+  "advance warmup day",
+  { hourUTC: 6, minuteUTC: 30 },
+  internal.warmupEngine.advanceWarmupDay,
+  {}
+);
+
 export default crons;

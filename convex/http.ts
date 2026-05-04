@@ -43,6 +43,7 @@ http.route({
       messageId,
       hasAttachments,
       s3Key,
+      warmupId,
     } = body;
 
     // Find the mailbox by recipient address
@@ -58,7 +59,26 @@ http.route({
       );
     }
 
-    // Insert email metadata
+    // Detect warmup emails: check X-Warmup-Id from body or match by messageId
+    let isWarmupEmail = !!warmupId;
+    if (!isWarmupEmail && messageId) {
+      const warmupMatch = await ctx.runQuery(
+        internal.warmupPool.getWarmupEmailByMessageId,
+        { messageId }
+      );
+      if (warmupMatch) isWarmupEmail = true;
+    }
+    // Also check if sender is a platform warmup account
+    if (!isWarmupEmail) {
+      const senderEmail = from.toLowerCase().replace(/.*<|>.*/g, "").trim();
+      const platformAccount = await ctx.runQuery(
+        internal.platformWarmupAccounts.getByEmail,
+        { email: senderEmail }
+      );
+      if (platformAccount) isWarmupEmail = true;
+    }
+
+    // Insert email metadata (warmup emails go to _warmup folder, not inbox)
     const emailId = await ctx.runMutation(internal.emails.insertFromWebhook, {
       mailboxId: mailbox._id,
       messageId,
@@ -69,7 +89,22 @@ http.route({
       date,
       hasAttachments,
       s3Key,
+      ...(isWarmupEmail ? { folder: "_warmup" } : {}),
     });
+
+    // If warmup email, update placement to inbox (it arrived via SES, so it was delivered)
+    if (isWarmupEmail && messageId) {
+      const warmupMatch = await ctx.runQuery(
+        internal.warmupPool.getWarmupEmailByMessageId,
+        { messageId }
+      );
+      if (warmupMatch) {
+        await ctx.runMutation(internal.warmupPool.updateWarmupEmailPlacement, {
+          warmupEmailId: warmupMatch._id,
+          placement: "inbox",
+        });
+      }
+    }
 
     // Save sender as contact if "from" has a display name (e.g. "Name <email>")
     const fromMatch = from.match(/^(.+?)\s*<([^>]+)>$/);

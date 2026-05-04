@@ -323,6 +323,72 @@ export default defineSchema({
     .index("by_sequence_status", ["sequenceId", "status"])
     .index("by_sequence_email", ["sequenceId", "contactEmail"]),
 
+  platformWarmupAccounts: defineTable({
+    email: v.string(),
+    provider: v.literal("gmail"),
+    accessToken: v.string(),
+    refreshToken: v.string(),
+    tokenExpiresAt: v.number(),
+    status: v.union(v.literal("active"), v.literal("paused"), v.literal("token_expired")),
+    dailySentCount: v.number(),
+    dailyReceivedCount: v.number(),
+    lastResetAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_email", ["email"]),
+
+  warmupMailboxes: defineTable({
+    userId: v.id("users"),
+    mailboxId: v.id("mailboxes"),
+    domainId: v.id("domains"),
+    status: v.union(v.literal("active"), v.literal("paused")),
+    speed: v.union(v.literal("slow"), v.literal("normal"), v.literal("fast")),
+    dailyLimit: v.number(),
+    sentToday: v.number(),
+    receivedToday: v.number(),
+    currentDay: v.number(),
+    healthScore: v.number(),
+    inboxRate: v.number(),
+    startedAt: v.number(),
+    lastActivityAt: v.optional(v.number()),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_mailbox_id", ["mailboxId"])
+    .index("by_status", ["status"]),
+
+  warmupEmails: defineTable({
+    warmupMailboxId: v.id("warmupMailboxes"),
+    platformAccountId: v.id("platformWarmupAccounts"),
+    direction: v.union(v.literal("outbound"), v.literal("inbound")),
+    fromAddress: v.string(),
+    toAddress: v.string(),
+    messageId: v.string(),
+    subject: v.string(),
+    sentAt: v.number(),
+    openedAt: v.optional(v.number()),
+    repliedAt: v.optional(v.number()),
+    repliedMessageId: v.optional(v.string()),
+    placement: v.union(v.literal("inbox"), v.literal("spam"), v.literal("unknown")),
+    rescuedFromSpam: v.optional(v.boolean()),
+    markedImportant: v.optional(v.boolean()),
+  })
+    .index("by_warmup_mailbox", ["warmupMailboxId"])
+    .index("by_platform_account", ["platformAccountId"])
+    .index("by_message_id", ["messageId"])
+    .index("by_sent_date", ["sentAt"]),
+
+  warmupContentTemplates: defineTable({
+    category: v.union(
+      v.literal("business"),
+      v.literal("personal"),
+      v.literal("newsletter"),
+      v.literal("notification")
+    ),
+    subjects: v.array(v.string()),
+    bodies: v.array(v.string()),
+    replyBodies: v.array(v.string()),
+  }),
+
   api_keys: defineTable({
     userId: v.id("users"),
     domainId: v.id("domains"),

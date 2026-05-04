@@ -26,6 +26,13 @@ export const getMailboxWithDomain = internalQuery({
   },
 });
 
+export const getMailboxById = internalQuery({
+  args: { mailboxId: v.id("mailboxes") },
+  handler: async (ctx, { mailboxId }) => {
+    return await ctx.db.get(mailboxId);
+  },
+});
+
 export const listByFolder = query({
   args: {
     mailboxId: v.id("mailboxes"),
@@ -309,11 +316,13 @@ export const insertFromWebhook = internalMutation({
     date: v.number(),
     hasAttachments: v.boolean(),
     s3Key: v.string(),
+    folder: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const { folder, ...rest } = args;
     return await ctx.db.insert("emails", {
-      ...args,
-      folder: "inbox",
+      ...rest,
+      folder: folder ?? "inbox",
       read: false,
       starred: false,
     });
