@@ -65,19 +65,11 @@ export default function AdminDashboardPage() {
   return (
     <div className="mx-auto max-w-6xl p-6">
       {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Platform-wide stats and activity overview
-          </p>
-        </div>
-        <Link
-          href="/admin/warmup-accounts"
-          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
-        >
-          Warmup Accounts
-        </Link>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Platform-wide stats and activity overview
+        </p>
       </div>
 
       {/* Users */}
@@ -214,6 +206,35 @@ export default function AdminDashboardPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Admin Tools */}
+      <div className="mt-10">
+        <SectionHeader title="Admin Tools" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Link
+            href="/admin/warmup-accounts"
+            className="group flex items-start gap-4 rounded-lg border border-gray-200 bg-white p-5 transition-colors hover:border-violet-300 hover:bg-violet-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-violet-700 dark:hover:bg-violet-900/20"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-gray-900 group-hover:text-violet-700 dark:text-white dark:group-hover:text-violet-300">
+                Warmup Accounts
+              </p>
+              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                Manage platform Gmail accounts used for email warmup across all users.
+              </p>
+              <p className="mt-2 text-xs font-medium text-violet-600 dark:text-violet-400">
+                {stats.warmup.platformAccounts} active / {stats.warmup.totalPlatformAccounts} total
+              </p>
+            </div>
+          </Link>
+        </div>
       </div>
     </div>
   );
