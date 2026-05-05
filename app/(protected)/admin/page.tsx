@@ -44,20 +44,10 @@ function SectionHeader({ title }: { title: string }) {
 export default function AdminDashboardPage() {
   const stats = useQuery(api.platformStats.getAdminStats);
 
-  if (stats === undefined) {
+  if (stats === undefined || stats === null) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600" />
-      </div>
-    );
-  }
-
-  if (stats === null) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="rounded-lg bg-red-50 p-6 text-red-600 dark:bg-red-900/20 dark:text-red-400">
-          Admin access required
-        </div>
       </div>
     );
   }
