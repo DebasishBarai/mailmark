@@ -22,7 +22,7 @@ Always use `bun`, never `npm` or `npx`.
 
 ### Route Groups
 
-- **`app/(protected)/`** -- Authenticated app pages (dashboard, domains, mailbox, settings, billing, etc.). Protected by Clerk middleware in `proxy.ts` via `createRouteMatcher(["/dashboard(.*)", "/domains(.*)", "/mailbox(.*)"])`.
+- **`app/(protected)/`** -- Authenticated app pages (dashboard, domains, mailbox, settings, billing, etc.). Protected by Clerk middleware in `proxy.ts` via `createRouteMatcher(["/dashboard(.*)", "/domains(.*)", "/mailbox(.*)", "/admin(.*)"])`.
 - **`app/tools/`** -- Public SEO tools (free, no auth required for most). Each tool has a `page.tsx` (server component with metadata + JSON-LD) and a client component.
 - **`app/docs/`, `app/guides/`, `app/blog/`** -- Public content pages.
 - **`app/api/tools/`** -- Next.js API routes for tool backends (DNS checks, email validation, etc.).

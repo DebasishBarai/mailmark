@@ -127,8 +127,8 @@ Use the dashboard UI to compose and send emails, or use the REST API / npm SDK t
 - Built-in email warmup system with real Gmail email exchange
 - Automatic outbound sends from your mailbox to platform Gmail accounts
 - Automatic inbound sends from platform Gmail accounts to your mailbox
-- Real Gmail API engagement: opens (85%), mark-as-important (45%), replies (25%)
-- Inbox vs. spam placement detection via Gmail API
+- Real Gmail engagement via SMTP/IMAP: opens (85%), mark-as-important (45%), replies (25%)
+- Inbox vs. spam placement detection via IMAP
 - Health score based on real inbox placement, open rate, and reply rate
 - Three speed profiles: slow (2-20/day), normal (5-20/day), fast (10-20/day)
 - Warmup emails hidden from your regular inbox (stored in _warmup folder)
@@ -638,7 +638,7 @@ Mailmark includes a built-in email warmup system that gradually builds domain re
 1. **Enroll a mailbox** - Go to Dashboard -> Warming, select a verified mailbox (SPF + DKIM + DMARC must be configured), choose a speed (slow, normal, or fast), and click "Start Warmup".
 2. **Automatic email exchange** - Mailmark sends warmup emails from your mailbox to platform Gmail accounts (outbound) and from platform Gmail accounts back to your mailbox (inbound). This happens automatically every 30 minutes.
 3. **Real Gmail engagement** - Platform Gmail accounts open your emails, mark them as important, rescue them from spam if needed, and reply -- all with randomized timing and rates to look natural.
-4. **Placement tracking** - Mailmark checks whether outbound warmup emails landed in Gmail's inbox or spam folder via the Gmail API. Your health score is calculated from real inbox placement data.
+4. **Placement tracking** - Mailmark checks whether outbound warmup emails landed in Gmail's inbox or spam folder via IMAP. Your health score is calculated from real inbox placement data.
 
 ### Speed Profiles
 
