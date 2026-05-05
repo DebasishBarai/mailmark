@@ -11,19 +11,15 @@ export default function AdminWarmupAccountsPage() {
   const pauseAccount = useMutation(api.platformWarmupAccounts.pauseAccount);
   const activateAccount = useMutation(api.platformWarmupAccounts.activateAccount);
   const removeAccount = useMutation(api.platformWarmupAccounts.removeAccount);
-  const updateTokens = useMutation(api.platformWarmupAccounts.updateTokens);
+  const updateAppPassword = useMutation(api.platformWarmupAccounts.updateAppPassword);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEmail, setNewEmail] = useState("");
-  const [newAccessToken, setNewAccessToken] = useState("");
-  const [newRefreshToken, setNewRefreshToken] = useState("");
-  const [newTokenExpiry, setNewTokenExpiry] = useState("");
+  const [newAppPassword, setNewAppPassword] = useState("");
   const [error, setError] = useState("");
 
   const [reconnectId, setReconnectId] = useState<Id<"platformWarmupAccounts"> | null>(null);
-  const [reconnectAccessToken, setReconnectAccessToken] = useState("");
-  const [reconnectRefreshToken, setReconnectRefreshToken] = useState("");
-  const [reconnectTokenExpiry, setReconnectTokenExpiry] = useState("");
+  const [reconnectAppPassword, setReconnectAppPassword] = useState("");
 
   if (accounts === undefined) {
     return (
@@ -51,36 +47,28 @@ export default function AdminWarmupAccountsPage() {
     try {
       await addAccount({
         email: newEmail,
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
-        tokenExpiresAt: newTokenExpiry ? new Date(newTokenExpiry).getTime() : Date.now() + 3600000,
+        appPassword: newAppPassword.replace(/\s/g, ""),
       });
       setShowAddForm(false);
       setNewEmail("");
-      setNewAccessToken("");
-      setNewRefreshToken("");
-      setNewTokenExpiry("");
+      setNewAppPassword("");
     } catch (err: any) {
       setError(err.message || "Failed to add account");
     }
   }
 
-  async function handleReconnect() {
+  async function handleUpdatePassword() {
     if (!reconnectId) return;
     setError("");
     try {
-      await updateTokens({
+      await updateAppPassword({
         accountId: reconnectId,
-        accessToken: reconnectAccessToken,
-        refreshToken: reconnectRefreshToken,
-        tokenExpiresAt: reconnectTokenExpiry ? new Date(reconnectTokenExpiry).getTime() : Date.now() + 3600000,
+        appPassword: reconnectAppPassword.replace(/\s/g, ""),
       });
       setReconnectId(null);
-      setReconnectAccessToken("");
-      setReconnectRefreshToken("");
-      setReconnectTokenExpiry("");
+      setReconnectAppPassword("");
     } catch (err: any) {
-      setError(err.message || "Failed to reconnect");
+      setError(err.message || "Failed to update app password");
     }
   }
 
@@ -117,6 +105,20 @@ export default function AdminWarmupAccountsPage() {
         </div>
       )}
 
+      {/* Setup Instructions */}
+      <div className="mb-6 rounded-lg border border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-900/20">
+        <h3 className="mb-2 text-sm font-semibold text-violet-800 dark:text-violet-300">
+          How to get a Gmail App Password
+        </h3>
+        <ol className="list-inside list-decimal space-y-1 text-sm text-violet-700 dark:text-violet-400">
+          <li>Sign into the Gmail account</li>
+          <li>Go to Google Account &gt; Security &gt; enable 2-Step Verification</li>
+          <li>Search &quot;App Passwords&quot; in account settings</li>
+          <li>Create a new app password (select &quot;Mail&quot; as the app)</li>
+          <li>Copy the 16-character password and paste it below</li>
+        </ol>
+      </div>
+
       {/* Account Table */}
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
         <table className="w-full text-sm">
@@ -140,9 +142,7 @@ export default function AdminWarmupAccountsPage() {
                     className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                       account.status === "active"
                         ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        : account.status === "paused"
-                        ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
                     }`}
                   >
                     {account.status}
@@ -172,14 +172,12 @@ export default function AdminWarmupAccountsPage() {
                         Activate
                       </button>
                     )}
-                    {account.status === "token_expired" && (
-                      <button
-                        onClick={() => setReconnectId(account._id)}
-                        className="rounded px-2 py-1 text-xs font-medium text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-900/20"
-                      >
-                        Reconnect
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setReconnectId(account._id)}
+                      className="rounded px-2 py-1 text-xs font-medium text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-900/20"
+                    >
+                      Update Password
+                    </button>
                     <button
                       onClick={() => {
                         if (confirm(`Remove ${account.email}?`)) {
@@ -215,7 +213,7 @@ export default function AdminWarmupAccountsPage() {
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
-            Connect Gmail Account
+            Add Gmail Account
           </button>
         ) : (
           <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
@@ -234,38 +232,22 @@ export default function AdminWarmupAccountsPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Access Token</label>
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">App Password</label>
                 <input
                   type="password"
-                  value={newAccessToken}
-                  onChange={(e) => setNewAccessToken(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  value={newAppPassword}
+                  onChange={(e) => setNewAppPassword(e.target.value)}
+                  placeholder="xxxx xxxx xxxx xxxx"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Refresh Token</label>
-                <input
-                  type="password"
-                  value={newRefreshToken}
-                  onChange={(e) => setNewRefreshToken(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Token Expiry (optional)
-                </label>
-                <input
-                  type="datetime-local"
-                  value={newTokenExpiry}
-                  onChange={(e) => setNewTokenExpiry(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
+                <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                  16-character password from Google Account &gt; Security &gt; App Passwords
+                </p>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={handleAdd}
-                  disabled={!newEmail || !newAccessToken || !newRefreshToken}
+                  disabled={!newEmail || !newAppPassword}
                   className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
                 >
                   Add Account
@@ -282,50 +264,34 @@ export default function AdminWarmupAccountsPage() {
         )}
       </div>
 
-      {/* Reconnect Modal */}
+      {/* Update Password Modal */}
       {reconnectId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-lg bg-white p-6 dark:bg-gray-800">
             <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
-              Reconnect Account
+              Update App Password
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Access Token</label>
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">New App Password</label>
                 <input
                   type="password"
-                  value={reconnectAccessToken}
-                  onChange={(e) => setReconnectAccessToken(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  value={reconnectAppPassword}
+                  onChange={(e) => setReconnectAppPassword(e.target.value)}
+                  placeholder="xxxx xxxx xxxx xxxx"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Refresh Token</label>
-                <input
-                  type="password"
-                  value={reconnectRefreshToken}
-                  onChange={(e) => setReconnectRefreshToken(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Token Expiry (optional)
-                </label>
-                <input
-                  type="datetime-local"
-                  value={reconnectTokenExpiry}
-                  onChange={(e) => setReconnectTokenExpiry(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
+                <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                  Generate a new app password from Google Account settings
+                </p>
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={handleReconnect}
-                  disabled={!reconnectAccessToken || !reconnectRefreshToken}
+                  onClick={handleUpdatePassword}
+                  disabled={!reconnectAppPassword}
                   className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
                 >
-                  Reconnect
+                  Update
                 </button>
                 <button
                   onClick={() => setReconnectId(null)}

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query, internalMutation, internalQuery, internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
+// import { internal } from "./_generated/api";
 
 // const ADMIN_CLERK_ID = "user_2xo2LyEVBp4BWRHM0RdeaZTPJAb";
 const DAILY_SEND_LIMIT = 450;
@@ -22,9 +22,7 @@ async function requireAdmin(ctx: { auth: { getUserIdentity: () => Promise<{ subj
 export const addAccount = mutation({
   args: {
     email: v.string(),
-    accessToken: v.string(),
-    refreshToken: v.string(),
-    tokenExpiresAt: v.number(),
+    appPassword: v.string(),
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
@@ -38,9 +36,7 @@ export const addAccount = mutation({
     return await ctx.db.insert("platformWarmupAccounts", {
       email: args.email,
       provider: "gmail",
-      accessToken: args.accessToken,
-      refreshToken: args.refreshToken,
-      tokenExpiresAt: args.tokenExpiresAt,
+      appPassword: args.appPassword,
       status: "active",
       dailySentCount: 0,
       dailyReceivedCount: 0,
@@ -73,19 +69,15 @@ export const removeAccount = mutation({
   },
 });
 
-export const updateTokens = mutation({
+export const updateAppPassword = mutation({
   args: {
     accountId: v.id("platformWarmupAccounts"),
-    accessToken: v.string(),
-    refreshToken: v.string(),
-    tokenExpiresAt: v.number(),
+    appPassword: v.string(),
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     await ctx.db.patch(args.accountId, {
-      accessToken: args.accessToken,
-      refreshToken: args.refreshToken,
-      tokenExpiresAt: args.tokenExpiresAt,
+      appPassword: args.appPassword,
       status: "active",
     });
   },
@@ -154,65 +146,6 @@ export const resetAllDailyCounts = internalMutation({
   },
 });
 
-export const refreshTokenIfNeeded = internalAction({
-  args: { accountId: v.id("platformWarmupAccounts") },
-  handler: async (ctx, args): Promise<string> => {
-    const account = await ctx.runQuery(internal.platformWarmupAccounts.getAccountById, {
-      accountId: args.accountId,
-    });
-    if (!account) throw new Error("Platform warmup account not found");
-
-    if (account.tokenExpiresAt > Date.now() + 5 * 60 * 1000) {
-      return account.accessToken;
-    }
-
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    if (!clientId || !clientSecret) {
-      throw new Error("Google OAuth credentials not configured");
-    }
-
-    try {
-      const response = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
-          refresh_token: account.refreshToken,
-          grant_type: "refresh_token",
-        }),
-      });
-
-      if (!response.ok) {
-        await ctx.runMutation(internal.platformWarmupAccounts.markTokenExpired, {
-          accountId: args.accountId,
-        });
-        throw new Error(`Token refresh failed: ${response.status}`);
-      }
-
-      const data = await response.json() as {
-        access_token: string;
-        expires_in: number;
-      };
-      const newExpiresAt = Date.now() + data.expires_in * 1000;
-
-      await ctx.runMutation(internal.platformWarmupAccounts.updateAccessToken, {
-        accountId: args.accountId,
-        accessToken: data.access_token,
-        tokenExpiresAt: newExpiresAt,
-      });
-
-      return data.access_token;
-    } catch (error) {
-      await ctx.runMutation(internal.platformWarmupAccounts.markTokenExpired, {
-        accountId: args.accountId,
-      });
-      throw error;
-    }
-  },
-});
-
 export const getByEmail = internalQuery({
   args: { email: v.string() },
   handler: async (ctx, args) => {
@@ -227,26 +160,5 @@ export const getAccountById = internalQuery({
   args: { accountId: v.id("platformWarmupAccounts") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.accountId);
-  },
-});
-
-export const updateAccessToken = internalMutation({
-  args: {
-    accountId: v.id("platformWarmupAccounts"),
-    accessToken: v.string(),
-    tokenExpiresAt: v.number(),
-  },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.accountId, {
-      accessToken: args.accessToken,
-      tokenExpiresAt: args.tokenExpiresAt,
-    });
-  },
-});
-
-export const markTokenExpired = internalMutation({
-  args: { accountId: v.id("platformWarmupAccounts") },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.accountId, { status: "token_expired" });
   },
 });

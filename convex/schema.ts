@@ -326,10 +326,8 @@ export default defineSchema({
   platformWarmupAccounts: defineTable({
     email: v.string(),
     provider: v.literal("gmail"),
-    accessToken: v.string(),
-    refreshToken: v.string(),
-    tokenExpiresAt: v.number(),
-    status: v.union(v.literal("active"), v.literal("paused"), v.literal("token_expired")),
+    appPassword: v.string(),
+    status: v.union(v.literal("active"), v.literal("paused")),
     dailySentCount: v.number(),
     dailyReceivedCount: v.number(),
     lastResetAt: v.number(),
