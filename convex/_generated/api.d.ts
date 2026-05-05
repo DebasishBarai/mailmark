@@ -27,6 +27,7 @@ import type * as http from "../http.js";
 import type * as lib_awsClients from "../lib/awsClients.js";
 import type * as mailboxes from "../mailboxes.js";
 import type * as platformStats from "../platformStats.js";
+import type * as platformWarmupAccounts from "../platformWarmupAccounts.js";
 import type * as quotas from "../quotas.js";
 import type * as senderGroups from "../senderGroups.js";
 import type * as sequenceActions from "../sequenceActions.js";
@@ -38,6 +39,11 @@ import type * as unsubscribe from "../unsubscribe.js";
 import type * as users from "../users.js";
 import type * as warmingActions from "../warmingActions.js";
 import type * as warmingSchedules from "../warmingSchedules.js";
+import type * as warmupContent from "../warmupContent.js";
+import type * as warmupEngagement from "../warmupEngagement.js";
+import type * as warmupEngine from "../warmupEngine.js";
+import type * as warmupGmail from "../warmupGmail.js";
+import type * as warmupPool from "../warmupPool.js";
 
 import type {
   ApiFromModules,
@@ -65,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   "lib/awsClients": typeof lib_awsClients;
   mailboxes: typeof mailboxes;
   platformStats: typeof platformStats;
+  platformWarmupAccounts: typeof platformWarmupAccounts;
   quotas: typeof quotas;
   senderGroups: typeof senderGroups;
   sequenceActions: typeof sequenceActions;
@@ -76,6 +83,11 @@ declare const fullApi: ApiFromModules<{
   users: typeof users;
   warmingActions: typeof warmingActions;
   warmingSchedules: typeof warmingSchedules;
+  warmupContent: typeof warmupContent;
+  warmupEngagement: typeof warmupEngagement;
+  warmupEngine: typeof warmupEngine;
+  warmupGmail: typeof warmupGmail;
+  warmupPool: typeof warmupPool;
 }>;
 
 /**

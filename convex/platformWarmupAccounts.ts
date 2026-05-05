@@ -2,12 +2,19 @@ import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-const ADMIN_CLERK_ID = "user_2xo2LyEVBp4BWRHM0RdeaZTPJAb";
+// const ADMIN_CLERK_ID = "user_2xo2LyEVBp4BWRHM0RdeaZTPJAb";
 const DAILY_SEND_LIMIT = 450;
 
-async function requireAdmin(ctx: { auth: { getUserIdentity: () => Promise<{ subject?: string } | null> } }) {
+async function requireAdmin(ctx: { auth: { getUserIdentity: () => Promise<{ subject?: string } | null> }; db: any }) {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity || identity.subject !== ADMIN_CLERK_ID) {
+  if (!identity || !identity.subject) {
+    throw new Error("Admin access required");
+  }
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject))
+    .first();
+  if (!user || user.category !== "admin") {
     throw new Error("Admin access required");
   }
 }
@@ -87,7 +94,13 @@ export const updateTokens = mutation({
 export const listAllAccounts = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || !identity.subject) return null;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!user || user.category !== "admin") return null;
     return await ctx.db.query("platformWarmupAccounts").collect();
   },
 });

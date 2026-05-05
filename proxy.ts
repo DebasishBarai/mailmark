@@ -6,6 +6,7 @@ const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)",
   "/domains(.*)",
   "/mailbox(.*)",
+  "/admin(.*)",
 ]);
 
 const CORS_HEADERS = {
