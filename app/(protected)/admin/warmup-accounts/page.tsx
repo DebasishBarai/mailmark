@@ -30,13 +30,7 @@ export default function AdminWarmupAccountsPage() {
   }
 
   if (accounts === null) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="rounded-lg bg-red-50 p-6 text-red-600 dark:bg-red-900/20 dark:text-red-400">
-          Admin access required
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const activeCount = accounts.filter((a) => a.status === "active").length;
