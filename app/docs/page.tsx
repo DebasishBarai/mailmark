@@ -95,6 +95,39 @@ const sections = [
   {
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z" />
+      </svg>
+    ),
+    title: "Email Warmup",
+    href: "/docs/warmup",
+    color: "orange",
+    articles: [
+      { label: "What is warmup?", href: "/docs/warmup#what-is-warmup" },
+      { label: "Requirements", href: "/docs/warmup#requirements" },
+      { label: "Speed plans (slow / normal / fast)", href: "/docs/warmup#speed-plans" },
+      { label: "Health score", href: "/docs/warmup#health-score" },
+    ],
+  },
+  {
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+      </svg>
+    ),
+    title: "Sequences",
+    href: "/docs/sequences",
+    color: "teal",
+    articles: [
+      { label: "What are sequences?", href: "/docs/sequences#what-are-sequences" },
+      { label: "Creating a sequence", href: "/docs/sequences#creating-sequences" },
+      { label: "Enrolling contacts", href: "/docs/sequences#adding-contacts" },
+      { label: "Merge fields", href: "/docs/sequences#merge-fields" },
+    ],
+  },
+  {
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
       </svg>
     ),
@@ -131,6 +164,8 @@ const colorMap: Record<string, string> = {
   emerald: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400",
   amber: "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400",
   pink: "bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-400",
+  orange: "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400",
+  teal: "bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400",
   gray: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
 };
 
@@ -141,6 +176,8 @@ const borderMap: Record<string, string> = {
   emerald: "hover:border-emerald-200 dark:hover:border-emerald-700",
   amber: "hover:border-amber-200 dark:hover:border-amber-700",
   pink: "hover:border-pink-200 dark:hover:border-pink-700",
+  orange: "hover:border-orange-200 dark:hover:border-orange-700",
+  teal: "hover:border-teal-200 dark:hover:border-teal-700",
   gray: "hover:border-gray-300 dark:hover:border-gray-600",
 };
 
