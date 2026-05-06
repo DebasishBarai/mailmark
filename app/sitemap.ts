@@ -24,6 +24,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/docs/email-campaigns`, priority: 0.7, changeFrequency: "monthly" },
     { url: `${BASE_URL}/docs/troubleshooting`, priority: 0.6, changeFrequency: "monthly" },
     { url: `${BASE_URL}/docs/byo-aws`, priority: 0.7, changeFrequency: "monthly" },
+    { url: `${BASE_URL}/docs/warmup`, priority: 0.7, changeFrequency: "monthly" },
+    { url: `${BASE_URL}/docs/sequences`, priority: 0.7, changeFrequency: "monthly" },
     { url: `${BASE_URL}/docs/api`, priority: 0.6, changeFrequency: "monthly" },
     { url: `${BASE_URL}/guides/dns-setup`, priority: 0.7, changeFrequency: "monthly" },
     { url: `${BASE_URL}/guides/email-deliverability`, priority: 0.7, changeFrequency: "monthly" },
