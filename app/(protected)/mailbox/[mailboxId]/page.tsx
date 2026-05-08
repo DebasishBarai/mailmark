@@ -259,6 +259,7 @@ export default function MailboxPage() {
   const [emailAttachments, setEmailAttachments] = useState<
     Array<{ filename: string; contentType: string; size: number }>
   >([]);
+  const emailBodyCache = useRef<Map<string, { body: string; attachments: Array<{ filename: string; contentType: string; size: number }> }>>(new Map());
   const [downloadingAttachment, setDownloadingAttachment] = useState<number | null>(null);
   const [showEmailIds, setShowEmailIds] = useState(false);
   const [sendMode, setSendMode] = useState<"send" | "campaign">("send");
@@ -663,27 +664,35 @@ export default function MailboxPage() {
       await markAsRead({ emailId });
     }
 
-    // Fetch full body from S3
+    // Fetch full body from S3 (or serve from in-memory cache)
     if (email) {
-      setLoadingBody(true);
-      try {
-        const result = await fetchEmailBody({ s3Key: email.s3Key });
-        // Strip tracking pixels only for sent/outbox/drafts so viewing your
-        // own sent email doesn't falsely trigger the "opened" event.
-        // Inbox emails should keep the pixel so it behaves normally.
-        const shouldStripPixel = activeFolder !== "inbox";
-        const body = shouldStripPixel
-          ? result.body.replace(
-              /<img[^>]*src="[^"]*\/track\/open\/[^"]*"[^>]*\/?>/gi,
-              ""
-            )
-          : result.body;
-        setEmailBody(body);
-        setEmailAttachments(result.attachments);
-      } catch {
-        setEmailBody("Failed to load email body.");
-      } finally {
-        setLoadingBody(false);
+      const cacheKey = emailId as string;
+      const cached = emailBodyCache.current.get(cacheKey);
+      if (cached) {
+        setEmailBody(cached.body);
+        setEmailAttachments(cached.attachments);
+      } else {
+        setLoadingBody(true);
+        try {
+          const result = await fetchEmailBody({ s3Key: email.s3Key });
+          // Strip tracking pixels only for sent/outbox/drafts so viewing your
+          // own sent email doesn't falsely trigger the "opened" event.
+          // Inbox emails should keep the pixel so it behaves normally.
+          const shouldStripPixel = activeFolder !== "inbox";
+          const body = shouldStripPixel
+            ? result.body.replace(
+                /<img[^>]*src="[^"]*\/track\/open\/[^"]*"[^>]*\/?>/gi,
+                ""
+              )
+            : result.body;
+          emailBodyCache.current.set(cacheKey, { body, attachments: result.attachments });
+          setEmailBody(body);
+          setEmailAttachments(result.attachments);
+        } catch {
+          setEmailBody("Failed to load email body.");
+        } finally {
+          setLoadingBody(false);
+        }
       }
     }
   };
