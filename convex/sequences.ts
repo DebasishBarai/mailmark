@@ -175,10 +175,27 @@ export const completeEnrollment = internalMutation({
     ),
   },
   handler: async (ctx, { enrollmentId, status }) => {
+    const enrollment = await ctx.db.get(enrollmentId);
     await ctx.db.patch(enrollmentId, {
       status,
       completedAt: Date.now(),
     });
+
+    if (enrollment) {
+      const remainingActive = await ctx.db
+        .query("sequenceEnrollments")
+        .withIndex("by_sequence_status", (q) =>
+          q.eq("sequenceId", enrollment.sequenceId).eq("status", "active")
+        )
+        .first();
+
+      if (!remainingActive || (remainingActive._id === enrollmentId)) {
+        const sequence = await ctx.db.get(enrollment.sequenceId);
+        if (sequence && sequence.status === "active") {
+          await ctx.db.patch(enrollment.sequenceId, { status: "completed" });
+        }
+      }
+    }
   },
 });
 
@@ -208,6 +225,19 @@ export const markRepliedByEmail = internalMutation({
           status: "replied",
           completedAt: Date.now(),
         });
+
+        const remainingActive = await ctx.db
+          .query("sequenceEnrollments")
+          .withIndex("by_sequence_status", (q) =>
+            q.eq("sequenceId", seq._id).eq("status", "active")
+          )
+          .first();
+
+        if (!remainingActive || (remainingActive._id === enrollment._id)) {
+          if (seq.status === "active") {
+            await ctx.db.patch(seq._id, { status: "completed" });
+          }
+        }
       }
     }
   },

@@ -708,6 +708,399 @@ http.route({
   }),
 });
 
+// ── Emails ──────────────────────────────────────────────────────────────────
+
+http.route({
+  path: "/v1/emails",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const mailbox = url.searchParams.get("mailbox");
+    const folder = url.searchParams.get("folder") ?? "inbox";
+    const limitParam = url.searchParams.get("limit");
+    const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : 50;
+
+    const allMailboxes = await ctx.runQuery(internal.mailboxes.listByDomainInternal, {
+      domainId: apiKey.domainId,
+    });
+
+    let targetMailbox: any = null;
+    if (mailbox) {
+      const domain = await ctx.runQuery(internal.domains.getByIdInternal, { domainId: apiKey.domainId });
+      const fullAddress = mailbox.includes("@") ? mailbox.toLowerCase() : `${mailbox.toLowerCase()}@${domain!.domain}`;
+      targetMailbox = allMailboxes.find((m: any) => m.fullAddress === fullAddress);
+      if (!targetMailbox) return jsonResponse({ error: `Mailbox not found: ${mailbox}` }, 404);
+    } else {
+      if (allMailboxes.length === 0) return jsonResponse([], 200);
+      targetMailbox = allMailboxes[0];
+    }
+
+    const emails = await ctx.runQuery(internal.emails.listByMailboxAndFolderInternal, {
+      mailboxId: targetMailbox._id,
+      folder,
+      limit,
+    });
+
+    return jsonResponse(
+      emails.map((e: any) => ({
+        id: e._id,
+        messageId: e.messageId,
+        from: e.from,
+        to: e.to,
+        subject: e.subject,
+        snippet: e.snippet,
+        folder: e.folder,
+        date: e.date,
+        read: e.read,
+        starred: e.starred,
+        hasAttachments: e.hasAttachments,
+        deliveryStatus: e.deliveryStatus ?? null,
+        openedAt: e.openedAt ?? null,
+        batchId: e.batchId ?? null,
+      })),
+      200
+    );
+  }),
+});
+
+http.route({
+  pathPrefix: "/v1/emails/",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const emailId = url.pathname.replace("/v1/emails/", "") as any;
+    if (!emailId) return jsonResponse({ error: "Email ID required" }, 400);
+
+    const email = await ctx.runQuery(internal.emails.getByIdInternal, { emailId });
+    if (!email) return jsonResponse({ error: "Email not found" }, 404);
+
+    const mailboxDoc = await ctx.runQuery(internal.emails.getMailboxById, { mailboxId: email.mailboxId });
+    if (!mailboxDoc || mailboxDoc.domainId !== apiKey.domainId)
+      return jsonResponse({ error: "Email not found" }, 404);
+
+    return jsonResponse({
+      id: email._id,
+      messageId: email.messageId,
+      from: email.from,
+      to: email.to,
+      cc: email.cc ?? null,
+      bcc: email.bcc ?? null,
+      subject: email.subject,
+      snippet: email.snippet,
+      folder: email.folder,
+      date: email.date,
+      read: email.read,
+      starred: email.starred,
+      hasAttachments: email.hasAttachments,
+      deliveryStatus: email.deliveryStatus ?? null,
+      openedAt: email.openedAt ?? null,
+      batchId: email.batchId ?? null,
+      s3Key: email.s3Key,
+    }, 200);
+  }),
+});
+
+http.route({
+  pathPrefix: "/v1/emails/",
+  method: "DELETE",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const emailId = url.pathname.replace("/v1/emails/", "") as any;
+    if (!emailId) return jsonResponse({ error: "Email ID required" }, 400);
+
+    const email = await ctx.runQuery(internal.emails.getByIdInternal, { emailId });
+    if (!email) return jsonResponse({ error: "Email not found" }, 404);
+
+    const mailboxDoc = await ctx.runQuery(internal.emails.getMailboxById, { mailboxId: email.mailboxId });
+    if (!mailboxDoc || mailboxDoc.domainId !== apiKey.domainId)
+      return jsonResponse({ error: "Email not found" }, 404);
+
+    if (email.folder === "trash") {
+      await ctx.runMutation(internal.emails.deleteInternal, { emailId });
+      return jsonResponse({ deleted: true }, 200);
+    }
+
+    await ctx.runMutation(internal.emails.moveToFolderInternal, { emailId, folder: "trash" });
+    return jsonResponse({ moved: "trash" }, 200);
+  }),
+});
+
+// ── Contacts ────────────────────────────────────────────────────────────────
+
+http.route({
+  path: "/v1/contacts",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const contacts = await ctx.runQuery(internal.contacts.listByUserInternal, {
+      userId: apiKey.userId,
+    });
+
+    return jsonResponse(
+      contacts.map((c: any) => ({
+        id: c._id,
+        email: c.email,
+        name: c.name,
+      })),
+      200
+    );
+  }),
+});
+
+http.route({
+  path: "/v1/contacts",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    let body: { email?: string; name?: string };
+    try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
+
+    const { email, name } = body;
+    if (!email) return jsonResponse({ error: '"email" is required' }, 400);
+    if (!name) return jsonResponse({ error: '"name" is required' }, 400);
+
+    await ctx.runMutation(internal.contacts.upsert, {
+      userId: apiKey.userId,
+      email: email.toLowerCase().trim(),
+      name: name.trim(),
+    });
+
+    return jsonResponse({ email: email.toLowerCase().trim(), name: name.trim() }, 201);
+  }),
+});
+
+http.route({
+  pathPrefix: "/v1/contacts/",
+  method: "DELETE",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const contactId = url.pathname.replace("/v1/contacts/", "") as any;
+    if (!contactId) return jsonResponse({ error: "Contact ID required" }, 400);
+
+    const contact = await ctx.runQuery(internal.contacts.getByIdInternal, { contactId });
+    if (!contact || contact.userId !== apiKey.userId)
+      return jsonResponse({ error: "Contact not found" }, 404);
+
+    await ctx.runMutation(internal.contacts.deleteInternal, { contactId });
+    return jsonResponse({ deleted: true }, 200);
+  }),
+});
+
+// ── Sequences ───────────────────────────────────────────────────────────────
+
+http.route({
+  path: "/v1/sequences",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const sequences = await ctx.runQuery(internal.sequences.listByDomain, {
+      domainId: apiKey.domainId,
+    });
+
+    const results: Array<Record<string, unknown>> = [];
+    for (const seq of sequences) {
+      const stats = await ctx.runQuery(internal.sequences.getEnrollmentStats, {
+        sequenceId: seq._id,
+      });
+      const mailbox = await ctx.runQuery(internal.emails.getMailboxById, { mailboxId: seq.mailboxId });
+      results.push({
+        id: seq._id,
+        name: seq.name,
+        status: seq.status,
+        steps: seq.steps,
+        mailboxAddress: mailbox?.fullAddress ?? null,
+        stats,
+        createdAt: seq.createdAt,
+      });
+    }
+
+    return jsonResponse(results, 200);
+  }),
+});
+
+http.route({
+  path: "/v1/sequences",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    let body: { name?: string; from?: string; steps?: any[] };
+    try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
+
+    const { name, from, steps } = body;
+    if (!name) return jsonResponse({ error: '"name" is required' }, 400);
+    if (!from) return jsonResponse({ error: '"from" is required' }, 400);
+    if (!steps || !Array.isArray(steps) || steps.length === 0)
+      return jsonResponse({ error: '"steps" must be a non-empty array' }, 400);
+    if (steps[0].type !== "send_email")
+      return jsonResponse({ error: "First step must be send_email" }, 400);
+
+    const mailbox = await ctx.runQuery(internal.mailboxes.getByFullAddress, {
+      fullAddress: (from as string).toLowerCase(),
+    });
+    if (!mailbox || mailbox.domainId !== apiKey.domainId)
+      return jsonResponse({ error: `Mailbox not found: ${from}` }, 404);
+
+    let sequence: any;
+    try {
+      sequence = await ctx.runMutation(internal.sequences.create, {
+        userId: apiKey.userId,
+        domainId: apiKey.domainId,
+        mailboxId: mailbox._id,
+        name,
+        steps,
+      });
+    } catch (err) {
+      return jsonResponse({ error: err instanceof Error ? err.message : "Failed" }, 400);
+    }
+
+    return jsonResponse({
+      id: sequence._id,
+      name: sequence.name,
+      status: sequence.status,
+      steps: sequence.steps,
+      mailboxAddress: mailbox.fullAddress,
+      createdAt: sequence.createdAt,
+    }, 201);
+  }),
+});
+
+http.route({
+  pathPrefix: "/v1/sequences/",
+  method: "PATCH",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const path = url.pathname.replace("/v1/sequences/", "");
+    if (path.includes("/")) return jsonResponse({ error: "Not found" }, 404);
+    const sequenceId = path as any;
+
+    const sequence = await ctx.runQuery(internal.sequences.getById, { id: sequenceId });
+    if (!sequence || sequence.domainId !== apiKey.domainId)
+      return jsonResponse({ error: "Sequence not found" }, 404);
+
+    let body: { status?: string };
+    try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
+
+    if (body.status === "paused") {
+      try {
+        const updated = await ctx.runMutation(internal.sequences.pause, { id: sequenceId });
+        return jsonResponse({ id: updated!._id, status: updated!.status }, 200);
+      } catch (err) {
+        return jsonResponse({ error: err instanceof Error ? err.message : "Failed" }, 400);
+      }
+    } else if (body.status === "active") {
+      try {
+        const updated = await ctx.runMutation(internal.sequences.resume, { id: sequenceId });
+        return jsonResponse({ id: updated!._id, status: updated!.status }, 200);
+      } catch (err) {
+        return jsonResponse({ error: err instanceof Error ? err.message : "Failed" }, 400);
+      }
+    }
+
+    return jsonResponse({ error: 'status must be "paused" or "active"' }, 400);
+  }),
+});
+
+http.route({
+  pathPrefix: "/v1/sequences/",
+  method: "DELETE",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const path = url.pathname.replace("/v1/sequences/", "");
+    if (path.includes("/")) return jsonResponse({ error: "Not found" }, 404);
+    const sequenceId = path as any;
+
+    const sequence = await ctx.runQuery(internal.sequences.getById, { id: sequenceId });
+    if (!sequence || sequence.domainId !== apiKey.domainId)
+      return jsonResponse({ error: "Sequence not found" }, 404);
+
+    await ctx.runMutation(internal.sequences.cancel, { id: sequenceId });
+
+    const enrollments = await ctx.runQuery(internal.sequences.listEnrollments, { sequenceId });
+    const cancelledCount = enrollments.filter((e: any) => e.status === "cancelled").length;
+
+    return jsonResponse({ id: sequenceId, status: "completed", cancelledEnrollments: cancelledCount }, 200);
+  }),
+});
+
+http.route({
+  pathPrefix: "/v1/sequences/",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const path = url.pathname.replace("/v1/sequences/", "");
+    const parts = path.split("/");
+
+    if (parts.length !== 2 || parts[1] !== "enroll")
+      return jsonResponse({ error: "Not found" }, 404);
+
+    const sequenceId = parts[0] as any;
+
+    const sequence = await ctx.runQuery(internal.sequences.getById, { id: sequenceId });
+    if (!sequence || sequence.domainId !== apiKey.domainId)
+      return jsonResponse({ error: "Sequence not found" }, 404);
+    if (sequence.status !== "active")
+      return jsonResponse({ error: "Sequence is not active" }, 400);
+
+    let body: { contacts?: Array<{ email: string; mergeFields?: any }> };
+    try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
+
+    if (!body.contacts || !Array.isArray(body.contacts) || body.contacts.length === 0)
+      return jsonResponse({ error: '"contacts" must be a non-empty array' }, 400);
+    if (body.contacts.length > 100)
+      return jsonResponse({ error: "Max 100 contacts per request" }, 400);
+
+    let enrolled = 0;
+    let skipped = 0;
+    const enrollmentIds: string[] = [];
+
+    for (const contact of body.contacts) {
+      if (!contact.email) { skipped++; continue; }
+      try {
+        const id = await ctx.runMutation(internal.sequences.enroll, {
+          sequenceId,
+          contactEmail: contact.email.toLowerCase().trim(),
+          mergeFields: contact.mergeFields,
+        });
+        enrollmentIds.push(id);
+        enrolled++;
+      } catch {
+        skipped++;
+      }
+    }
+
+    return jsonResponse({ enrolled, skipped, enrollmentIds }, 200);
+  }),
+});
+
 // ── Polar Webhook ─────────────────────────────────────────────────────────────
 // Receives subscription lifecycle events from Polar.sh and updates the DB.
 // Configure the webhook secret in your Polar dashboard and set POLAR_WEBHOOK_SECRET.
