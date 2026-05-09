@@ -1,5 +1,29 @@
 import { v } from "convex/values";
-import { query, internalMutation } from "./_generated/server";
+import { query, internalMutation, internalQuery } from "./_generated/server";
+
+export const listByUserInternal = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    return await ctx.db
+      .query("contacts")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .collect();
+  },
+});
+
+export const deleteInternal = internalMutation({
+  args: { contactId: v.id("contacts") },
+  handler: async (ctx, { contactId }) => {
+    await ctx.db.delete(contactId);
+  },
+});
+
+export const getByIdInternal = internalQuery({
+  args: { contactId: v.id("contacts") },
+  handler: async (ctx, { contactId }) => {
+    return await ctx.db.get(contactId);
+  },
+});
 
 // Upsert a contact when we learn a name for an email address
 export const upsert = internalMutation({

@@ -304,6 +304,50 @@ export const deleteEmail = mutation({
   },
 });
 
+// ── Internal queries for REST API ──
+
+export const listByMailboxAndFolderInternal = internalQuery({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    folder: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { mailboxId, folder, limit }) => {
+    const query = ctx.db
+      .query("emails")
+      .withIndex("by_mailbox_folder", (q) =>
+        q.eq("mailboxId", mailboxId).eq("folder", folder)
+      )
+      .order("desc");
+
+    if (limit) {
+      return await query.take(limit);
+    }
+    return await query.take(50);
+  },
+});
+
+export const getByIdInternal = internalQuery({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, { emailId }) => {
+    return await ctx.db.get(emailId);
+  },
+});
+
+export const deleteInternal = internalMutation({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, { emailId }) => {
+    await ctx.db.delete(emailId);
+  },
+});
+
+export const moveToFolderInternal = internalMutation({
+  args: { emailId: v.id("emails"), folder: v.string() },
+  handler: async (ctx, { emailId, folder }) => {
+    await ctx.db.patch(emailId, { folder });
+  },
+});
+
 // Called by SES webhook when incoming email arrives
 export const insertFromWebhook = internalMutation({
   args: {
