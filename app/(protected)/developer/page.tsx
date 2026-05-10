@@ -56,7 +56,7 @@ export default function DeveloperPage() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
-  const [selectedDomainId, setSelectedDomainId] = useState<string>("");
+  const [selectedDomainId, setSelectedDomainId] = useState<string>("org");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const [createdKey, setCreatedKey] = useState<{ key: string } | null>(null);
@@ -66,18 +66,21 @@ export default function DeveloperPage() {
   const [activeTab, setActiveTab] = useState<"curl" | "npm">("curl");
 
   const handleCreate = async () => {
-    if (!newKeyName.trim() || !selectedDomainId) return;
+    if (!newKeyName.trim()) return;
     setIsCreating(true);
     setCreateError("");
     try {
+      const isOrgScoped = selectedDomainId === "org";
       const result = await createKey({
         name: newKeyName.trim(),
-        domainId: selectedDomainId as Id<"domains">,
+        ...(isOrgScoped
+          ? { scope: "org" as const }
+          : { domainId: selectedDomainId as Id<"domains">, scope: "domain" as const }),
       });
       setCreatedKey({ key: result.key });
       setShowCreateModal(false);
       setNewKeyName("");
-      setSelectedDomainId("");
+      setSelectedDomainId("org");
     } catch (err: unknown) {
       setCreateError(err instanceof Error ? err.message : "Failed to create API key");
     } finally {
@@ -158,10 +161,9 @@ await client.send({
             onClick={() => {
               setShowCreateModal(true);
               setCreateError("");
-              setSelectedDomainId(verifiedDomains[0]?._id ?? "");
+              setSelectedDomainId("org");
             }}
-            disabled={verifiedDomains.length === 0}
-            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -169,14 +171,6 @@ await client.send({
             Create API Key
           </button>
         </div>
-
-        {verifiedDomains.length === 0 && (
-          <div className="px-6 py-5">
-            <p className="text-sm text-amber-600 dark:text-amber-400">
-              You need at least one verified domain before creating API keys.
-            </p>
-          </div>
-        )}
 
         {apiKeys === undefined ? (
           <div className="space-y-3 p-6">
@@ -204,11 +198,15 @@ await client.send({
                     <p className="text-sm font-medium text-gray-900 dark:text-white">{key.name}</p>
                     <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                       <span className="font-mono">{key.keyPrefix}••••••••</span>
-                      {domain && (
+                      {key.scope === "org" || !key.domainId ? (
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                          All domains
+                        </span>
+                      ) : domain ? (
                         <span className="rounded-full bg-violet-50 px-2 py-0.5 font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
                           {domain.domain}
                         </span>
-                      )}
+                      ) : null}
                       <span>Created {new Date(key.createdAt).toLocaleDateString()}</span>
                       {key.lastUsedAt && (
                         <span>Last used {new Date(key.lastUsedAt).toLocaleDateString()}</span>
@@ -302,7 +300,7 @@ await client.send({
           <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-gray-800">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Create API Key</h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              The key will be scoped to a single verified domain.
+              Choose a scope: a specific domain or all domains (org-wide).
             </p>
 
             <div className="mt-6 space-y-4">
@@ -322,13 +320,14 @@ await client.send({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Domain
+                  Scope
                 </label>
                 <select
                   value={selectedDomainId}
                   onChange={(e) => setSelectedDomainId(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 >
+                  <option value="org">All domains (org-wide)</option>
                   {verifiedDomains.map((d) => (
                     <option key={d._id} value={d._id}>
                       {d.domain}
@@ -336,7 +335,9 @@ await client.send({
                   ))}
                 </select>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  The key will only be able to send from mailboxes on this domain.
+                  {selectedDomainId === "org"
+                    ? "Org-wide keys can query analytics across all domains but cannot send email or manage mailboxes."
+                    : "Domain-scoped keys can access all endpoints for this domain only."}
                 </p>
               </div>
 
@@ -358,7 +359,7 @@ await client.send({
               </button>
               <button
                 onClick={handleCreate}
-                disabled={!newKeyName.trim() || !selectedDomainId || isCreating}
+                disabled={!newKeyName.trim() || isCreating}
                 className="flex-1 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
               >
                 {isCreating ? "Creating..." : "Create Key"}
