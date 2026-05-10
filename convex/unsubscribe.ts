@@ -241,6 +241,42 @@ export const processUnsubscribe = internalMutation({
   },
 });
 
+export const listForDomainPaginated = internalQuery({
+  args: {
+    domainId: v.id("domains"),
+    limit: v.number(),
+    afterTimestamp: v.optional(v.number()),
+  },
+  handler: async (ctx, { domainId, limit, afterTimestamp }) => {
+    const all = await ctx.db
+      .query("unsubscribes")
+      .withIndex("by_domain_id", (q) => q.eq("domainId", domainId))
+      .collect();
+
+    const sorted = all.sort((a, b) => b.unsubscribedAt - a.unsubscribedAt);
+    const filtered = afterTimestamp
+      ? sorted.filter((u) => u.unsubscribedAt < afterTimestamp)
+      : sorted;
+
+    return {
+      items: filtered.slice(0, limit),
+      total: all.length,
+      hasMore: filtered.length > limit,
+    };
+  },
+});
+
+export const countForDomain = internalQuery({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }) => {
+    const all = await ctx.db
+      .query("unsubscribes")
+      .withIndex("by_domain_id", (q) => q.eq("domainId", domainId))
+      .collect();
+    return all.length;
+  },
+});
+
 // Generate a URL-safe token for unsubscribe links
 function generateToken(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";

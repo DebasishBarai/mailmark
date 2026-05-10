@@ -44,10 +44,11 @@ export const revoke = mutation({
 export const insert = internalMutation({
   args: {
     userId: v.id("users"),
-    domainId: v.id("domains"),
+    domainId: v.optional(v.id("domains")),
     name: v.string(),
     keyHash: v.string(),
     keyPrefix: v.string(),
+    scope: v.optional(v.union(v.literal("domain"), v.literal("org"))),
     createdAt: v.number(),
   },
   handler: async (ctx, args) => {

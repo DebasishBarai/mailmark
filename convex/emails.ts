@@ -361,6 +361,7 @@ export const insertFromWebhook = internalMutation({
     hasAttachments: v.boolean(),
     s3Key: v.string(),
     folder: v.optional(v.string()),
+    inReplyTo: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { folder, ...rest } = args;
@@ -577,5 +578,147 @@ export const insertSent = internalMutation({
       deliveryStatus: emailFolder === "sent" ? "pending" : undefined,
       ...(batchId ? { batchId } : {}),
     });
+  },
+});
+
+// ── Click tracking ──
+
+export const markLinkClicked = internalMutation({
+  args: {
+    messageId: v.string(),
+    url: v.string(),
+  },
+  handler: async (ctx, { messageId, url }) => {
+    const email = await ctx.db
+      .query("emails")
+      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
+      .unique();
+    if (!email) return;
+    const existing = email.clickedLinks ?? [];
+    if (existing.some((l) => l.url === url)) return;
+    await ctx.db.patch(email._id, {
+      clickedLinks: [...existing, { url, clickedAt: Date.now() }],
+    });
+  },
+});
+
+// ── Reply tracking ──
+
+export const markAsReplied = internalMutation({
+  args: { messageId: v.string() },
+  handler: async (ctx, { messageId }) => {
+    const email = await ctx.db
+      .query("emails")
+      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
+      .unique();
+    if (!email || email.repliedAt) return;
+    await ctx.db.patch(email._id, { repliedAt: Date.now() });
+  },
+});
+
+// ── Bounce stats for a domain (used by /v1/bounces) ──
+
+export const getBounceStatsForDomain = internalQuery({
+  args: {
+    domainId: v.id("domains"),
+    sinceMs: v.number(),
+  },
+  handler: async (ctx, { domainId, sinceMs }) => {
+    const mailboxes = await ctx.db
+      .query("mailboxes")
+      .withIndex("by_domain_id", (q) => q.eq("domainId", domainId))
+      .collect();
+
+    let totalSent = 0;
+    let delivered = 0;
+    let bounced = 0;
+    let failed = 0;
+    let opened = 0;
+    let clicked = 0;
+    let replied = 0;
+
+    for (const mb of mailboxes) {
+      const sentEmails = await ctx.db
+        .query("emails")
+        .withIndex("by_mailbox_folder", (q) =>
+          q.eq("mailboxId", mb._id).eq("folder", "sent")
+        )
+        .collect();
+
+      for (const email of sentEmails) {
+        if (email.date < sinceMs) continue;
+        totalSent++;
+        if (email.deliveryStatus === "delivered") delivered++;
+        else if (email.deliveryStatus === "bounced") bounced++;
+        else if (email.deliveryStatus === "failed") failed++;
+        if (email.openedAt) opened++;
+        if (email.clickedLinks && email.clickedLinks.length > 0) clicked++;
+        if (email.repliedAt) replied++;
+      }
+    }
+
+    return { totalSent, delivered, bounced, failed, opened, clicked, replied };
+  },
+});
+
+// ── Batch stats for a domain (used by /v1/campaign-stats) ──
+
+export const getBatchStats = internalQuery({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }) => {
+    const mailboxes = await ctx.db
+      .query("mailboxes")
+      .withIndex("by_domain_id", (q) => q.eq("domainId", domainId))
+      .collect();
+
+    const batches: Record<string, {
+      sentAt: number;
+      total: number;
+      delivered: number;
+      bounced: number;
+      failed: number;
+      opened: number;
+      clicked: number;
+      replied: number;
+    }> = {};
+
+    for (const mb of mailboxes) {
+      const sentEmails = await ctx.db
+        .query("emails")
+        .withIndex("by_mailbox_folder", (q) =>
+          q.eq("mailboxId", mb._id).eq("folder", "sent")
+        )
+        .collect();
+
+      for (const email of sentEmails) {
+        if (!email.batchId) continue;
+        if (!batches[email.batchId]) {
+          batches[email.batchId] = {
+            sentAt: email.date,
+            total: 0,
+            delivered: 0,
+            bounced: 0,
+            failed: 0,
+            opened: 0,
+            clicked: 0,
+            replied: 0,
+          };
+        }
+        const b = batches[email.batchId];
+        b.total++;
+        if (email.deliveryStatus === "delivered") b.delivered++;
+        else if (email.deliveryStatus === "bounced") b.bounced++;
+        else if (email.deliveryStatus === "failed") b.failed++;
+        if (email.openedAt) b.opened++;
+        if (email.clickedLinks && email.clickedLinks.length > 0) b.clicked++;
+        if (email.repliedAt) b.replied++;
+        if (email.date < b.sentAt) b.sentAt = email.date;
+      }
+    }
+
+    return Object.entries(batches).map(([batchId, stats]) => ({
+      batchId,
+      ...stats,
+    }));
   },
 });

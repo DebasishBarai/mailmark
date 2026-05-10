@@ -26,7 +26,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/docs/byo-aws`, priority: 0.7, changeFrequency: "monthly" },
     { url: `${BASE_URL}/docs/warmup`, priority: 0.7, changeFrequency: "monthly" },
     { url: `${BASE_URL}/docs/sequences`, priority: 0.7, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/docs/api`, priority: 0.6, changeFrequency: "monthly" },
+    { url: `${BASE_URL}/docs/api`, priority: 0.8, changeFrequency: "monthly" },
     { url: `${BASE_URL}/guides/dns-setup`, priority: 0.7, changeFrequency: "monthly" },
     { url: `${BASE_URL}/guides/email-deliverability`, priority: 0.7, changeFrequency: "monthly" },
     { url: `${BASE_URL}/tools`, priority: 0.8, changeFrequency: "monthly" },

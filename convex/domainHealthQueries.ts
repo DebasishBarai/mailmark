@@ -130,3 +130,37 @@ export const getEmailStatsForMailboxes = internalQuery({
     return { totalSent, bounced, complained };
   },
 });
+
+export const latestForDomain = internalQuery({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }) => {
+    return await ctx.db
+      .query("domainHealthChecks")
+      .withIndex("by_domain_id", (q) => q.eq("domainId", domainId))
+      .order("desc")
+      .first();
+  },
+});
+
+export const latestForUser = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const domains = await ctx.db
+      .query("domains")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .collect();
+
+    const results = await Promise.all(
+      domains.map(async (domain) => {
+        const latest = await ctx.db
+          .query("domainHealthChecks")
+          .withIndex("by_domain_id", (q) => q.eq("domainId", domain._id))
+          .order("desc")
+          .first();
+        return { domain: domain.domain, domainId: domain._id, check: latest };
+      })
+    );
+
+    return results.filter((r) => r.check !== null);
+  },
+});

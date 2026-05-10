@@ -114,6 +114,15 @@ export default defineSchema({
     openedAt: v.optional(v.number()),
     // Batch ID: shared across all per-recipient emails sent in one compose action
     batchId: v.optional(v.string()),
+    // Click tracking: recorded when recipient clicks a tracked link
+    clickedLinks: v.optional(v.array(v.object({
+      url: v.string(),
+      clickedAt: v.number(),
+    }))),
+    // Reply tracking: set when a reply to this sent email is received
+    repliedAt: v.optional(v.number()),
+    // In-Reply-To header from inbound emails (for reply matching)
+    inReplyTo: v.optional(v.string()),
     // Scheduled send: set when the user schedules the email for later delivery
     scheduledAt: v.optional(v.number()),
     scheduledJobId: v.optional(v.string()),
@@ -389,10 +398,11 @@ export default defineSchema({
 
   api_keys: defineTable({
     userId: v.id("users"),
-    domainId: v.id("domains"),
+    domainId: v.optional(v.id("domains")),
     name: v.string(),
     keyHash: v.string(),
     keyPrefix: v.string(),
+    scope: v.optional(v.union(v.literal("domain"), v.literal("org"))),
     createdAt: v.number(),
     lastUsedAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),

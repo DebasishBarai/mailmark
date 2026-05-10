@@ -441,3 +441,25 @@ export const getRecentOutboundForEngagement = internalQuery({
     );
   },
 });
+
+export const listByDomainInternal = internalQuery({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }) => {
+    const warmupMailboxes = await ctx.db
+      .query("warmupMailboxes")
+      .collect();
+    const filtered = warmupMailboxes.filter((w) => w.domainId === domainId);
+
+    const results = await Promise.all(
+      filtered.map(async (w) => {
+        const mailbox = await ctx.db.get(w.mailboxId);
+        return {
+          ...w,
+          fullAddress: mailbox?.fullAddress ?? null,
+        };
+      })
+    );
+
+    return results;
+  },
+});

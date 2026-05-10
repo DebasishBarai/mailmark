@@ -90,6 +90,7 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
         date: mail.commonHeaders?.date || mail.timestamp,
         messageId: sesMessageId || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         hasAttachments: (mail.commonHeaders?.["content-type"] || "").includes("multipart") || false,
+        inReplyTo: mail.commonHeaders?.["in-reply-to"] || mail.headers?.find?.((h: { name?: string; value?: string }) => h.name?.toLowerCase() === "in-reply-to")?.value || undefined,
       };
 
       return await ingestEmail(emailData);
@@ -154,8 +155,9 @@ async function ingestEmail(emailData: {
   date: string | number;
   messageId: string;
   hasAttachments: boolean;
+  inReplyTo?: string;
 }) {
-  const { key, from, to, subject, date, messageId, hasAttachments } = emailData;
+  const { key, from, to, subject, date, messageId, hasAttachments, inReplyTo } = emailData;
 
   // Forward each recipient's email to the Convex HTTP endpoint
   for (const recipient of to) {
@@ -176,6 +178,7 @@ async function ingestEmail(emailData: {
           messageId: messageId || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           hasAttachments: hasAttachments || false,
           s3Key: key,
+          ...(inReplyTo ? { inReplyTo } : {}),
         }),
       }
     );

@@ -604,6 +604,260 @@ const ENDPOINTS: Endpoint[] = [
       return { path: `/v1/sequences/${v.sequenceId}` };
     },
   },
+
+  // ── Domain Health ─────────────────────────────────────────────────────────
+  {
+    id: "domain-health",
+    method: "GET",
+    path: "/v1/domain-health",
+    title: "Domain Health",
+    description:
+      "Returns the latest health check for the API key's domain (domain-scoped key) or all domains (org-wide key). Includes SPF, DKIM, DMARC, MX, blacklist status, and an overall score.",
+    fields: [
+      {
+        name: "domain",
+        label: "Domain",
+        type: "text",
+        required: false,
+        description: "Filter to a specific domain (useful for org-wide keys).",
+        placeholder: "example.com",
+      },
+    ],
+    returns: "Domain health object (domain-scoped key) or array of domain health objects (org-wide key).",
+    notes: ["Works with both domain-scoped and org-wide API keys."],
+    curlTemplate: (key, v) => {
+      const qs = v.domain ? `?domain=${encodeURIComponent(v.domain)}` : "";
+      return `curl -X GET ${BASE_URL}/v1/domain-health${qs} \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}"`;
+    },
+    npmTemplate: (key, v) => {
+      const opts = v.domain ? `{ domain: '${v.domain}' }` : "";
+      return `import { Mailmark } from 'mailmark-sdk';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst health = await client.getDomainHealth(${opts});\nconsole.log(health);`;
+    },
+    buildRequest: (v) => {
+      const qs = v.domain ? `?domain=${encodeURIComponent(v.domain)}` : "";
+      return { path: `/v1/domain-health${qs}` };
+    },
+  },
+
+  // ── Warmup Status ─────────────────────────────────────────────────────────
+  {
+    id: "warmup-status",
+    method: "GET",
+    path: "/v1/warmup",
+    title: "Warmup Status",
+    description:
+      "Returns warmup status for all enrolled mailboxes on the API key's domain. Includes health score, inbox rate, daily limits, and activity counts.",
+    fields: [
+      {
+        name: "mailbox",
+        label: "Mailbox",
+        type: "text",
+        required: false,
+        description: "Filter to a specific mailbox address.",
+        placeholder: "hello@example.com",
+      },
+    ],
+    returns: "Array of warmup mailbox status objects.",
+    notes: ["Works with both domain-scoped and org-wide API keys."],
+    curlTemplate: (key, v) => {
+      const qs = v.mailbox ? `?mailbox=${encodeURIComponent(v.mailbox)}` : "";
+      return `curl -X GET ${BASE_URL}/v1/warmup${qs} \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}"`;
+    },
+    npmTemplate: (key, v) => {
+      const opts = v.mailbox ? `{ mailbox: '${v.mailbox}' }` : "";
+      return `import { Mailmark } from 'mailmark-sdk';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst warmup = await client.getWarmupStatus(${opts});\nconsole.log(warmup);`;
+    },
+    buildRequest: (v) => {
+      const qs = v.mailbox ? `?mailbox=${encodeURIComponent(v.mailbox)}` : "";
+      return { path: `/v1/warmup${qs}` };
+    },
+  },
+
+  // ── Bounces ───────────────────────────────────────────────────────────────
+  {
+    id: "bounces",
+    method: "GET",
+    path: "/v1/bounces",
+    title: "Bounce Stats",
+    description:
+      "Returns bounce and delivery statistics for the domain over a configurable lookback window. Includes total sent, delivered, bounced, failed, opened, clicked, and replied counts.",
+    fields: [
+      {
+        name: "days",
+        label: "Days",
+        type: "text",
+        required: false,
+        description: "Lookback period in days (default 30, max 90).",
+        placeholder: "30",
+      },
+      {
+        name: "domain",
+        label: "Domain",
+        type: "text",
+        required: false,
+        description: "Filter to a specific domain (for org-wide keys).",
+        placeholder: "example.com",
+      },
+    ],
+    returns: "Bounce statistics object with counts and bounce rate.",
+    notes: ["Works with both domain-scoped and org-wide API keys."],
+    curlTemplate: (key, v) => {
+      const params: string[] = [];
+      if (v.days) params.push(`days=${v.days}`);
+      if (v.domain) params.push(`domain=${encodeURIComponent(v.domain)}`);
+      const qs = params.length ? `?${params.join("&")}` : "";
+      return `curl -X GET ${BASE_URL}/v1/bounces${qs} \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}"`;
+    },
+    npmTemplate: (key, v) => {
+      const opts: string[] = [];
+      if (v.days) opts.push(`days: ${v.days}`);
+      if (v.domain) opts.push(`domain: '${v.domain}'`);
+      const arg = opts.length ? `{ ${opts.join(", ")} }` : "";
+      return `import { Mailmark } from 'mailmark-sdk';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst bounces = await client.getBounceStats(${arg});\nconsole.log(bounces);`;
+    },
+    buildRequest: (v) => {
+      const params: string[] = [];
+      if (v.days) params.push(`days=${v.days}`);
+      if (v.domain) params.push(`domain=${encodeURIComponent(v.domain)}`);
+      const qs = params.length ? `?${params.join("&")}` : "";
+      return { path: `/v1/bounces${qs}` };
+    },
+  },
+
+  // ── Suppressions ──────────────────────────────────────────────────────────
+  {
+    id: "suppressions",
+    method: "GET",
+    path: "/v1/suppressions",
+    title: "Suppression List",
+    description:
+      "Returns the suppression (unsubscribe) list for the domain. Supports pagination via the 'after' cursor parameter.",
+    fields: [
+      {
+        name: "limit",
+        label: "Limit",
+        type: "text",
+        required: false,
+        description: "Number of results to return (default 100, max 500).",
+        placeholder: "100",
+      },
+      {
+        name: "after",
+        label: "After (cursor)",
+        type: "text",
+        required: false,
+        description: "Pagination cursor -- unsubscribedAt timestamp from the last item in the previous page.",
+        placeholder: "1715200000000",
+      },
+      {
+        name: "domain",
+        label: "Domain",
+        type: "text",
+        required: false,
+        description: "Filter to a specific domain (for org-wide keys).",
+        placeholder: "example.com",
+      },
+    ],
+    returns: "Suppression list with total count, items, and hasMore flag.",
+    notes: ["Works with both domain-scoped and org-wide API keys."],
+    curlTemplate: (key, v) => {
+      const params: string[] = [];
+      if (v.limit) params.push(`limit=${v.limit}`);
+      if (v.after) params.push(`after=${v.after}`);
+      if (v.domain) params.push(`domain=${encodeURIComponent(v.domain)}`);
+      const qs = params.length ? `?${params.join("&")}` : "";
+      return `curl -X GET ${BASE_URL}/v1/suppressions${qs} \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}"`;
+    },
+    npmTemplate: (key, v) => {
+      const opts: string[] = [];
+      if (v.limit) opts.push(`limit: ${v.limit}`);
+      if (v.after) opts.push(`after: ${v.after}`);
+      if (v.domain) opts.push(`domain: '${v.domain}'`);
+      const arg = opts.length ? `{ ${opts.join(", ")} }` : "";
+      return `import { Mailmark } from 'mailmark-sdk';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst suppressions = await client.getSuppressions(${arg});\nconsole.log(suppressions);`;
+    },
+    buildRequest: (v) => {
+      const params: string[] = [];
+      if (v.limit) params.push(`limit=${v.limit}`);
+      if (v.after) params.push(`after=${v.after}`);
+      if (v.domain) params.push(`domain=${encodeURIComponent(v.domain)}`);
+      const qs = params.length ? `?${params.join("&")}` : "";
+      return { path: `/v1/suppressions${qs}` };
+    },
+  },
+
+  // ── Campaign Stats ────────────────────────────────────────────────────────
+  {
+    id: "campaign-stats",
+    method: "GET",
+    path: "/v1/campaign-stats",
+    title: "Campaign Stats",
+    description:
+      "Returns aggregate stats for sequences and/or batch sends. Includes open, click, reply, and bounce rates for each campaign.",
+    fields: [
+      {
+        name: "type",
+        label: "Type",
+        type: "select",
+        required: false,
+        description: 'Filter by campaign type: "sequence", "batch", or "all" (default).',
+        options: ["all", "sequence", "batch"],
+      },
+      {
+        name: "sequenceId",
+        label: "Sequence ID",
+        type: "text",
+        required: false,
+        description: "Filter to a specific sequence.",
+        placeholder: "sequences:abc123",
+      },
+      {
+        name: "batchId",
+        label: "Batch ID",
+        type: "text",
+        required: false,
+        description: "Filter to a specific batch.",
+        placeholder: "batch-1715300000000",
+      },
+      {
+        name: "domain",
+        label: "Domain",
+        type: "text",
+        required: false,
+        description: "Filter to a specific domain (for org-wide keys).",
+        placeholder: "example.com",
+      },
+    ],
+    returns: "Object with sequences and/or batches arrays, each containing stats.",
+    notes: ["Works with both domain-scoped and org-wide API keys."],
+    curlTemplate: (key, v) => {
+      const params: string[] = [];
+      if (v.type && v.type !== "all") params.push(`type=${v.type}`);
+      if (v.sequenceId) params.push(`sequenceId=${encodeURIComponent(v.sequenceId)}`);
+      if (v.batchId) params.push(`batchId=${encodeURIComponent(v.batchId)}`);
+      if (v.domain) params.push(`domain=${encodeURIComponent(v.domain)}`);
+      const qs = params.length ? `?${params.join("&")}` : "";
+      return `curl -X GET ${BASE_URL}/v1/campaign-stats${qs} \\\n  -H "Authorization: Bearer ${key || "dm_live_..."}"`;
+    },
+    npmTemplate: (key, v) => {
+      const opts: string[] = [];
+      if (v.type && v.type !== "all") opts.push(`type: '${v.type}'`);
+      if (v.sequenceId) opts.push(`sequenceId: '${v.sequenceId}'`);
+      if (v.batchId) opts.push(`batchId: '${v.batchId}'`);
+      if (v.domain) opts.push(`domain: '${v.domain}'`);
+      const arg = opts.length ? `{ ${opts.join(", ")} }` : "";
+      return `import { Mailmark } from 'mailmark-sdk';\n\nconst client = new Mailmark('${key || "dm_live_..."}');\n\nconst stats = await client.getCampaignStats(${arg});\nconsole.log(stats);`;
+    },
+    buildRequest: (v) => {
+      const params: string[] = [];
+      if (v.type && v.type !== "all") params.push(`type=${v.type}`);
+      if (v.sequenceId) params.push(`sequenceId=${encodeURIComponent(v.sequenceId)}`);
+      if (v.batchId) params.push(`batchId=${encodeURIComponent(v.batchId)}`);
+      if (v.domain) params.push(`domain=${encodeURIComponent(v.domain)}`);
+      const qs = params.length ? `?${params.join("&")}` : "";
+      return { path: `/v1/campaign-stats${qs}` };
+    },
+  },
 ];
 
 const NAV = [
@@ -638,6 +892,16 @@ const NAV = [
       { label: "Enroll Contacts", id: "enroll-contacts" },
       { label: "Pause / Resume", id: "pause-sequence" },
       { label: "Cancel Sequence", id: "cancel-sequence" },
+    ],
+  },
+  {
+    label: "Analytics",
+    children: [
+      { label: "Domain Health", id: "domain-health" },
+      { label: "Warmup Status", id: "warmup-status" },
+      { label: "Bounce Stats", id: "bounces" },
+      { label: "Suppressions", id: "suppressions" },
+      { label: "Campaign Stats", id: "campaign-stats" },
     ],
   },
 ];
@@ -1015,7 +1279,7 @@ export default function ApiDocsPage() {
                 API Reference
               </h1>
               <p className="mt-2 text-base text-gray-600 dark:text-gray-300">
-                Send transactional and campaign emails, manage mailboxes, and configure sender groups, all from your application.
+                Send transactional and campaign emails, manage mailboxes, configure sender groups, and query domain health, warmup status, bounce stats, and campaign analytics -- all from your application.
               </p>
 
               {/* API Key input */}
@@ -1107,7 +1371,7 @@ export default function ApiDocsPage() {
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">2</span>
-                  <p>Click <strong>Create API Key</strong>, give it a name, and select the domain it should be scoped to.</p>
+                  <p>Click <strong>Create API Key</strong>, give it a name, and choose a scope: select a specific domain (domain-scoped) or &quot;All domains&quot; (org-wide).</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">3</span>
@@ -1115,7 +1379,7 @@ export default function ApiDocsPage() {
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">4</span>
-                  <p>Each API key is scoped to a single verified domain. The key can only access mailboxes and sender groups on that domain.</p>
+                  <p><strong>Domain-scoped keys</strong> can access all endpoints but only for that domain. <strong>Org-wide keys</strong> can query analytics endpoints (health, warmup, bounces, suppressions, campaign stats) across all your domains, but return 403 on write endpoints.</p>
                 </div>
               </div>
 

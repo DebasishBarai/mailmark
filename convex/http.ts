@@ -44,6 +44,7 @@ http.route({
       hasAttachments,
       s3Key,
       warmupId,
+      inReplyTo,
     } = body;
 
     // Find the mailbox by recipient address
@@ -90,6 +91,7 @@ http.route({
       hasAttachments,
       s3Key,
       ...(isWarmupEmail ? { folder: "_warmup" } : {}),
+      ...(inReplyTo ? { inReplyTo } : {}),
     });
 
     // If warmup email, update placement to inbox (it arrived via SES, so it was delivered)
@@ -122,6 +124,15 @@ http.route({
       mailboxId: mailbox._id,
       senderEmail,
     });
+
+    // Reply detection: if this email has an In-Reply-To header, mark the
+    // original sent email as replied
+    if (inReplyTo) {
+      const cleanReplyTo = inReplyTo.replace(/^<|>$/g, "");
+      await ctx.runMutation(internal.emails.markAsReplied, {
+        messageId: cleanReplyTo,
+      });
+    }
 
     // Move S3 object from domain/incoming/ to domain/mailbox/incoming/
     await ctx.runAction(internal.ses.moveIncomingEmail, {
@@ -348,14 +359,23 @@ async function authenticate(ctx: any, request: Request) {
   return ctx.runQuery(internal.apiKeys.validateByHash, { keyHash });
 }
 
+// Authenticates and requires a domain-scoped key (existing endpoints).
+// Returns null + error Response if auth fails or key is org-wide.
+async function authenticateDomainScoped(ctx: any, request: Request): Promise<{ apiKey: any; error?: undefined } | { apiKey?: undefined; error: Response }> {
+  const apiKey = await authenticate(ctx, request);
+  if (!apiKey) return { error: jsonResponse({ error: "Unauthorized" }, 401) };
+  if (!apiKey.domainId) return { error: jsonResponse({ error: "This endpoint requires a domain-scoped API key. Org-wide keys cannot be used here." }, 403) };
+  return { apiKey };
+}
+
 // ── Mailboxes ────────────────────────────────────────────────────────────────
 
 http.route({
   path: "/v1/mailboxes",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const mailboxes = await ctx.runQuery(internal.mailboxes.listByDomainInternal, {
       domainId: apiKey.domainId,
@@ -377,8 +397,8 @@ http.route({
   path: "/v1/mailboxes",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     let body: { address?: string; displayName?: string };
     try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
@@ -417,8 +437,8 @@ http.route({
   pathPrefix: "/v1/mailboxes/",
   method: "DELETE",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const url = new URL(request.url);
     const address = url.pathname.replace("/v1/mailboxes/", "").toLowerCase();
@@ -445,8 +465,8 @@ http.route({
   path: "/v1/sender-groups",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const groups = await ctx.runQuery(internal.senderGroups.listByDomainInternal, {
       domainId: apiKey.domainId,
@@ -468,8 +488,8 @@ http.route({
   path: "/v1/sender-groups",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     let body: { name?: string; mailboxes?: string[] | "all"; emails?: string[] };
     try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
@@ -517,8 +537,8 @@ http.route({
   pathPrefix: "/v1/sender-groups/",
   method: "PATCH",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const url = new URL(request.url);
     const groupId = url.pathname.replace("/v1/sender-groups/", "") as any;
@@ -575,8 +595,8 @@ http.route({
   pathPrefix: "/v1/sender-groups/",
   method: "DELETE",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const url = new URL(request.url);
     const groupId = url.pathname.replace("/v1/sender-groups/", "") as any;
@@ -597,8 +617,8 @@ http.route({
   path: "/v1/send",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     let body: {
       from?: string;
@@ -714,8 +734,8 @@ http.route({
   path: "/v1/emails",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const url = new URL(request.url);
     const mailbox = url.searchParams.get("mailbox");
@@ -770,8 +790,8 @@ http.route({
   pathPrefix: "/v1/emails/",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const url = new URL(request.url);
     const emailId = url.pathname.replace("/v1/emails/", "") as any;
@@ -810,8 +830,8 @@ http.route({
   pathPrefix: "/v1/emails/",
   method: "DELETE",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const url = new URL(request.url);
     const emailId = url.pathname.replace("/v1/emails/", "") as any;
@@ -840,8 +860,8 @@ http.route({
   path: "/v1/contacts",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const contacts = await ctx.runQuery(internal.contacts.listByUserInternal, {
       userId: apiKey.userId,
@@ -862,8 +882,8 @@ http.route({
   path: "/v1/contacts",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     let body: { email?: string; name?: string };
     try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
@@ -886,8 +906,8 @@ http.route({
   pathPrefix: "/v1/contacts/",
   method: "DELETE",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const url = new URL(request.url);
     const contactId = url.pathname.replace("/v1/contacts/", "") as any;
@@ -908,8 +928,8 @@ http.route({
   path: "/v1/sequences",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const sequences = await ctx.runQuery(internal.sequences.listByDomain, {
       domainId: apiKey.domainId,
@@ -940,8 +960,8 @@ http.route({
   path: "/v1/sequences",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     let body: { name?: string; from?: string; steps?: any[] };
     try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
@@ -988,8 +1008,8 @@ http.route({
   pathPrefix: "/v1/sequences/",
   method: "PATCH",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const url = new URL(request.url);
     const path = url.pathname.replace("/v1/sequences/", "");
@@ -1027,8 +1047,8 @@ http.route({
   pathPrefix: "/v1/sequences/",
   method: "DELETE",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const url = new URL(request.url);
     const path = url.pathname.replace("/v1/sequences/", "");
@@ -1052,8 +1072,8 @@ http.route({
   pathPrefix: "/v1/sequences/",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const apiKey = await authenticate(ctx, request);
-    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+    const { apiKey, error } = await authenticateDomainScoped(ctx, request);
+    if (error) return error;
 
     const url = new URL(request.url);
     const path = url.pathname.replace("/v1/sequences/", "");
@@ -1098,6 +1118,362 @@ http.route({
     }
 
     return jsonResponse({ enrolled, skipped, enrollmentIds }, 200);
+  }),
+});
+
+// ── Click tracking: GET /track/click/{messageId}/{linkIndex}?url=... ────────
+
+http.route({
+  pathPrefix: "/track/click/",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const path = url.pathname.replace("/track/click/", "");
+    const parts = path.split("/");
+    const messageId = parts[0] ?? "";
+    const originalUrl = url.searchParams.get("url");
+
+    if (messageId && originalUrl) {
+      await ctx.runMutation(internal.emails.markLinkClicked, {
+        messageId,
+        url: originalUrl,
+      });
+    }
+
+    return new Response(null, {
+      status: 302,
+      headers: { Location: originalUrl || "/" },
+    });
+  }),
+});
+
+// ── Domain Health API ──────────────────────────────────────────────────────
+
+async function getDomainIdsForKey(ctx: any, apiKey: any): Promise<string[]> {
+  if (apiKey.domainId) return [apiKey.domainId];
+  const domains = await ctx.runQuery(internal.domains.listForCurrentUserInternal, {
+    userId: apiKey.userId,
+  });
+  return domains.map((d: any) => d._id);
+}
+
+http.route({
+  path: "/v1/domain-health",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const isOrgKey = apiKey.scope === "org" || !apiKey.domainId;
+    const url = new URL(request.url);
+    const domainFilter = url.searchParams.get("domain");
+
+    if (apiKey.domainId && !isOrgKey) {
+      const domain = await ctx.runQuery(internal.domains.getByIdInternal, { domainId: apiKey.domainId });
+      const check = await ctx.runQuery(internal.domainHealthQueries.latestForDomain, { domainId: apiKey.domainId });
+
+      if (!check) return jsonResponse({ domain: domain?.domain ?? null, checkedAt: null, message: "No health check data yet" }, 200);
+
+      return jsonResponse({
+        domain: domain?.domain ?? null,
+        checkedAt: check.checkedAt,
+        overallScore: check.overallScore,
+        reputationStatus: check.reputationStatus,
+        spf: { valid: check.spfValid },
+        dkim: { valid: check.dkimValid },
+        dmarc: { valid: check.dmarcValid },
+        blacklisted: check.blacklisted,
+        blacklistEntries: check.blacklistEntries ?? [],
+        bounceRate: check.bounceRate,
+        complaintRate: check.complaintRate,
+      }, 200);
+    }
+
+    const results = await ctx.runQuery(internal.domainHealthQueries.latestForUser, { userId: apiKey.userId });
+
+    const filtered = domainFilter
+      ? results.filter((r: any) => r.domain === domainFilter)
+      : results;
+
+    return jsonResponse(
+      filtered.map((r: any) => ({
+        domain: r.domain,
+        checkedAt: r.check?.checkedAt ?? null,
+        overallScore: r.check?.overallScore ?? null,
+        reputationStatus: r.check?.reputationStatus ?? null,
+        spf: { valid: r.check?.spfValid ?? null },
+        dkim: { valid: r.check?.dkimValid ?? null },
+        dmarc: { valid: r.check?.dmarcValid ?? null },
+        blacklisted: r.check?.blacklisted ?? null,
+        blacklistEntries: r.check?.blacklistEntries ?? [],
+        bounceRate: r.check?.bounceRate ?? null,
+        complaintRate: r.check?.complaintRate ?? null,
+      })),
+      200
+    );
+  }),
+});
+
+// ── Warmup Status API ──────────────────────────────────────────────────────
+
+http.route({
+  path: "/v1/warmup",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const mailboxFilter = url.searchParams.get("mailbox");
+    const isOrgKey = apiKey.scope === "org" || !apiKey.domainId;
+
+    let domainIds: string[];
+    if (apiKey.domainId && !isOrgKey) {
+      domainIds = [apiKey.domainId];
+    } else {
+      domainIds = await getDomainIdsForKey(ctx, apiKey);
+    }
+
+    const allResults: any[] = [];
+    for (const domainId of domainIds) {
+      const warmups = await ctx.runQuery(internal.warmupPool.listByDomainInternal, { domainId: domainId as any });
+      allResults.push(...warmups);
+    }
+
+    const filtered = mailboxFilter
+      ? allResults.filter((w: any) => w.fullAddress === mailboxFilter.toLowerCase())
+      : allResults;
+
+    return jsonResponse(
+      filtered.map((w: any) => ({
+        mailbox: w.fullAddress,
+        status: w.status,
+        speed: w.speed,
+        currentDay: w.currentDay,
+        dailyLimit: w.dailyLimit,
+        sentToday: w.sentToday,
+        receivedToday: w.receivedToday,
+        healthScore: w.healthScore,
+        inboxRate: w.inboxRate,
+        startedAt: w.startedAt,
+        lastActivityAt: w.lastActivityAt ?? null,
+      })),
+      200
+    );
+  }),
+});
+
+// ── Bounce Stats API ───────────────────────────────────────────────────────
+
+http.route({
+  path: "/v1/bounces",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const daysParam = url.searchParams.get("days");
+    const days = Math.min(Math.max(parseInt(daysParam ?? "30", 10) || 30, 1), 90);
+    const domainFilter = url.searchParams.get("domain");
+    const isOrgKey = apiKey.scope === "org" || !apiKey.domainId;
+
+    const now = Date.now();
+    const sinceMs = now - days * 24 * 60 * 60 * 1000;
+
+    if (apiKey.domainId && !isOrgKey) {
+      const domain = await ctx.runQuery(internal.domains.getByIdInternal, { domainId: apiKey.domainId });
+      const stats = await ctx.runQuery(internal.emails.getBounceStatsForDomain, {
+        domainId: apiKey.domainId,
+        sinceMs,
+      });
+
+      return jsonResponse({
+        domain: domain?.domain ?? null,
+        period: { days, from: sinceMs, to: now },
+        totalSent: stats.totalSent,
+        delivered: stats.delivered,
+        bounced: stats.bounced,
+        failed: stats.failed,
+        bounceRate: stats.totalSent > 0 ? Math.round((stats.bounced / stats.totalSent) * 10000) / 100 : 0,
+        complaintRate: stats.totalSent > 0 ? Math.round((stats.failed / stats.totalSent) * 10000) / 100 : 0,
+      }, 200);
+    }
+
+    const domains = await ctx.runQuery(internal.domains.listForCurrentUserInternal, { userId: apiKey.userId });
+    const filteredDomains = domainFilter
+      ? domains.filter((d: any) => d.domain === domainFilter)
+      : domains;
+
+    const results = await Promise.all(
+      filteredDomains.map(async (domain: any) => {
+        const stats = await ctx.runQuery(internal.emails.getBounceStatsForDomain, {
+          domainId: domain._id,
+          sinceMs,
+        });
+        return {
+          domain: domain.domain,
+          period: { days, from: sinceMs, to: now },
+          totalSent: stats.totalSent,
+          delivered: stats.delivered,
+          bounced: stats.bounced,
+          failed: stats.failed,
+          bounceRate: stats.totalSent > 0 ? Math.round((stats.bounced / stats.totalSent) * 10000) / 100 : 0,
+          complaintRate: stats.totalSent > 0 ? Math.round((stats.failed / stats.totalSent) * 10000) / 100 : 0,
+        };
+      })
+    );
+
+    return jsonResponse(results, 200);
+  }),
+});
+
+// ── Suppression List API ───────────────────────────────────────────────────
+
+http.route({
+  path: "/v1/suppressions",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const limitParam = url.searchParams.get("limit");
+    const limit = Math.min(Math.max(parseInt(limitParam ?? "100", 10) || 100, 1), 500);
+    const afterParam = url.searchParams.get("after");
+    const afterTimestamp = afterParam ? parseInt(afterParam, 10) : undefined;
+    const isOrgKey = apiKey.scope === "org" || !apiKey.domainId;
+
+    if (apiKey.domainId && !isOrgKey) {
+      const domain = await ctx.runQuery(internal.domains.getByIdInternal, { domainId: apiKey.domainId });
+      const result = await ctx.runQuery(internal.unsubscribe.listForDomainPaginated, {
+        domainId: apiKey.domainId,
+        limit,
+        afterTimestamp,
+      });
+
+      return jsonResponse({
+        domain: domain?.domain ?? null,
+        total: result.total,
+        items: result.items.map((u: any) => ({
+          email: u.email,
+          unsubscribedAt: u.unsubscribedAt,
+          source: u.source,
+        })),
+        hasMore: result.hasMore,
+      }, 200);
+    }
+
+    const domains = await ctx.runQuery(internal.domains.listForCurrentUserInternal, { userId: apiKey.userId });
+    const results = await Promise.all(
+      domains.map(async (domain: any) => {
+        const result = await ctx.runQuery(internal.unsubscribe.listForDomainPaginated, {
+          domainId: domain._id,
+          limit,
+          afterTimestamp,
+        });
+        return {
+          domain: domain.domain,
+          total: result.total,
+          items: result.items.map((u: any) => ({
+            email: u.email,
+            unsubscribedAt: u.unsubscribedAt,
+            source: u.source,
+          })),
+          hasMore: result.hasMore,
+        };
+      })
+    );
+
+    return jsonResponse(results, 200);
+  }),
+});
+
+// ── Campaign Stats API ─────────────────────────────────────────────────────
+
+http.route({
+  path: "/v1/campaign-stats",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const apiKey = await authenticate(ctx, request);
+    if (!apiKey) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const url = new URL(request.url);
+    const typeFilter = url.searchParams.get("type") ?? "all";
+    const sequenceIdParam = url.searchParams.get("sequenceId");
+    const batchIdParam = url.searchParams.get("batchId");
+    const isOrgKey = apiKey.scope === "org" || !apiKey.domainId;
+
+    let domainIds: string[];
+    if (apiKey.domainId && !isOrgKey) {
+      domainIds = [apiKey.domainId];
+    } else {
+      domainIds = await getDomainIdsForKey(ctx, apiKey);
+    }
+
+    const response: { sequences?: any[]; batches?: any[] } = {};
+
+    if (typeFilter === "all" || typeFilter === "sequence") {
+      const allSequences: any[] = [];
+      for (const domainId of domainIds) {
+        const seqs = await ctx.runQuery(internal.sequences.listByDomain, { domainId: domainId as any });
+        allSequences.push(...seqs);
+      }
+
+      const filtered = sequenceIdParam
+        ? allSequences.filter((s) => s._id === sequenceIdParam)
+        : allSequences;
+
+      response.sequences = await Promise.all(
+        filtered.map(async (seq: any) => {
+          const stats = await ctx.runQuery(internal.sequences.getEnrollmentStats, {
+            sequenceId: seq._id,
+          });
+          return {
+            id: seq._id,
+            name: seq.name,
+            status: seq.status,
+            stats: {
+              ...stats,
+              replyRate: stats.total > 0 ? Math.round((stats.replied / stats.total) * 10000) / 100 : 0,
+              bounceRate: stats.total > 0 ? Math.round((stats.bounced / stats.total) * 10000) / 100 : 0,
+            },
+          };
+        })
+      );
+    }
+
+    if (typeFilter === "all" || typeFilter === "batch") {
+      const allBatches: any[] = [];
+      for (const domainId of domainIds) {
+        const batches = await ctx.runQuery(internal.emails.getBatchStats, { domainId: domainId as any });
+        allBatches.push(...batches);
+      }
+
+      const filtered = batchIdParam
+        ? allBatches.filter((b) => b.batchId === batchIdParam)
+        : allBatches;
+
+      response.batches = filtered.map((b: any) => ({
+        batchId: b.batchId,
+        sentAt: b.sentAt,
+        stats: {
+          total: b.total,
+          delivered: b.delivered,
+          bounced: b.bounced,
+          failed: b.failed,
+          opened: b.opened,
+          clicked: b.clicked,
+          replied: b.replied,
+          openRate: b.total > 0 ? Math.round((b.opened / b.total) * 10000) / 100 : 0,
+          clickRate: b.total > 0 ? Math.round((b.clicked / b.total) * 10000) / 100 : 0,
+          replyRate: b.total > 0 ? Math.round((b.replied / b.total) * 10000) / 100 : 0,
+          bounceRate: b.total > 0 ? Math.round((b.bounced / b.total) * 10000) / 100 : 0,
+        },
+      }));
+    }
+
+    return jsonResponse(response, 200);
   }),
 });
 

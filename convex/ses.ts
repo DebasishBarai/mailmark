@@ -47,6 +47,25 @@ function buildUnsubscribeFooter(unsubUrl: string): string {
   return `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#9ca3af;font-family:sans-serif">If you no longer wish to receive these emails, <a href="${unsubUrl}" style="color:#7c3aed;text-decoration:underline">unsubscribe here</a>.</div>`;
 }
 
+function rewriteLinksForClickTracking(html: string, siteUrl: string, messageId: string): string {
+  let linkIndex = 0;
+  return html.replace(
+    /<a\s([^>]*?)href\s*=\s*"([^"]+)"([^>]*?)>/gi,
+    (match, before, url, after) => {
+      if (
+        url.startsWith("mailto:") ||
+        url.includes("/unsubscribe/") ||
+        url.startsWith("#")
+      ) {
+        return match;
+      }
+      const trackUrl = `${siteUrl}/track/click/${messageId}/${linkIndex}?url=${encodeURIComponent(url)}`;
+      linkIndex++;
+      return `<a ${before}href="${trackUrl}"${after}>`;
+    }
+  );
+}
+
 function buildRawMimeEmail(
   from: string,
   to: string[],
@@ -195,7 +214,10 @@ export const sendEmail = action({
     const unsubPostUrl = `${convexSiteUrl}/unsubscribe/${unsubToken}`;
     const unsubHeaders = isCampaign ? buildUnsubscribeHeaders(unsubUrl, unsubPostUrl) : [];
     const unsubFooter = isCampaign ? buildUnsubscribeFooter(unsubUrl) : "";
-    const bodyWithTracking = body + unsubFooter + trackingPixel;
+    const bodyWithClickTracking = emailFolder === "sent"
+      ? rewriteLinksForClickTracking(body + unsubFooter, convexSiteUrl, messageId)
+      : body + unsubFooter;
+    const bodyWithTracking = bodyWithClickTracking + trackingPixel;
 
     // Build raw MIME email for both paths - SES rejects Message-ID as a
     // custom header in Simple content, so always send via Content.Raw.
@@ -404,10 +426,10 @@ export const scheduleEmail = action({
     const messageId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const hasAttachments = (attachments ?? []).length > 0;
 
-    // Inject tracking pixel now so the messageId is baked into the raw email
+    // Inject click tracking and open tracking pixel
     const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? "";
     const trackingPixel = `<img src="${convexSiteUrl}/track/open/${messageId}.gif" width="1" height="1" style="display:none" alt="" />`;
-    const bodyWithTracking = body + trackingPixel;
+    const bodyWithTracking = rewriteLinksForClickTracking(body, convexSiteUrl, messageId) + trackingPixel;
 
     const rawEmail = hasAttachments
       ? buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, bodyWithTracking, attachments!, cc, bcc)
@@ -593,7 +615,7 @@ export const scheduleEmailViaApi = internalAction({
     const sUnsubPostUrl = `${convexSiteUrl}/unsubscribe/${sUnsubToken}`;
     const sUnsubHeaders = sIsCampaign ? buildUnsubscribeHeaders(sUnsubUrl, sUnsubPostUrl) : [];
     const sUnsubFooter = sIsCampaign ? buildUnsubscribeFooter(sUnsubUrl) : "";
-    const bodyWithTracking = html + sUnsubFooter + trackingPixel;
+    const bodyWithTracking = rewriteLinksForClickTracking(html + sUnsubFooter, convexSiteUrl, messageId) + trackingPixel;
 
     const rawEmail = [
       `From: ${fromAddress}`,
@@ -723,7 +745,7 @@ export const sendEmailViaApi = internalAction({
     const apiUnsubPostUrl = `${convexSiteUrl}/unsubscribe/${apiUnsubToken}`;
     const apiUnsubHeaders = apiIsCampaign ? buildUnsubscribeHeaders(apiUnsubUrl, apiUnsubPostUrl) : [];
     const apiUnsubFooter = apiIsCampaign ? buildUnsubscribeFooter(apiUnsubUrl) : "";
-    const bodyWithTracking = html + apiUnsubFooter + trackingPixel;
+    const bodyWithTracking = rewriteLinksForClickTracking(html + apiUnsubFooter, convexSiteUrl, messageId) + trackingPixel;
 
     const rawEmail = [
       `From: ${fromAddress}`,

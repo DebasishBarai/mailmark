@@ -137,9 +137,15 @@ Use the dashboard UI to compose and send emails, or use the REST API / npm SDK t
 
 ### REST API
 - Full programmatic control: send emails, manage mailboxes, manage sender groups, sequences, list emails
-- API keys scoped per domain
+- Two API key scopes: domain-scoped (tied to one domain) and org-wide (tied to your account, queries all domains)
 - Supports transactional (one email to all recipients) and campaign (individual email per recipient) send modes
 - Scheduled sending (future unix timestamp)
+- Domain health checks (SPF, DKIM, DMARC, blacklists, bounce/complaint rates)
+- Warmup status monitoring (health score, inbox rate, daily limits)
+- Bounce and suppression list queries with configurable lookback window
+- Campaign stats across sequences and batch sends (open, click, reply, bounce rates)
+- Click tracking via redirect links for sent emails
+- Reply detection for regular sent emails (not just sequences)
 - Key prefix format: `dm_live_...`
 
 ### Developer Experience
@@ -420,7 +426,14 @@ For large campaigns, use sender groups to distribute sending across multiple mai
 Authorization: Bearer dm_live_your_api_key
 ```
 
-API keys are scoped per domain. Generate and manage keys in Dashboard → Developer.
+### API Key Scopes
+
+Mailmark supports two API key scopes:
+
+- **Domain-scoped key** (default): Tied to a single domain. Can only access mailboxes, emails, sender groups, and sequences on that domain. Required for write operations (send, create mailbox, etc.).
+- **Org-wide key**: Tied to your account. Can query data across all your domains. Only works with read-only analytics endpoints (domain health, warmup, bounces, suppressions, campaign stats). Returns 403 on domain-specific write endpoints.
+
+Generate and manage keys in Dashboard → Developer. When creating a key, choose "All domains" for an org-wide key or select a specific domain for a domain-scoped key.
 
 ---
 
@@ -629,6 +642,171 @@ Cancel a sequence. Sets status to "completed" and cancels all active enrollments
 
 ---
 
+### Domain Health
+
+#### GET /v1/domain-health
+Returns the latest health check for the API key's domain (domain-scoped key) or all domains (org-wide key).
+
+**Query params**:
+- `domain` (optional) - filter to a specific domain (for org-wide keys)
+
+**Response (domain-scoped)**:
+```json
+{
+  "domain": "example.com",
+  "checkedAt": 1715300000000,
+  "spf": { "valid": true, "record": "v=spf1 include:amazonses.com ~all" },
+  "dkim": { "valid": true },
+  "dmarc": { "valid": true, "record": "v=DMARC1; p=quarantine" },
+  "mx": { "valid": true },
+  "blacklisted": false,
+  "blacklistEntries": [],
+  "overallScore": 95
+}
+```
+
+**Response (org-wide)**: Array of domain health objects.
+
+---
+
+### Warmup Status
+
+#### GET /v1/warmup
+Returns warmup status for all mailboxes on the API key's domain.
+
+**Query params**:
+- `mailbox` (optional) - filter to a specific mailbox address
+
+**Response**:
+```json
+[
+  {
+    "mailbox": "hello@example.com",
+    "status": "active",
+    "speed": "normal",
+    "currentDay": 12,
+    "dailyLimit": 15,
+    "sentToday": 8,
+    "receivedToday": 5,
+    "healthScore": 82,
+    "inboxRate": 91,
+    "startedAt": 1714000000000,
+    "lastActivityAt": 1715300000000
+  }
+]
+```
+
+---
+
+### Bounces
+
+#### GET /v1/bounces
+Returns bounce statistics for the domain over a configurable lookback window.
+
+**Query params**:
+- `days` (optional, default 30, max 90) - lookback period in days
+- `domain` (optional) - filter to a specific domain (for org-wide keys)
+
+**Response**:
+```json
+{
+  "domain": "example.com",
+  "period": { "days": 30, "from": 1712700000000, "to": 1715300000000 },
+  "totalSent": 1500,
+  "delivered": 1472,
+  "bounced": 23,
+  "failed": 5,
+  "opened": 890,
+  "clicked": 234,
+  "replied": 45,
+  "bounceRate": 1.53
+}
+```
+
+---
+
+### Suppressions
+
+#### GET /v1/suppressions
+Returns the suppression (unsubscribe) list for the domain.
+
+**Query params**:
+- `limit` (optional, default 100, max 500)
+- `after` (optional) - cursor for pagination (unsubscribedAt timestamp)
+- `domain` (optional) - filter to a specific domain (for org-wide keys)
+
+**Response**:
+```json
+{
+  "domain": "example.com",
+  "total": 42,
+  "items": [
+    {
+      "email": "user@gmail.com",
+      "unsubscribedAt": 1715200000000,
+      "source": "one-click"
+    }
+  ],
+  "hasMore": false
+}
+```
+
+---
+
+### Campaign Stats
+
+#### GET /v1/campaign-stats
+Returns aggregate stats for sequences and/or batch sends.
+
+**Query params**:
+- `type` (optional: `"sequence"`, `"batch"`, or `"all"`. Default: `"all"`)
+- `sequenceId` (optional) - filter to a specific sequence
+- `batchId` (optional) - filter to a specific batch
+- `domain` (optional) - filter to a specific domain (for org-wide keys)
+
+**Response**:
+```json
+{
+  "sequences": [
+    {
+      "id": "sequences:abc123",
+      "name": "Outreach Q2",
+      "status": "active",
+      "stats": {
+        "total": 200,
+        "active": 50,
+        "completed": 120,
+        "replied": 15,
+        "bounced": 8,
+        "cancelled": 7,
+        "replyRate": 7.5,
+        "bounceRate": 4.0
+      }
+    }
+  ],
+  "batches": [
+    {
+      "batchId": "batch-1715300000000",
+      "stats": {
+        "total": 50,
+        "delivered": 47,
+        "bounced": 2,
+        "failed": 1,
+        "opened": 28,
+        "clicked": 12,
+        "replied": 3,
+        "openRate": 56.0,
+        "clickRate": 24.0,
+        "replyRate": 6.0,
+        "bounceRate": 4.0
+      }
+    }
+  ]
+}
+```
+
+---
+
 ## Email Warmup
 
 Mailmark includes a built-in email warmup system that gradually builds domain reputation by exchanging real emails with Gmail accounts. Unlike basic volume ramping, Mailmark's warmup sends actual emails, generates real Gmail engagement signals (opens, replies, mark-as-important), and tracks inbox vs. spam placement.
@@ -723,6 +901,21 @@ const group = await client.createSenderGroup({
 });
 await client.updateSenderGroup('GROUP_ID', { addEmails: ['new@example.com'] });
 await client.deleteSenderGroup('GROUP_ID');
+
+// Domain health (works with domain-scoped or org-wide keys)
+const health = await client.getDomainHealth();
+
+// Warmup status
+const warmup = await client.getWarmupStatus();
+
+// Bounce stats (last 30 days by default)
+const bounces = await client.getBounceStats({ days: 30 });
+
+// Suppression list
+const suppressions = await client.getSuppressions({ limit: 100 });
+
+// Campaign stats (sequences + batches)
+const stats = await client.getCampaignStats({ type: 'all' });
 ```
 
 ---
