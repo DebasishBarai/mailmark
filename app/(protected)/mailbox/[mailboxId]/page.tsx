@@ -1272,6 +1272,59 @@ export default function MailboxPage() {
     return () => root.classList.remove("mailbox-locked");
   }, []);
 
+  // Browser Back returns to the email list on mobile.
+  //
+  // On mobile the detail view (an open email, the compose form, or an expanded
+  // sequence) replaces the list in place. It is component state, not a route,
+  // so the browser had no entry for it: Back left the mailbox entirely instead
+  // of going back to the list. Push a history entry when the detail opens on
+  // mobile and close the detail when that entry is popped. Desktop shows the
+  // list and the detail side by side, so it gets no extra entry.
+  //
+  // Pushing a state-only entry (no url) is safe under the App Router: Next
+  // patches pushState to copy its own history state onto the new entry and to
+  // leave the router alone when no url is passed, so popping this entry
+  // dispatches a same-url traverse instead of the full page reload Next falls
+  // back to for entries it does not recognise.
+  const isDetailOpen = Boolean(selectedEmailId || showCompose || expandedSequenceId);
+  const detailHistoryEntry = useRef(false);
+  const closeDetailRef = useRef<() => void>(() => {});
+
+  // Kept fresh every render so the popstate listener below can stay mounted
+  // once and still close whichever detail is currently open.
+  useEffect(() => {
+    closeDetailRef.current = () => {
+      if (showCompose) resetComposeState();
+      setSelectedEmailId(null);
+      setExpandedSequenceId(null);
+      setSelectedEnrollmentIds(new Set());
+    };
+  });
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (!detailHistoryEntry.current) return;
+      detailHistoryEntry.current = false;
+      closeDetailRef.current();
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (isDetailOpen && !detailHistoryEntry.current) {
+      // Only the mobile layout stacks the panes; 48rem is Tailwind's `md`.
+      if (window.matchMedia("(min-width: 48rem)").matches) return;
+      detailHistoryEntry.current = true;
+      window.history.pushState({ mailboxDetail: true }, "");
+    } else if (!isDetailOpen && detailHistoryEntry.current) {
+      // Closed from the app's own UI (close button, folder switch): drop the
+      // entry we added so a later Back does not land on a closed detail view.
+      detailHistoryEntry.current = false;
+      window.history.back();
+    }
+  }, [isDetailOpen]);
+
   const handleReply = () => {
     if (!selectedEmail || !emailBody) return;
     setComposeMode("reply");
