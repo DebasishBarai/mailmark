@@ -230,6 +230,7 @@ export default function MailboxPage() {
   const updateGroupMailboxes = useMutation(api.senderGroups.updateMailboxes);
   const removeSenderGroup = useMutation(api.senderGroups.remove);
   const markAsRead = useMutation(api.emails.markAsRead);
+  const markAllAsRead = useMutation(api.emails.markAllAsRead);
   const markAsUnread = useMutation(api.emails.markAsUnread);
   const toggleStar = useMutation(api.emails.toggleStar);
   const moveToFolder = useMutation(api.emails.moveToFolder);
@@ -1427,6 +1428,18 @@ export default function MailboxPage() {
               )}
             </div>
             <div className="flex items-center gap-1">
+              {activeFolder === "inbox" && unreadCount > 0 && (
+                <button
+                  onClick={() => markAllAsRead({ mailboxId: mbId })}
+                  title="Mark all inbox emails as read"
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] transition-colors text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75l7.5 5.25 2.25-1.575M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25H4.5a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0a2.25 2.25 0 00-2.25-2.25H4.5a2.25 2.25 0 00-2.25 2.25m19.5 0l-4.5 3.15M13.5 15l2.25 2.25L20.25 12.75" />
+                  </svg>
+                  Mark all read
+                </button>
+              )}
               <button
                 onClick={() => setCurrentPage((p) => p - 1)}
                 disabled={currentPage === 0}
