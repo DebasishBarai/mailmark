@@ -34,6 +34,11 @@ export default function EmailBodyFrame({ html }: { html: string }) {
      scrollbar; without this a slightly-short measured height makes the iframe
      render a second, nested scrollbar next to the pane's. */
   html, body { margin: 0; padding: 0; overflow: hidden; }
+  /* Keep every ancestor of the content auto-height so an email's own <style>
+     block cannot pin html/body to a definite height and make percentage- or
+     viewport-height children (full-height background wrappers) inflate the
+     measurement past the real content. */
+  html, body, #mm-email-content { height: auto !important; min-height: 0 !important; }
   body {
     background: #ffffff;
     color: #1f2937;
@@ -64,17 +69,17 @@ export default function EmailBodyFrame({ html }: { html: string }) {
     const measure = () => {
       const doc = iframe.contentDocument;
       if (!doc || !doc.body) return;
-      // Measure the content wrapper's rendered box (padding included) rather
-      // than body.scrollHeight, which can round down and undershoot by a few
-      // pixels; that undershoot is what made the iframe scroll itself.
+      // Measure the content wrapper's own box. It is an auto-height block, so
+      // its height is the real content height and shrinks as well as grows.
+      // Do NOT max in documentElement.scrollHeight: for the root element that
+      // value never reports below the iframe's own viewport height, so once
+      // the frame grew it could never shrink, leaving a blank background tail
+      // below short emails (the bug this component had).
       const wrapper = doc.getElementById("mm-email-content");
-      const next = Math.max(
-        wrapper ? Math.ceil(wrapper.getBoundingClientRect().height) : 0,
-        doc.body.scrollHeight,
-        doc.documentElement.scrollHeight
-      );
-      // +1px guards against sub-pixel rounding forcing a nested scrollbar.
-      if (next > 0) setHeight(next + 1);
+      const next = wrapper
+        ? Math.ceil(wrapper.getBoundingClientRect().height)
+        : doc.body.scrollHeight;
+      if (next > 0) setHeight(next);
     };
 
     const handleLoad = () => {
