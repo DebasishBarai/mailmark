@@ -6,54 +6,49 @@ const faqs = [
   {
     question: "What is Mailmark?",
     answer:
-      "Mailmark is an email campaign platform built around custom domains. You connect your own domain, create sender mailboxes, and run personalized campaigns with built-in deliverability, analytics, and automated follow-ups, all from a single dashboard.",
+      "Mailmark is one email platform for developers running multiple products. You manage every product's domain and mailboxes from a single dashboard, send campaigns to your users with mail merge, and send transactional or campaign email programmatically through a REST API and npm SDK, with deliverability built in.",
   },
   {
-    question: "Can I use my own custom domain?",
+    question: "Can I send email from my own app?",
     answer:
-      "Yes. Mailmark is built around custom domains so your campaigns go out from addresses your recipients recognize and trust. You add your domain, configure the required DNS records (we provide step-by-step instructions), and you're campaign-ready in minutes. You can add multiple domains on paid plans.",
+      "Yes. Mailmark ships a REST API and a typed npm SDK (mailmark-sdk). You can send transactional emails, run campaign sends where each recipient gets an individually tracked email, schedule sends for later, and drive automated sequences. You can also pull domain health, warmup status, bounce stats, and suppression lists. Each API key is scoped to a single domain, so one product's key cannot touch another product's mail.",
+  },
+  {
+    question: "How does campaign sending keep recipients private?",
+    answer:
+      "Campaign sends use mail merge to generate a separate, individual email for every recipient. There is no shared CC or BCC, so nobody can see who else received the message. You can personalize each email with merge tags like {{firstName}}, so a product update goes out to your whole user base but still reads one to one.",
+  },
+  {
+    question: "Can I manage more than one domain?",
+    answer:
+      "That is the whole point. Add a domain per product, verify DNS once (we walk you through MX, SPF, DKIM, and DMARC), and manage all of them from one dashboard. The Starter plan covers 1 domain, Pro covers 5, and Business is unlimited.",
   },
   {
     question: "How many mailboxes can I create?",
     answer:
-      "The Starter plan supports up to 3 sender mailboxes on a single domain. The Pro plan gives you unlimited mailboxes across 5 domains for running multiple campaigns, and the Business plan lifts all limits for full-scale outreach.",
+      "Starter supports up to 3 mailboxes on a single domain. Pro gives you unlimited mailboxes across 5 domains, and Business lifts all limits so every product can have as many sender addresses as it needs.",
   },
   {
-    question: "What campaign features are included?",
+    question: "Does Mailmark handle deliverability?",
     answer:
-      "Every plan includes email campaigns. Compose rich HTML emails, import or build your recipient list, personalize with merge tags, schedule sends, and track opens, clicks, and deliverability in the built-in analytics dashboard. Multi-stage automated follow-up sequences are also included.",
+      "Yes. New mailboxes get 28-day inbox warming that exchanges real emails with Gmail accounts and generates genuine engagement signals, so you build reputation from day one. On top of that, Mailmark continuously monitors SPF, DKIM, DMARC, and blacklist status and alerts you before problems reach your users. No Gmail connection is required from your side.",
   },
   {
     question: "Is there a free trial?",
     answer:
-      "Yes. Every plan comes with a 7-day free trial with no credit card required. You get full access to all features during the trial. After 7 days, your account pauses until you choose a paid plan.",
+      "Starter and Pro come with a 7-day free trial, no credit card required. You get full access to every feature during the trial. After 7 days your account pauses until you choose a paid plan.",
   },
   {
-    question: "How does billing work?",
+    question: "Can I still use it for cold outreach?",
     answer:
-      "All plans are billed monthly after your 7-day free trial ends. You can upgrade, downgrade, or cancel at any time from your account settings. When you upgrade mid-cycle, we prorate the charge so you only pay for what you use.",
-  },
-  {
-    question: "Can I cancel my subscription anytime?",
-    answer:
-      "Absolutely. There are no long-term contracts or cancellation fees. You can cancel from your account settings at any time and your paid plan remains active until the end of the current billing period.",
-  },
-  {
-    question: "Does Mailmark have email warmup?",
-    answer:
-      "Yes. Mailmark includes built-in email warmup that exchanges real emails with Gmail accounts, generates real engagement signals (opens, replies, mark-as-important), and tracks inbox vs. spam placement. Just go to the Warming page in your dashboard, select a mailbox, choose a speed, and click Start Warmup. No Gmail connection required from your side -- Mailmark handles everything automatically.",
-  },
-  {
-    question: "What email clients or apps can I use with Mailmark?",
-    answer:
-      "Campaigns are managed through the built-in Mailmark web UI, which works in any modern browser. For managing replies, we also support IMAP and SMTP access, so you can connect your sender mailboxes to any standard email client such as Apple Mail, Thunderbird, or Outlook.",
+      "Yes. While Mailmark is built for talking to your own users, the same tools work for sales outreach: list verification, seed-inbox placement testing, per-mailbox sending, and multi-step sequences are all included.",
   },
 ];
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg
-      className={`h-5 w-5 shrink-0 text-gray-500 transition-transform duration-200 dark:text-gray-400 ${open ? "rotate-180" : ""}`}
+      className={`h-5 w-5 shrink-0 text-black transition-transform duration-200 ${open ? "rotate-180" : ""}`}
       viewBox="0 0 20 20"
       fill="currentColor"
       aria-hidden="true"
@@ -75,47 +70,52 @@ export default function FAQ() {
   }
 
   return (
-    <section id="faq" className="bg-gray-50 px-6 py-24 dark:bg-gray-900">
+    <section id="faq" className="border-b-2 border-black bg-champagne px-6 py-24">
       <div className="mx-auto max-w-3xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
-            Frequently asked questions
+          <span className="mb-4 inline-block rounded-full border-2 border-black bg-white px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-black">
+            FAQ
+          </span>
+          <h2 className="text-3xl font-extrabold tracking-tight text-black md:text-4xl">
+            Questions, answered
           </h2>
-          <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
-            Everything you need to know about Mailmark.
+          <p className="mt-4 text-lg text-black/70">
+            Everything you need to know about running your products&apos; email
+            on Mailmark.
           </p>
         </div>
 
-        <dl className="mt-16 divide-y divide-gray-200 dark:divide-gray-700">
+        <div className="mt-14 space-y-4">
           {faqs.map((faq, index) => {
             const isOpen = openIndex === index;
             return (
-              <div key={faq.question} className="py-6">
-                <dt>
-                  <button
-                    onClick={() => toggle(index)}
-                    className="flex w-full items-start justify-between text-left"
-                    aria-expanded={isOpen}
-                  >
-                    <span className="text-base font-semibold text-gray-900 dark:text-white">
-                      {faq.question}
-                    </span>
-                    <span className="ml-6 flex h-7 items-center">
-                      <ChevronIcon open={isOpen} />
-                    </span>
-                  </button>
-                </dt>
+              <div
+                key={faq.question}
+                className="rounded-xl border-2 border-black bg-white shadow-[4px_4px_0px_#000]"
+              >
+                <button
+                  onClick={() => toggle(index)}
+                  className="flex w-full items-center justify-between px-5 py-4 text-left"
+                  aria-expanded={isOpen}
+                >
+                  <span className="text-base font-extrabold text-black">
+                    {faq.question}
+                  </span>
+                  <span className="ml-6 flex h-7 items-center">
+                    <ChevronIcon open={isOpen} />
+                  </span>
+                </button>
                 {isOpen && (
-                  <dd className="mt-3 pr-12">
-                    <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+                  <div className="border-t-2 border-black px-5 py-4">
+                    <p className="text-sm leading-relaxed text-black/70">
                       {faq.answer}
                     </p>
-                  </dd>
+                  </div>
                 )}
               </div>
             );
           })}
-        </dl>
+        </div>
       </div>
     </section>
   );

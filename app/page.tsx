@@ -1,23 +1,24 @@
 import type { Metadata } from "next";
-import Header from "./components/Header";
+import LandingHeader from "./components/LandingHeader";
 import Hero from "./components/Hero";
 import VideoDemo from "./components/VideoDemo";
 import Features from "./components/Features";
 import FeatureShowcase from "./components/FeatureShowcase";
+import DeveloperAPI from "./components/DeveloperAPI";
 import PersonalizationDemo from "./components/PersonalizationDemo";
-import FeatureGrid from "./components/FeatureGrid";
+// import FeatureGrid from "./components/FeatureGrid"; // Folded into <Features />; kept for reference.
 import Testimonials from "./components/Testimonials";
 import PlatformStats from "./components/PlatformStats";
 import PoweredBy from "./components/PoweredBy";
 import Pricing from "./components/Pricing";
 import FAQ from "./components/FAQ";
 import CTABanner from "./components/CTABanner";
-import Footer from "./components/Footer";
+import LandingFooter from "./components/LandingFooter";
 
 export const metadata: Metadata = {
-  title: "Mailmark - Email Hosting & Campaigns for Your Domain",
+  title: "Mailmark - One Email Platform for Every Product You Ship",
   description:
-    "Add your domain, create unlimited mailboxes, and run powerful email campaigns. A complete email platform with inbox, sent, outbox, and built-in campaign tools.",
+    "Stop juggling ten tools to email your users. Manage every product's domains and mailboxes in one dashboard, send campaigns with mail merge, and send transactional email from your own apps with a REST API and npm SDK.",
   openGraph: {
     type: "website",
     url: "https://www.mailmark.dev",
@@ -34,7 +35,7 @@ const organizationSchema = {
   url: "https://www.mailmark.dev",
   logo: "https://www.mailmark.dev/og-image.png",
   description:
-    "Add your domain, create unlimited mailboxes, and run powerful email campaigns.",
+    "One email platform for developers running multiple products. Multi-domain and mailbox management, campaigns with mail merge, and a REST API and npm SDK.",
 };
 
 const websiteSchema = {
@@ -46,7 +47,7 @@ const websiteSchema = {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900">
+    <div className="min-h-screen bg-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
@@ -55,20 +56,20 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
       />
-      <Header />
+      <LandingHeader />
       <Hero />
       <VideoDemo />
       <Features />
       <FeatureShowcase />
+      <DeveloperAPI />
       <PersonalizationDemo />
-      <FeatureGrid />
       <PlatformStats />
       <Testimonials />
       <PoweredBy />
       <Pricing />
       <FAQ />
       <CTABanner />
-      <Footer />
+      <LandingFooter />
     </div>
   );
 }

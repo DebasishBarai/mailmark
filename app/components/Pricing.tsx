@@ -5,95 +5,91 @@ const plans = [
     name: "Starter",
     price: "$10",
     period: "per month",
-    description: "Perfect for individuals launching their first email campaigns.",
+    description: "For your first product or two.",
     features: [
       "1,000 emails / month",
       "1 custom domain",
       "3 mailboxes",
       "Full email UI",
-      "Email campaigns",
+      "Campaigns with mail merge",
+      "REST API + npm SDK",
       "Campaign analytics",
-      "Basic support",
     ],
     cta: "Start 7-Day Free Trial",
     hasTrial: true,
     highlighted: false,
+    color: "bg-white",
   },
   {
     name: "Pro",
     price: "$50",
     period: "per month",
-    description: "For growing teams running multiple campaigns at scale.",
+    description: "For a growing portfolio of products.",
     features: [
       "25,000 emails / month",
       "5 custom domains",
       "Unlimited mailboxes",
       "Full email UI",
-      "Email campaigns",
-      "Campaign analytics",
+      "Campaigns with mail merge",
+      "REST API + npm SDK",
       "Priority support",
     ],
     cta: "Start 7-Day Free Trial",
     hasTrial: true,
     highlighted: true,
+    color: "bg-coral",
   },
   {
     name: "Business",
     price: "$100",
     period: "per month",
-    description: "Unlimited campaign volume with white-glove onboarding for your whole team.",
+    description: "For a full stable of products at scale.",
     features: [
       "100,000 emails / month",
       "Unlimited domains",
       "Unlimited mailboxes",
       "Full email UI",
-      "Email campaigns",
-      "Campaign analytics",
+      "Campaigns with mail merge",
+      "REST API + npm SDK",
       "Dedicated support",
     ],
-    // cta: "Start 7-Day Free Trial",
     cta: "Get Started",
     hasTrial: false,
     highlighted: false,
+    color: "bg-white",
   },
 ];
 
 function CheckIcon() {
   return (
-    <svg
-      className="h-5 w-5 shrink-0"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        fillRule="evenodd"
-        d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-        clipRule="evenodd"
-      />
+    <svg className="h-4 w-4 text-black" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
     </svg>
   );
 }
 
 export default function Pricing() {
   return (
-    <section id="pricing" className="bg-white px-6 py-24 dark:bg-gray-900">
+    <section id="pricing" className="border-b-2 border-black bg-white px-6 py-24">
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
-            Simple, transparent pricing
+          <span className="mb-4 inline-block rounded-full border-2 border-black bg-vivid-yellow px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-black">
+            Pricing
+          </span>
+          <h2 className="text-3xl font-extrabold tracking-tight text-black md:text-4xl">
+            One bill for all your products
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            {/* Every plan includes a 7-day free trial. No credit card required. */}
-            Starter and Pro plans include a 7-day free trial.
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-black/70">
+            Every plan includes the dashboard, campaigns, and the API. Starter
+            and Pro come with a 7-day free trial.
           </p>
         </div>
 
         {/* Trial banner */}
-        <div className="mx-auto mt-10 max-w-2xl rounded-2xl border border-violet-200 bg-violet-50 px-6 py-4 text-center dark:border-violet-800 dark:bg-violet-950/30">
-          <p className="text-sm font-medium text-violet-800 dark:text-violet-300">
-            {/* Try any plan free for 7 days with full access. No credit card needed. Your account pauses after the trial until you choose a plan. */}
-            Try Starter or Pro free for 7 days with full access. Cancel anytime during the trial, no charge.
+        <div className="mx-auto mt-10 max-w-2xl rounded-xl border-2 border-black bg-aquamarine px-6 py-4 text-center shadow-[4px_4px_0px_#000]">
+          <p className="text-sm font-bold text-black">
+            Try Starter or Pro free for 7 days with full access. Cancel anytime
+            during the trial, no charge.
           </p>
         </div>
 
@@ -101,46 +97,34 @@ export default function Pricing() {
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative flex flex-col rounded-2xl p-8 shadow-sm transition-shadow hover:shadow-md ${plan.highlighted
-                  ? "bg-violet-600 text-white ring-2 ring-violet-600"
-                  : "border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
-                }`}
+              className={`relative flex flex-col rounded-xl border-2 border-black p-8 ${plan.color} ${
+                plan.highlighted
+                  ? "shadow-[8px_8px_0px_#000] md:-translate-y-2"
+                  : "shadow-[4px_4px_0px_#000]"
+              }`}
             >
               {plan.highlighted && (
-                <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-violet-900 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow">
+                <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full border-2 border-black bg-vivid-yellow px-4 py-1 text-xs font-extrabold uppercase tracking-wide text-black shadow-[2px_2px_0px_#000]">
                   Most Popular
                 </span>
               )}
 
               <div>
-                <h3
-                  className={`text-lg font-semibold ${plan.highlighted ? "text-white" : "text-gray-900 dark:text-white"}`}
-                >
-                  {plan.name}
-                </h3>
+                <h3 className="text-lg font-extrabold text-black">{plan.name}</h3>
                 <div className="mt-4 flex items-baseline gap-1">
-                  <span
-                    className={`text-4xl font-bold tracking-tight ${plan.highlighted ? "text-white" : "text-gray-900 dark:text-white"}`}
-                  >
+                  <span className="text-4xl font-extrabold tracking-tight text-black">
                     {plan.price}
                   </span>
-                  <span
-                    className={`text-sm ${plan.highlighted ? "text-violet-200" : "text-gray-500 dark:text-gray-400"}`}
-                  >
+                  <span className="text-sm font-semibold text-black/60">
                     /{plan.period}
                   </span>
                 </div>
-                {/* 7-day free trial included – only for plans with hasTrial */}
                 {plan.hasTrial && (
-                <p
-                  className={`mt-1 text-xs font-medium ${plan.highlighted ? "text-violet-200" : "text-violet-600 dark:text-violet-400"}`}
-                >
-                  7-day free trial included
-                </p>
+                  <p className="mt-1 text-xs font-bold text-black/70">
+                    7-day free trial included
+                  </p>
                 )}
-                <p
-                  className={`mt-3 text-sm ${plan.highlighted ? "text-violet-100" : "text-gray-600 dark:text-gray-400"}`}
-                >
+                <p className="mt-3 text-sm font-medium text-black/70">
                   {plan.description}
                 </p>
               </div>
@@ -148,14 +132,10 @@ export default function Pricing() {
               <ul className="mt-8 flex-1 space-y-3">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-center gap-3">
-                    <span
-                      className={plan.highlighted ? "text-violet-200" : "text-violet-600"}
-                    >
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 border-black bg-white">
                       <CheckIcon />
                     </span>
-                    <span
-                      className={`text-sm ${plan.highlighted ? "text-violet-100" : "text-gray-600 dark:text-gray-400"}`}
-                    >
+                    <span className="text-sm font-medium text-black/80">
                       {feature}
                     </span>
                   </li>
@@ -163,15 +143,13 @@ export default function Pricing() {
               </ul>
 
               <div className="mt-8">
-                {plan.highlighted ? (
-                  <CTAButton className="inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-violet-700 shadow transition-all hover:bg-gray-50 hover:shadow-md">
-                    {plan.cta}
-                  </CTAButton>
-                ) : (
-                  <CTAButton className="inline-flex w-full items-center justify-center rounded-full border border-violet-600 bg-white px-6 py-3 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-50 dark:bg-gray-700 dark:text-violet-300 dark:hover:bg-violet-900/30">
-                    {plan.cta}
-                  </CTAButton>
-                )}
+                <CTAButton
+                  className={`inline-flex w-full items-center justify-center rounded-md border-2 border-black px-6 py-3 text-sm font-bold text-black shadow-[4px_4px_0px_#000] transition-all hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_#000] ${
+                    plan.highlighted ? "bg-vivid-yellow" : "bg-white"
+                  }`}
+                >
+                  {plan.cta}
+                </CTAButton>
               </div>
             </div>
           ))}

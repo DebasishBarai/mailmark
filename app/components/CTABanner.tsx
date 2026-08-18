@@ -2,24 +2,25 @@ import CTAButton from "./CTAButton";
 
 export default function CTABanner() {
   return (
-    <section id="cta" className="px-6 py-24">
-      <div className="mx-auto max-w-4xl rounded-3xl bg-gradient-to-r from-violet-600 to-purple-700 px-8 py-16 text-center shadow-2xl md:px-16">
-        <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
-          Ready to launch your first campaign?
+    <section id="cta" className="bg-white px-6 py-24">
+      <div className="mx-auto max-w-4xl rounded-2xl border-2 border-black bg-coral px-8 py-16 text-center shadow-[10px_10px_0px_#000] md:px-16">
+        <h2 className="text-3xl font-extrabold tracking-tight text-black md:text-4xl">
+          Bring all your products&apos; email under one roof
         </h2>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-violet-100">
-          Connect your domain, set up sender mailboxes, and start sending
-          personalized campaigns in minutes. Try free for 7 days, no credit card required.
+        <p className="mx-auto mt-4 max-w-xl text-lg font-medium text-black/80">
+          Add your domains, spin up mailboxes, send your users an update, and
+          send from code, all in one place. Try free for 7 days, no credit card
+          required.
         </p>
         <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-          <CTAButton className="inline-flex items-center gap-2 rounded-full bg-white px-8 py-3.5 text-base font-semibold text-violet-700 shadow-lg transition-all hover:bg-gray-50 hover:shadow-xl">
+          <CTAButton className="inline-flex items-center gap-2 rounded-md border-2 border-black bg-vivid-yellow px-8 py-3.5 text-base font-bold text-black shadow-[4px_4px_0px_#000] transition-all hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_#000]">
             Start Free Trial
           </CTAButton>
           <a
-            href="#how-it-works"
-            className="inline-flex items-center rounded-full border border-white/30 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:bg-white/10"
+            href="#developers"
+            className="inline-flex items-center rounded-md border-2 border-black bg-white px-8 py-3.5 text-base font-bold text-black shadow-[4px_4px_0px_#000] transition-all hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_#000]"
           >
-            See How It Works
+            Explore the API
           </a>
         </div>
       </div>

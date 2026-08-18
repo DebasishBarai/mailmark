@@ -75,22 +75,27 @@ const statsConfig = [
 export default function PlatformStats() {
   const stats = useQuery(api.platformStats.getStats);
 
+  const tiles = ["bg-vivid-yellow", "bg-aquamarine", "bg-lavender-rose"];
+
   return (
-    <section className="border-y border-gray-100 bg-white px-6 py-16 dark:border-gray-800 dark:bg-gray-900">
+    <section className="border-b-2 border-black bg-champagne px-6 py-16">
       <div className="mx-auto max-w-5xl">
-        <p className="mb-10 text-center text-sm font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-          Trusted by growing businesses
+        <p className="mb-10 text-center text-sm font-bold uppercase tracking-wider text-black/70">
+          Trusted by developers shipping multiple products
         </p>
-        <div className="grid gap-8 sm:grid-cols-3">
-          {statsConfig.map((s) => (
-            <div key={s.key} className="flex flex-col items-center text-center">
-              <div className="rounded-xl bg-violet-100 p-3 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400">
+        <div className="grid gap-6 sm:grid-cols-3">
+          {statsConfig.map((s, i) => (
+            <div
+              key={s.key}
+              className="flex flex-col items-center rounded-xl border-2 border-black bg-white p-6 text-center shadow-[4px_4px_0px_#000]"
+            >
+              <div className={`rounded-lg border-2 border-black ${tiles[i]} p-3 text-black`}>
                 {s.icon}
               </div>
-              <p className="mt-4 text-3xl font-extrabold text-gray-900 dark:text-white">
+              <p className="mt-4 text-3xl font-extrabold text-black">
                 {stats ? <RollingCounter value={stats[s.key]} /> : "-"}
               </p>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{s.label}</p>
+              <p className="mt-1 text-sm font-semibold text-black/60">{s.label}</p>
             </div>
           ))}
         </div>

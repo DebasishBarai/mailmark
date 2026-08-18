@@ -38,16 +38,16 @@ const partners = [
 
 export default function PoweredBy() {
   return (
-    <section className="bg-white px-6 py-12 dark:bg-gray-900">
+    <section className="border-b-2 border-black bg-white px-6 py-12">
       <div className="mx-auto max-w-5xl">
-        <p className="mb-8 text-center text-sm font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-          Built with
+        <p className="mb-8 text-center text-sm font-bold uppercase tracking-wider text-black/60">
+          Built on infrastructure you already trust
         </p>
         <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
           {partners.map((p) => (
             <div
               key={p.name}
-              className="text-gray-300 transition-colors hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400"
+              className="text-black/40 transition-colors hover:text-black"
               title={p.name}
             >
               {p.logo}

@@ -3,6 +3,21 @@
 @variant dark (&:where(.dark, .dark *));
 
 /* ==============================
+   Landing Page — Neo-Brutalist Palette
+   Additive tokens used only by the public landing page.
+   ============================== */
+
+@theme {
+  --color-champagne: #f7e1a8;
+  --color-vivid-yellow: #ffe135;
+  --color-aquamarine: #7fffd4;
+  --color-coral: #ff7f50;
+  --color-lavender-rose: #fba0e3;
+  --color-pale-violet: #cc99ff;
+  --color-ink: #000000;
+}
+
+/* ==============================
    Tailwind Theme Token Mapping
    ============================== */
 

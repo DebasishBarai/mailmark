@@ -1,28 +1,28 @@
 const showcaseItems = [
   {
-    title: "Connect Your Domain",
+    title: "Add your product domains",
     description:
-      "Add your own domain so campaigns go out from addresses your recipients recognize. Mailmark walks you through DNS setup step by step, including MX, SPF, DKIM, and DMARC for maximum deliverability.",
+      "Point acme.com, yourco.com, and every other product at Mailmark. It walks you through DNS step by step and verifies MX, SPF, DKIM, and DMARC so each domain is ready to send.",
     bullets: [
-      "Guided DNS configuration wizard",
+      "Guided DNS setup for every domain",
       "Auto-verify MX, SPF, DKIM & DMARC",
-      "Campaign-ready deliverability from day one",
+      "One place for all ten of them",
     ],
     visual: (
       <div className="space-y-3">
-        <div className="rounded-lg bg-white p-4 shadow-sm dark:bg-gray-700">
-          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Add your domain</p>
+        <div className="rounded-lg border-2 border-black bg-white p-4">
+          <p className="text-xs font-bold text-black">Add a domain</p>
           <div className="mt-2 flex items-center gap-2">
-            <div className="flex-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 dark:border-gray-600 dark:bg-gray-600 dark:text-gray-200">
-              yourcompany.com
+            <div className="flex-1 rounded-md border-2 border-black bg-white px-3 py-2 text-sm text-black">
+              acme.com
             </div>
-            <div className="rounded-md bg-violet-600 px-4 py-2 text-xs font-semibold text-white">
+            <div className="rounded-md border-2 border-black bg-coral px-4 py-2 text-xs font-bold text-black shadow-[2px_2px_0px_#000]">
               Verify
             </div>
           </div>
         </div>
-        <div className="rounded-lg bg-white p-4 shadow-sm dark:bg-gray-700">
-          <p className="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">DNS Records</p>
+        <div className="rounded-lg border-2 border-black bg-white p-4">
+          <p className="mb-2 text-xs font-bold text-black">DNS Records</p>
           <div className="space-y-1.5">
             {[
               { type: "MX", status: true },
@@ -31,8 +31,8 @@ const showcaseItems = [
               { type: "DMARC", status: false },
             ].map((r) => (
               <div key={r.type} className="flex items-center justify-between text-xs">
-                <span className="font-mono text-gray-600 dark:text-gray-400">{r.type}</span>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${r.status ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400"}`}>
+                <span className="font-mono font-semibold text-black">{r.type}</span>
+                <span className={`rounded-full border border-black px-2 py-0.5 text-[10px] font-bold text-black ${r.status ? "bg-aquamarine" : "bg-vivid-yellow"}`}>
                   {r.status ? "Verified" : "Pending"}
                 </span>
               </div>
@@ -41,144 +41,140 @@ const showcaseItems = [
         </div>
       </div>
     ),
-    gradient: "from-green-100 via-emerald-50 to-teal-100 dark:from-green-950/50 dark:via-emerald-950/50 dark:to-teal-950/50",
+    panel: "bg-aquamarine",
   },
   {
-    title: "Create Sender Mailboxes",
+    title: "Create mailboxes per product",
     description:
-      "Spin up dedicated mailboxes for each campaign type: outreach@, sales@, newsletters@. Each has its own inbox to manage replies. Switch between them instantly.",
+      "Spin up founder@, support@, and updates@ on any of your domains. Each mailbox has its own inbox, and you switch between all of them without logging in and out of anything.",
     bullets: [
       "One-click mailbox creation",
       "Per-mailbox sender signatures",
-      "Separate inboxes for campaign replies",
+      "Every product's inbox in one login",
     ],
     visual: (
-      <div className="space-y-2">
-        <div className="rounded-lg bg-white p-4 shadow-sm dark:bg-gray-700">
-          <p className="mb-3 text-xs font-semibold text-gray-700 dark:text-gray-300">Your Mailboxes | yourcompany.com</p>
-          {[
-            { email: "sales@yourcompany.com", count: 24, active: true },
-            { email: "support@yourcompany.com", count: 8, active: false },
-            { email: "info@yourcompany.com", count: 3, active: false },
-            { email: "ceo@yourcompany.com", count: 1, active: false },
-          ].map((mb) => (
-            <div key={mb.email} className={`mb-1.5 flex items-center justify-between rounded-md px-3 py-2 text-xs ${mb.active ? "bg-violet-50 ring-1 ring-violet-200 dark:bg-violet-900/30 dark:ring-violet-700" : "bg-gray-50 dark:bg-gray-600"}`}>
-              <div className="flex items-center gap-2">
-                <div className={`h-2 w-2 rounded-full ${mb.active ? "bg-violet-500" : "bg-gray-300 dark:bg-gray-500"}`} />
-                <span className={mb.active ? "font-semibold text-violet-700 dark:text-violet-300" : "text-gray-600 dark:text-gray-400"}>{mb.email}</span>
-              </div>
-              <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] text-gray-600 dark:bg-gray-500 dark:text-gray-300">{mb.count}</span>
+      <div className="rounded-lg border-2 border-black bg-white p-4">
+        <p className="mb-3 text-xs font-bold text-black">Your Mailboxes</p>
+        {[
+          { email: "founder@yourco.com", count: 24, active: true },
+          { email: "support@acme.com", count: 8, active: false },
+          { email: "updates@yourco.com", count: 3, active: false },
+          { email: "hello@thirdapp.com", count: 1, active: false },
+        ].map((mb) => (
+          <div key={mb.email} className={`mb-1.5 flex items-center justify-between rounded-md border-2 border-black px-3 py-2 text-xs ${mb.active ? "bg-lavender-rose" : "bg-white"}`}>
+            <div className="flex items-center gap-2">
+              <div className={`h-2 w-2 rounded-full border border-black ${mb.active ? "bg-coral" : "bg-white"}`} />
+              <span className={mb.active ? "font-bold text-black" : "font-semibold text-black/70"}>{mb.email}</span>
             </div>
-          ))}
-          <div className="mt-2 flex items-center gap-1 text-[10px] text-violet-600 dark:text-violet-400">
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            Add mailbox
+            <span className="rounded-full border border-black bg-white px-1.5 py-0.5 text-[10px] font-bold text-black">{mb.count}</span>
           </div>
+        ))}
+        <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-black">
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+          Add mailbox
         </div>
       </div>
     ),
-    gradient: "from-violet-100 via-purple-50 to-fuchsia-100 dark:from-violet-950/50 dark:via-purple-950/50 dark:to-fuchsia-950/50",
+    panel: "bg-lavender-rose",
   },
   {
-    title: "Manage Replies in One Place",
+    title: "One inbox for every reply",
     description:
-      "Every campaign reply lands in a familiar email UI: Inbox, Sent, Outbox, Drafts, and Trash. Respond to leads, manage conversations, and search across everything.",
+      "When users reply, it all lands in a familiar email UI: Inbox, Sent, Outbox, Drafts, and Trash. Read, respond, and search across every product without a dozen browser tabs.",
     bullets: [
-      "Gmail-like inbox for campaign replies",
-      "Rich text composer with attachments",
+      "Gmail-style inbox for every mailbox",
+      "Rich composer with attachments",
       "Full-text search across all mail",
     ],
     visual: (
-      <div className="rounded-lg bg-white shadow-sm dark:bg-gray-700">
-        <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2 dark:border-gray-600">
+      <div className="rounded-lg border-2 border-black bg-white">
+        <div className="flex items-center gap-2 border-b-2 border-black bg-vivid-yellow px-3 py-2">
           <div className="flex gap-1">
-            <div className="h-2 w-2 rounded-full bg-red-400" />
-            <div className="h-2 w-2 rounded-full bg-yellow-400" />
-            <div className="h-2 w-2 rounded-full bg-green-400" />
+            <div className="h-2 w-2 rounded-full border border-black bg-coral" />
+            <div className="h-2 w-2 rounded-full border border-black bg-vivid-yellow" />
+            <div className="h-2 w-2 rounded-full border border-black bg-aquamarine" />
           </div>
-          <span className="text-[10px] text-gray-400 dark:text-gray-500">support@yourcompany.com</span>
+          <span className="text-[10px] font-bold text-black">support@acme.com</span>
         </div>
         <div className="flex">
-          <div className="w-20 border-r border-gray-100 p-2 dark:border-gray-600">
+          <div className="w-20 border-r-2 border-black p-2">
             {["Inbox", "Sent", "Outbox", "Drafts", "Trash"].map((f, i) => (
-              <div key={f} className={`rounded px-2 py-1 text-[9px] ${i === 0 ? "bg-violet-50 font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" : "text-gray-500 dark:text-gray-400"}`}>{f}</div>
+              <div key={f} className={`rounded px-2 py-1 text-[9px] font-semibold ${i === 0 ? "border-2 border-black bg-aquamarine text-black" : "text-black/60"}`}>{f}</div>
             ))}
           </div>
           <div className="flex-1 space-y-1 p-2">
             {[
-              { from: "Client A", subj: "Need help with setup", bold: true },
-              { from: "Client B", subj: "Re: Billing question", bold: true },
-              { from: "Client C", subj: "Thanks for the quick fix!", bold: false },
+              { from: "Early user", subj: "Loving the v2 update", bold: true },
+              { from: "Trial signup", subj: "Re: Billing question", bold: true },
+              { from: "Customer", subj: "Thanks for the quick fix!", bold: false },
             ].map((e) => (
-              <div key={e.subj} className={`rounded border px-2 py-1.5 ${e.bold ? "border-violet-100 bg-violet-50/30 dark:border-violet-800/50 dark:bg-violet-900/20" : "border-gray-100 dark:border-gray-600"}`}>
-                <p className={`text-[10px] ${e.bold ? "font-semibold text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"}`}>{e.from}</p>
-                <p className="truncate text-[9px] text-gray-500 dark:text-gray-400">{e.subj}</p>
+              <div key={e.subj} className={`rounded border-2 border-black px-2 py-1.5 ${e.bold ? "bg-aquamarine/40" : "bg-white"}`}>
+                <p className={`text-[10px] ${e.bold ? "font-bold text-black" : "font-semibold text-black/70"}`}>{e.from}</p>
+                <p className="truncate text-[9px] text-black/60">{e.subj}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
     ),
-    gradient: "from-blue-100 via-sky-50 to-cyan-100 dark:from-blue-950/50 dark:via-sky-950/50 dark:to-cyan-950/50",
+    panel: "bg-aquamarine",
   },
   {
-    title: "Launch and Track Campaigns",
+    title: "Email your users, privately",
     description:
-      "Pick a sender mailbox, upload your contact list, personalize with merge tags, and launch. Set up automated follow-up sequences and track opens, clicks, and replies in real time.",
+      "Upload or sync your list, personalize with merge tags, and send. Every recipient gets an individual email with no visible CC or BCC, so \"v2 is live\" reaches your whole user base and still feels one to one.",
     bullets: [
-      "Mail merge with CSV or Google Sheets",
-      "Multi-stage automated follow-ups",
+      "Mail merge from CSV or Google Sheets",
+      "Individual sends, never a visible blast",
       "Real-time open, click & reply tracking",
     ],
     visual: (
       <div className="space-y-2">
-        <div className="rounded-lg bg-white p-4 shadow-sm dark:bg-gray-700">
+        <div className="rounded-lg border-2 border-black bg-white p-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Campaign: Product Launch</p>
-            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/40 dark:text-green-400">Sending</span>
+            <p className="text-xs font-bold text-black">Campaign: v2 Launch</p>
+            <span className="rounded-full border border-black bg-aquamarine px-2 py-0.5 text-[10px] font-bold text-black">Sending</span>
           </div>
-          <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">From: sales@yourcompany.com</p>
+          <p className="mt-1 text-[10px] font-semibold text-black/60">From: updates@yourco.com</p>
           <div className="mt-3 grid grid-cols-4 gap-2">
             {[
-              { label: "Sent", value: "1,247" },
-              { label: "Opened", value: "623" },
-              { label: "Clicked", value: "184" },
-              { label: "Replied", value: "47" },
+              { label: "Sent", value: "1,842" },
+              { label: "Opened", value: "811" },
+              { label: "Clicked", value: "254" },
+              { label: "Replied", value: "63" },
             ].map((s) => (
-              <div key={s.label} className="rounded-md bg-gray-50 p-2 text-center dark:bg-gray-600">
-                <p className="text-sm font-bold text-gray-800 dark:text-gray-200">{s.value}</p>
-                <p className="text-[9px] text-gray-500 dark:text-gray-400">{s.label}</p>
+              <div key={s.label} className="rounded-md border-2 border-black bg-white p-2 text-center">
+                <p className="text-sm font-extrabold text-black">{s.value}</p>
+                <p className="text-[9px] font-semibold text-black/60">{s.label}</p>
               </div>
             ))}
           </div>
         </div>
-        <div className="rounded-lg bg-white p-4 shadow-sm dark:bg-gray-700">
-          <p className="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">Follow-up Sequence</p>
-          <div className="flex items-center gap-2">
-            {["Stage 1", "Stage 2", "Stage 3"].map((s, i) => (
-              <div key={s} className="flex items-center gap-2">
-                <div className={`rounded-full px-2 py-1 text-[10px] font-medium ${i < 2 ? "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" : "bg-gray-100 text-gray-500 dark:bg-gray-600 dark:text-gray-400"}`}>{s}</div>
-                {i < 2 && <svg className="h-3 w-3 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>}
-              </div>
-            ))}
+        <div className="rounded-lg border-2 border-black bg-white p-4">
+          <p className="mb-2 text-xs font-bold text-black">Merged Preview</p>
+          <div className="rounded-md border-2 border-black bg-champagne px-3 py-2 text-[10px] text-black">
+            Hi <span className="rounded border border-black bg-vivid-yellow px-1 font-bold">{"{{firstName}}"}</span>, v2 is live. Here is what changed...
           </div>
         </div>
       </div>
     ),
-    gradient: "from-amber-100 via-orange-50 to-yellow-100 dark:from-amber-950/50 dark:via-orange-950/50 dark:to-yellow-950/50",
+    panel: "bg-vivid-yellow",
   },
 ];
 
 export default function FeatureShowcase() {
   return (
-    <section id="how-it-works" className="bg-gray-50 px-6 py-24 dark:bg-gray-900">
+    <section id="how-it-works" className="border-b-2 border-black bg-white px-6 py-24">
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
-            How Mailmark works
+          <span className="mb-4 inline-block rounded-full border-2 border-black bg-coral px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-black">
+            How it works
+          </span>
+          <h2 className="text-3xl font-extrabold tracking-tight text-black md:text-4xl">
+            From ten scattered domains to one dashboard
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            From domain setup to your first campaign in four simple steps.
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-black/70">
+            Four steps to bring every product&apos;s email under one roof.
           </p>
         </div>
 
@@ -192,39 +188,41 @@ export default function FeatureShowcase() {
             >
               {/* Visual */}
               <div className="w-full md:w-1/2">
-                <div className={`rounded-2xl bg-gradient-to-br ${item.gradient} p-8 shadow-lg`}>
+                <div className={`rounded-xl border-2 border-black ${item.panel} p-8 shadow-[8px_8px_0px_#000]`}>
                   {item.visual}
                 </div>
               </div>
 
               {/* Text */}
               <div className="w-full md:w-1/2">
-                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">
+                <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-md border-2 border-black bg-vivid-yellow text-base font-extrabold text-black shadow-[3px_3px_0px_#000]">
                   {index + 1}
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h3 className="text-2xl font-extrabold text-black">
                   {item.title}
                 </h3>
-                <p className="mt-4 text-base leading-relaxed text-gray-600 dark:text-gray-400">
+                <p className="mt-4 text-base leading-relaxed text-black/70">
                   {item.description}
                 </p>
                 <ul className="mt-6 space-y-3">
                   {item.bullets.map((bullet) => (
                     <li key={bullet} className="flex items-center gap-3">
-                      <svg
-                        className="h-5 w-5 shrink-0 text-violet-600"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M4.5 12.75l6 6 9-13.5"
-                        />
-                      </svg>
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{bullet}</span>
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 border-black bg-aquamarine">
+                        <svg
+                          className="h-3 w-3 text-black"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={3}
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M4.5 12.75l6 6 9-13.5"
+                          />
+                        </svg>
+                      </span>
+                      <span className="text-sm font-medium text-black">{bullet}</span>
                     </li>
                   ))}
                 </ul>
