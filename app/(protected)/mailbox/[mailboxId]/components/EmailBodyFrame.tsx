@@ -34,6 +34,11 @@ export default function EmailBodyFrame({ html }: { html: string }) {
      scrollbar; without this a slightly-short measured height makes the iframe
      render a second, nested scrollbar next to the pane's. */
   html, body { margin: 0; padding: 0; overflow: hidden; }
+  /* Keep every ancestor of the content auto-height so an email's own <style>
+     block cannot pin html/body to a definite height and make percentage- or
+     viewport-height children (full-height background wrappers) inflate the
+     measurement past the real content. */
+  html, body, #mm-email-content { height: auto !important; min-height: 0 !important; }
   body {
     background: #ffffff;
     color: #1f2937;
@@ -64,13 +69,12 @@ export default function EmailBodyFrame({ html }: { html: string }) {
     const measure = () => {
       const doc = iframe.contentDocument;
       if (!doc || !doc.body) return;
-      // Measure the content wrapper's rendered box (padding included). Do NOT
-      // fall back to documentElement.scrollHeight: for the root element that
+      // Measure the content wrapper's own box. It is an auto-height block, so
+      // its height is the real content height and shrinks as well as grows.
+      // Do NOT max in documentElement.scrollHeight: for the root element that
       // value never reports below the iframe's own viewport height, so once
-      // the frame grows it can never shrink, leaving blank space below short
-      // emails. The wrapper's box is the true content height and tracks both
-      // directions. body.scrollHeight can round down and cause an undershoot,
-      // so it is not used either.
+      // the frame grew it could never shrink, leaving a blank background tail
+      // below short emails (the bug this component had).
       const wrapper = doc.getElementById("mm-email-content");
       const next = wrapper
         ? Math.ceil(wrapper.getBoundingClientRect().height)
