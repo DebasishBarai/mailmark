@@ -1368,7 +1368,7 @@ export default function MailboxPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden md:h-dvh">
+      <div className="flex h-shell-below-topbar flex-col overflow-hidden md:h-shell">
         <div className="flex items-center border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-6 py-3">
           <div className="h-6 w-48 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
         </div>
@@ -1402,7 +1402,7 @@ export default function MailboxPage() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden md:h-dvh">
+    <div className="flex h-shell-below-topbar flex-col overflow-hidden md:h-shell">
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 md:px-6">
         <div className="flex min-w-0 items-center gap-2 md:gap-3">
