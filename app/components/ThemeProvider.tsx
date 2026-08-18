@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 
 export const THEMES = [
-  { id: "clean-white", name: "Clean White", dark: false, group: "Professional" },
+  { id: "clean-white", name: "Warm Cream", dark: false, group: "Professional" },
   { id: "enterprise-dark", name: "Enterprise Dark", dark: true, group: "Professional" },
   { id: "notion", name: "Notion Style", dark: false, group: "Professional" },
   { id: "matrix", name: "Matrix Mode", dark: true, group: "Developer" },

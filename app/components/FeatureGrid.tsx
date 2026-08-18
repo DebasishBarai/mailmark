@@ -5,8 +5,8 @@ const gridFeatures = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
       </svg>
     ),
-    title: "Custom Domains",
-    description: "Send campaigns from your own domain with guided DNS setup and auto-verification.",
+    title: "Multiple Domains",
+    description: "Add every product's domain with guided DNS setup and auto-verification.",
   },
   {
     icon: (
@@ -14,8 +14,8 @@ const gridFeatures = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
       </svg>
     ),
-    title: "Sender Mailboxes",
-    description: "Create outreach@, sales@, newsletters@ and as many sender addresses as you need.",
+    title: "Unlimited Mailboxes",
+    description: "Create hello@, support@, team@ and as many addresses as your products need.",
   },
   {
     icon: (
@@ -24,7 +24,7 @@ const gridFeatures = [
       </svg>
     ),
     title: "Reply Management",
-    description: "Inbox, Sent, Outbox, Drafts, Trash. Manage campaign replies in a complete email client.",
+    description: "Inbox, Sent, Outbox, Drafts, Trash. Handle every product's replies in a complete email client.",
   },
   {
     icon: (
@@ -32,8 +32,8 @@ const gridFeatures = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
       </svg>
     ),
-    title: "Mass Campaigns",
-    description: "Send thousands of personalized emails with mail merge and dynamic fields.",
+    title: "User Campaigns",
+    description: "Announce launches and updates with mail merge, so every email feels one-to-one.",
   },
   {
     icon: (
@@ -65,11 +65,11 @@ const gridFeatures = [
   {
     icon: (
       <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
       </svg>
     ),
-    title: "Team Access",
-    description: "Invite your team, assign sender mailboxes, and manage campaign roles from one dashboard.",
+    title: "API & SDK",
+    description: "Send from your own code with a REST API and the mailmark-sdk npm package.",
   },
 ];
 
@@ -79,11 +79,11 @@ export default function FeatureGrid() {
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
-            Everything you need for email campaigns
+            One tool instead of five
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            Domain setup, deliverability, and campaign analytics. No need for
-            separate services.
+            Domains, inboxes, campaigns, an API, and deliverability. Stop paying
+            for and wiring up a separate service for each.
           </p>
         </div>
         <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

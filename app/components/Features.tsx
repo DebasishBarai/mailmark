@@ -5,8 +5,8 @@ const features = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
       </svg>
     ),
-    title: "Custom Domain Setup",
-    description: "Send campaigns from your own domain. We guide you through DNS setup in minutes so your emails land in inboxes.",
+    title: "Multi-Domain Management",
+    description: "Add every product's domain and manage them side by side. Guided DNS setup gets each one inbox-ready in minutes.",
   },
   {
     icon: (
@@ -14,8 +14,8 @@ const features = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
       </svg>
     ),
-    title: "Unlimited Sender Mailboxes",
-    description: "Create dedicated mailboxes for each campaign: outreach@, sales@, newsletters@. Send from addresses your recipients trust.",
+    title: "Unlimited Mailboxes",
+    description: "Create hello@, support@, team@ for every product you run. Send from addresses your users recognize and trust.",
   },
   {
     icon: (
@@ -24,7 +24,7 @@ const features = [
       </svg>
     ),
     title: "Full Email UI",
-    description: "Manage replies and conversations with a familiar Gmail-like interface. Track campaign responses across all your mailboxes.",
+    description: "Manage replies and conversations with a familiar Gmail-like interface. Every product's mail in one place, not a dozen tabs.",
   },
   {
     icon: (
@@ -32,17 +32,17 @@ const features = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
       </svg>
     ),
-    title: "Mass Email Campaigns",
-    description: "Send thousands of personalized emails with mail merge, dynamic fields, and multi-stage automated follow-ups.",
+    title: "Product Update Campaigns",
+    description: "Announce a launch or new feature to your whole user base with mail merge, dynamic fields, and automated follow-ups. Personal, never a mass blast.",
   },
   {
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 9v.906a2.25 2.25 0 01-1.183 1.981l-6.478 3.488M2.25 9v.906a2.25 2.25 0 001.183 1.981l6.478 3.488m8.839 2.51l-4.66-2.51m0 0l-1.023-.55a2.25 2.25 0 00-2.134 0l-1.022.55m0 0l-4.661 2.51m16.5-1.073a2.25 2.25 0 01-1.183 1.981l-.018.01M2.25 15.156a2.25 2.25 0 001.183 1.981l.018.01M12 2.25c-1.892 0-3.758.11-5.593.322a1.993 1.993 0 00-1.756 1.728A47.24 47.24 0 004.186 9M12 2.25c1.892 0 3.758.11 5.593.322 .894.1 1.597.798 1.756 1.728.147.865.264 1.74.35 2.624" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
       </svg>
     ),
-    title: "List Verification",
-    description: "Clean your contact lists before every campaign. DNS and MX lookups catch bad addresses and protect your sender reputation.",
+    title: "REST API & npm SDK",
+    description: "Send transactional and campaign emails straight from your apps. One API key and the mailmark-sdk package is all your code needs.",
   },
   {
     icon: (
@@ -60,8 +60,8 @@ const features = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z" />
       </svg>
     ),
-    title: "Domain Warming",
-    description: "Gradually ramp up campaign volume on new domains over 28 days so Gmail and Outlook trust your emails from day one.",
+    title: "28-Day Inbox Warming",
+    description: "Every new product domain starts cold. Mailmark ramps up volume over 28 days so Gmail and Outlook trust your mail from day one.",
   },
   {
     icon: (
@@ -69,8 +69,8 @@ const features = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
       </svg>
     ),
-    title: "Sender Reputation Monitoring",
-    description: "Continuously monitor SPF, DKIM, DMARC, and blacklist status. Get alerted before deliverability issues hurt your campaigns.",
+    title: "Deliverability Monitoring",
+    description: "Continuously monitor SPF, DKIM, DMARC, and blacklist status across every domain. Get alerted before a problem reaches your users.",
   },
   {
     icon: (
@@ -79,7 +79,7 @@ const features = [
       </svg>
     ),
     title: "Unsubscribe Management",
-    description: "Stay compliant with one-click unsubscribe for Gmail and Yahoo. Auto-skip opted-out recipients so every campaign stays clean.",
+    description: "Stay compliant with one-click unsubscribe for Gmail and Yahoo. Opted-out users are skipped automatically across every product.",
   },
   {
     icon: (
@@ -88,7 +88,7 @@ const features = [
       </svg>
     ),
     title: "Inbox Placement Testing",
-    description: "Test every campaign against Gmail, Outlook, and Yahoo seed inboxes. Know whether you land in Primary, Promotions, or Spam before you hit send.",
+    description: "Test every send against Gmail, Outlook, and Yahoo seed inboxes. Know whether you land in Primary, Promotions, or Spam before you hit send.",
   },
   {
     icon: (
@@ -97,7 +97,7 @@ const features = [
       </svg>
     ),
     title: "Team Collaboration",
-    description: "Invite your team, assign sender mailboxes, and manage campaign permissions. Everyone works from one dashboard.",
+    description: "Bringing on a cofounder or contractor? Invite them, assign mailboxes per product, and manage permissions from one dashboard.",
   },
 ];
 
@@ -107,11 +107,11 @@ export default function Features() {
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
-            Everything you need to run email campaigns
+            Everything your products need to talk to users
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            From domain setup and deliverability to analytics and auto
-            follow-ups, everything in one platform.
+            Domains, mailboxes, campaigns, an API, and deliverability, for one
+            product or ten, all in a single platform.
           </p>
         </div>
         <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">

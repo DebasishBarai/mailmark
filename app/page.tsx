@@ -4,6 +4,7 @@ import Hero from "./components/Hero";
 import VideoDemo from "./components/VideoDemo";
 import Features from "./components/Features";
 import FeatureShowcase from "./components/FeatureShowcase";
+import DeveloperSection from "./components/DeveloperSection";
 import PersonalizationDemo from "./components/PersonalizationDemo";
 import FeatureGrid from "./components/FeatureGrid";
 import Testimonials from "./components/Testimonials";
@@ -15,9 +16,9 @@ import CTABanner from "./components/CTABanner";
 import Footer from "./components/Footer";
 
 export const metadata: Metadata = {
-  title: "Mailmark - Email Hosting & Campaigns for Your Domain",
+  title: "Mailmark - One Email Platform for All Your Products",
   description:
-    "Add your domain, create unlimited mailboxes, and run powerful email campaigns. A complete email platform with inbox, sent, outbox, and built-in campaign tools.",
+    "Built for developers running more than one product. Manage every product's domain and mailboxes, send update campaigns to your users, and send email from your code with a REST API and npm SDK, all in one dashboard.",
   openGraph: {
     type: "website",
     url: "https://www.mailmark.dev",
@@ -34,7 +35,7 @@ const organizationSchema = {
   url: "https://www.mailmark.dev",
   logo: "https://www.mailmark.dev/og-image.png",
   description:
-    "Add your domain, create unlimited mailboxes, and run powerful email campaigns.",
+    "One email platform for developers running multiple products: multi-domain mailboxes, user campaigns, and a send API with npm SDK.",
 };
 
 const websiteSchema = {
@@ -60,6 +61,7 @@ export default function Home() {
       <VideoDemo />
       <Features />
       <FeatureShowcase />
+      <DeveloperSection />
       <PersonalizationDemo />
       <FeatureGrid />
       <PlatformStats />

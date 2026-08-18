@@ -7,23 +7,25 @@ export default function Hero() {
         <div className="grid items-center gap-12 md:grid-cols-2">
           {/* Text */}
           <div className="flex flex-col items-center text-center md:items-start md:text-left">
+            {/* Old badge: Email Campaign Platform */}
             <span className="mb-4 inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
-              Email Campaign Platform
+              Built for multi-product developers
             </span>
+            {/* Old headline: Send campaigns that land in inboxes, not spam. */}
             <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 dark:text-white md:text-5xl lg:text-6xl">
-              Send campaigns{" "}
-              <span className="text-violet-600">that land in inboxes,</span>{" "}
-              not spam.
+              One dashboard for{" "}
+              <span className="text-violet-600">every product&rsquo;s email.</span>
             </h1>
+            {/* Old subhead: Run email campaigns from your own domain... */}
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-gray-600 dark:text-gray-400">
-              Run email campaigns from your own domain with built-in
-              mail merge, automated follow-ups, and real-time analytics.
-              Connect your domain, create sender mailboxes, and start
-              reaching inboxes in minutes.
+              Stop juggling ten domains, dozens of mailboxes, and five separate
+              tools just to talk to your users. Manage every product&rsquo;s
+              inbox, send updates and campaigns, and fire off emails straight
+              from your code, all from one place.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <CTAButton className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-200 transition-all hover:bg-violet-700 hover:shadow-xl dark:shadow-violet-900/30">
-                Start Free Trial
+                Start Building Free
               </CTAButton>
               <a
                 href="#how-it-works"
@@ -32,9 +34,10 @@ export default function Hero() {
                 See How It Works
               </a>
             </div>
+            {/* Old line: Built-in deliverability. No third-party tools needed. */}
             <p className="mt-8 text-sm font-medium text-gray-500 dark:text-gray-400">
-              Built-in deliverability.{" "}
-              <span className="text-gray-800 dark:text-gray-200">No third-party tools needed.</span>
+              One login for every product.{" "}
+              <span className="text-gray-800 dark:text-gray-200">No more tool sprawl.</span>
             </p>
           </div>
 
@@ -47,7 +50,7 @@ export default function Hero() {
                 <div className="h-3 w-3 rounded-full bg-yellow-400" />
                 <div className="h-3 w-3 rounded-full bg-green-400" />
                 <span className="ml-3 text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Mailmark | sales@yourco.com
+                  Mailmark | all your products
                 </span>
               </div>
               <div className="flex">
@@ -79,10 +82,10 @@ export default function Hero() {
                   </div>
                   <div className="mt-4 border-t border-gray-200 pt-3 dark:border-gray-700">
                     <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                      Mailboxes
+                      Your products
                     </p>
                     <div className="space-y-1">
-                      {["sales@yourco.com", "support@yourco.com", "info@yourco.com"].map(
+                      {["hello@app-one.com", "support@app-two.io", "team@app-three.co"].map(
                         (mb, i) => (
                           <div
                             key={mb}
@@ -125,8 +128,8 @@ export default function Hero() {
                         unread: false,
                       },
                       {
-                        from: "Campaign: Welcome Series",
-                        subject: "Stage 2 sent, 847 recipients",
+                        from: "Campaign: v2.0 is live",
+                        subject: "Sent to 1,284 users on app-one.com",
                         preview: "Open rate: 42% · Click rate: 12%...",
                         time: "5h",
                         unread: false,

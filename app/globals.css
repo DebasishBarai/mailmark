@@ -22,21 +22,75 @@
 }
 
 /* ==============================
-   Default / Clean White (no overrides needed — uses Tailwind defaults)
+   Default / Clean White
+   Warm cream background with a terracotta accent.
+   Old palette (pure white + violet) kept for reference:
+     --background: #ffffff;  --foreground: #111827;
+     --surface: #f9fafb;     --surface-hover: #f3f4f6;
+     --border: #e5e7eb;      --muted: #6b7280;
+     --accent: #7c3aed;      --accent-hover: #6d28d9;  --accent-text: #ffffff;
+     --input-bg: #ffffff;    (violet/gray scales used Tailwind defaults)
    ============================== */
 
 :root,
 [data-theme="clean-white"] {
-  --background: #ffffff;
-  --foreground: #111827;
-  --surface: #f9fafb;
-  --surface-hover: #f3f4f6;
-  --border: #e5e7eb;
-  --muted: #6b7280;
-  --accent: #7c3aed;
-  --accent-hover: #6d28d9;
-  --accent-text: #ffffff;
-  --input-bg: #ffffff;
+  --background: #f6ede3;
+  --foreground: #2b2018;
+  --surface: #efe4d6;
+  --surface-hover: #e8dbcb;
+  --border: #e3d5c4;
+  --muted: #8a7862;
+  --accent: #b4552f;
+  --accent-hover: #9c4526;
+  --accent-text: #f7eee4;
+  --input-bg: #fbf5ee;
+
+  /* Remap gray scale → warm sand/taupe (light→dark preserved for text) */
+  --color-gray-50: #f7efe5;
+  --color-gray-100: #efe4d6;
+  --color-gray-200: #e3d5c4;
+  --color-gray-300: #cdbba6;
+  --color-gray-400: #a8967f;
+  --color-gray-500: #8a7862;
+  --color-gray-600: #6f6154;
+  --color-gray-700: #574b40;
+  --color-gray-800: #3d342b;
+  --color-gray-900: #2b2018;
+  --color-gray-950: #1c140e;
+
+  /* Remap violet → terracotta (accent) */
+  --color-violet-50: #f9ece4;
+  --color-violet-100: #f0d9ce;
+  --color-violet-200: #e3bba9;
+  --color-violet-300: #d19878;
+  --color-violet-400: #c4744f;
+  --color-violet-500: #b85a34;
+  --color-violet-600: #b4552f;
+  --color-violet-700: #9c4526;
+  --color-violet-800: #7e3a22;
+  --color-violet-900: #f9ece4;
+  --color-violet-950: #fdf4ef;
+
+  /* Remap purple → espresso (used as the CTA gradient's dark end) */
+  --color-purple-500: #7e3a22;
+  --color-purple-600: #4a3423;
+  --color-purple-700: #2e2116;
+  --color-purple-800: #241a11;
+
+  /* Warm the base white so bg-white surfaces read as cream */
+  --color-white: #f7eee4;
+}
+
+/* Dark themes rely on a pure white for text-white; clean-white warms
+   --color-white to cream, so pin these back to #ffffff. */
+[data-theme="enterprise-dark"],
+[data-theme="matrix"],
+[data-theme="dracula"],
+[data-theme="nord"],
+[data-theme="solarized-dark"],
+[data-theme="cyberpunk"],
+[data-theme="high-contrast"] {
+  --color-white: #ffffff;
 }
 
 /* ==============================

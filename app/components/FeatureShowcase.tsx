@@ -1,12 +1,12 @@
 const showcaseItems = [
   {
-    title: "Connect Your Domain",
+    title: "Add Every Product's Domain",
     description:
-      "Add your own domain so campaigns go out from addresses your recipients recognize. Mailmark walks you through DNS setup step by step, including MX, SPF, DKIM, and DMARC for maximum deliverability.",
+      "Bring all your products under one roof. Add each domain and Mailmark walks you through DNS setup step by step, including MX, SPF, DKIM, and DMARC. No more logging into a different provider for every app you ship.",
     bullets: [
-      "Guided DNS configuration wizard",
-      "Auto-verify MX, SPF, DKIM & DMARC",
-      "Campaign-ready deliverability from day one",
+      "Add unlimited product domains",
+      "Guided DNS setup with auto-verify",
+      "MX, SPF, DKIM & DMARC in one flow",
     ],
     visual: (
       <div className="space-y-3">
@@ -44,23 +44,23 @@ const showcaseItems = [
     gradient: "from-green-100 via-emerald-50 to-teal-100 dark:from-green-950/50 dark:via-emerald-950/50 dark:to-teal-950/50",
   },
   {
-    title: "Create Sender Mailboxes",
+    title: "One Inbox Per Product",
     description:
-      "Spin up dedicated mailboxes for each campaign type: outreach@, sales@, newsletters@. Each has its own inbox to manage replies. Switch between them instantly.",
+      "Spin up the mailboxes each product needs: hello@, support@, team@. Every product's mail lives in its own inbox, but you manage them all from a single dashboard instead of a dozen logins.",
     bullets: [
       "One-click mailbox creation",
       "Per-mailbox sender signatures",
-      "Separate inboxes for campaign replies",
+      "Every product's inbox in one place",
     ],
     visual: (
       <div className="space-y-2">
         <div className="rounded-lg bg-white p-4 shadow-sm dark:bg-gray-700">
-          <p className="mb-3 text-xs font-semibold text-gray-700 dark:text-gray-300">Your Mailboxes | yourcompany.com</p>
+          <p className="mb-3 text-xs font-semibold text-gray-700 dark:text-gray-300">Your Mailboxes | across all products</p>
           {[
-            { email: "sales@yourcompany.com", count: 24, active: true },
-            { email: "support@yourcompany.com", count: 8, active: false },
-            { email: "info@yourcompany.com", count: 3, active: false },
-            { email: "ceo@yourcompany.com", count: 1, active: false },
+            { email: "hello@app-one.com", count: 24, active: true },
+            { email: "support@app-two.io", count: 8, active: false },
+            { email: "team@app-three.co", count: 3, active: false },
+            { email: "billing@app-four.app", count: 1, active: false },
           ].map((mb) => (
             <div key={mb.email} className={`mb-1.5 flex items-center justify-between rounded-md px-3 py-2 text-xs ${mb.active ? "bg-violet-50 ring-1 ring-violet-200 dark:bg-violet-900/30 dark:ring-violet-700" : "bg-gray-50 dark:bg-gray-600"}`}>
               <div className="flex items-center gap-2">
@@ -80,11 +80,11 @@ const showcaseItems = [
     gradient: "from-violet-100 via-purple-50 to-fuchsia-100 dark:from-violet-950/50 dark:via-purple-950/50 dark:to-fuchsia-950/50",
   },
   {
-    title: "Manage Replies in One Place",
+    title: "Reply From a Familiar Inbox",
     description:
-      "Every campaign reply lands in a familiar email UI: Inbox, Sent, Outbox, Drafts, and Trash. Respond to leads, manage conversations, and search across everything.",
+      "When a user replies, it lands in a familiar email UI: Inbox, Sent, Outbox, Drafts, and Trash. Answer support questions, manage conversations, and search across every product's mail without leaving Mailmark.",
     bullets: [
-      "Gmail-like inbox for campaign replies",
+      "Gmail-like inbox for every product",
       "Rich text composer with attachments",
       "Full-text search across all mail",
     ],
@@ -122,22 +122,22 @@ const showcaseItems = [
     gradient: "from-blue-100 via-sky-50 to-cyan-100 dark:from-blue-950/50 dark:via-sky-950/50 dark:to-cyan-950/50",
   },
   {
-    title: "Launch and Track Campaigns",
+    title: "Send Updates to Your Users",
     description:
-      "Pick a sender mailbox, upload your contact list, personalize with merge tags, and launch. Set up automated follow-up sequences and track opens, clicks, and replies in real time.",
+      "Shipped v2? Tell everyone at once. Pick a mailbox, drop in your user list, personalize with merge tags, and send. Each person gets their own email, so it never looks like a mass blast with the whole list in the To field.",
     bullets: [
-      "Mail merge with CSV or Google Sheets",
-      "Multi-stage automated follow-ups",
+      "Mail merge so every email feels personal",
+      "No visible recipient list, one email each",
       "Real-time open, click & reply tracking",
     ],
     visual: (
       <div className="space-y-2">
         <div className="rounded-lg bg-white p-4 shadow-sm dark:bg-gray-700">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Campaign: Product Launch</p>
+            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Campaign: v2.0 is live</p>
             <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/40 dark:text-green-400">Sending</span>
           </div>
-          <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">From: sales@yourcompany.com</p>
+          <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">From: hello@app-one.com</p>
           <div className="mt-3 grid grid-cols-4 gap-2">
             {[
               { label: "Sent", value: "1,247" },
@@ -178,7 +178,8 @@ export default function FeatureShowcase() {
             How Mailmark works
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            From domain setup to your first campaign in four simple steps.
+            From your first product domain to talking to your users, in four
+            simple steps.
           </p>
         </div>
 
