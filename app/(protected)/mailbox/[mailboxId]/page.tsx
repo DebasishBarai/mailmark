@@ -13,6 +13,7 @@ import { resolveMergeFields, extractMergeFields } from "@/lib/mergeFields";
 import { parseCSV, detectEmailColumn } from "@/lib/csvParser";
 import MergeFieldToolbar from "./components/MergeFieldToolbar";
 import MergePreview from "./components/MergePreview";
+import EmailBodyFrame from "./components/EmailBodyFrame";
 import type { MergeRecipient } from "./components/MergeImport";
 
 const folderConfig: { key: string; label: string; navHidden?: boolean }[] = [
@@ -1924,7 +1925,11 @@ export default function MailboxPage() {
                     <div className="h-4 w-2/3 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
                   </div>
                 ) : emailBody ? (
-                  <div dangerouslySetInnerHTML={{ __html: emailBody }} />
+                  // Render received email HTML in a sandboxed, white-background
+                  // iframe so it stays readable in both light and dark themes
+                  // instead of clashing with the app theme.
+                  // <div dangerouslySetInnerHTML={{ __html: emailBody }} />
+                  <EmailBodyFrame html={emailBody} />
                 ) : (
                   <p>{selectedEmail.snippet}</p>
                 )}
