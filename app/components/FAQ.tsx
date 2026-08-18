@@ -6,7 +6,7 @@ const faqs = [
   {
     question: "What is Mailmark?",
     answer:
-      "Mailmark is an email campaign platform built around custom domains. You connect your own domain, create sender mailboxes, and run personalized campaigns with built-in deliverability, analytics, and automated follow-ups, all from a single dashboard.",
+      "Mailmark is an all-in-one email platform for developers who run more than one product. Add every product's domain, create mailboxes, send update campaigns to your users, and send email programmatically through a REST API and npm SDK, all from a single dashboard with deliverability built in.",
   },
   {
     question: "Can I use my own custom domain?",
@@ -16,12 +16,17 @@ const faqs = [
   {
     question: "How many mailboxes can I create?",
     answer:
-      "The Starter plan supports up to 3 sender mailboxes on a single domain. The Pro plan gives you unlimited mailboxes across 5 domains for running multiple campaigns, and the Business plan lifts all limits for full-scale outreach.",
+      "The Starter plan supports up to 3 mailboxes on a single domain. The Pro plan gives you unlimited mailboxes across 5 domains, ideal when you run several products, and the Business plan lifts all limits for a whole portfolio.",
   },
   {
     question: "What campaign features are included?",
     answer:
       "Every plan includes email campaigns. Compose rich HTML emails, import or build your recipient list, personalize with merge tags, schedule sends, and track opens, clicks, and deliverability in the built-in analytics dashboard. Multi-stage automated follow-up sequences are also included.",
+  },
+  {
+    question: "Can I send email from my own app?",
+    answer:
+      "Yes. Every domain comes with a REST API and the mailmark-sdk npm package (install with bun add mailmark-sdk). Generate an API key, then call client.send() to fire transactional emails like welcome messages, receipts, and password resets, or campaign sends to your whole user list. You can also schedule sends, run sequences, and pull delivery stats programmatically. Full reference lives in the API docs.",
   },
   {
     question: "Is there a free trial?",

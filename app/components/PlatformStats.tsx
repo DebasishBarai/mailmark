@@ -79,7 +79,7 @@ export default function PlatformStats() {
     <section className="border-y border-gray-100 bg-white px-6 py-16 dark:border-gray-800 dark:bg-gray-900">
       <div className="mx-auto max-w-5xl">
         <p className="mb-10 text-center text-sm font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-          Trusted by growing businesses
+          Powering products behind the scenes
         </p>
         <div className="grid gap-8 sm:grid-cols-3">
           {statsConfig.map((s) => (

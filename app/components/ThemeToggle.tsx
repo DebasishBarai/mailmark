@@ -12,7 +12,7 @@ import {
 } from "./ThemeProvider";
 
 const THEME_PREVIEW_COLORS: Record<ThemeId, { bg: string; fg: string; accent: string }> = {
-  "clean-white": { bg: "#ffffff", fg: "#111827", accent: "#7c3aed" },
+  "clean-white": { bg: "#f6ede3", fg: "#2b2018", accent: "#b4552f" },
   "enterprise-dark": { bg: "#0f172a", fg: "#e2e8f0", accent: "#3b82f6" },
   "notion": { bg: "#fafaf9", fg: "#37352f", accent: "#2f80ed" },
   "matrix": { bg: "#000000", fg: "#00ff9c", accent: "#00ff9c" },
