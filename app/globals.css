@@ -3,24 +3,82 @@
 @variant dark (&:where(.dark, .dark *));
 
 /* ==============================
-   Viewport-height utilities with a vh fallback
+   Mailbox viewport lock
 
-   Mobile browsers that do not support the `dvh` unit drop an invalid
-   `calc(100dvh - ...)` declaration and fall back to `height: auto`. On the
-   mailbox page that makes the fixed-height, overflow-hidden shell grow with a
-   long email, so the whole DOCUMENT scrolls (the browser URL bar hides) instead
-   of the email scrolling inside its pane. Declaring a valid `vh` value first
-   keeps the shell bounded everywhere; the `dvh` value overrides it when the
-   browser supports it (avoiding the URL-bar height jump). Keep both lines: the
-   `vh` fallback is load-bearing, not redundant.
+   The mailbox is a full-screen app view: the document itself must never
+   scroll, only the inner panes (email list / open email body). On mobile it
+   did: opening a long email scrolled the WHOLE PAGE (the URL bar hid as you
+   dragged the email) instead of scrolling the email inside its pane, and the
+   `fixed` sidebar then painted across the scrolled page.
+
+   `overflow: hidden` on the shell plus a `dvh` height is not enough to prevent
+   that, because it leaves the ROOT a scroller:
+
+   - a touch drag that chains out of an inner pane (or out of the sandboxed
+     iframe the email body renders in, which on mobile can chain past the pane)
+     lands on the root and moves the page;
+   - `vh` resolves against the LARGE viewport (URL bar hidden), so a shell
+     sized in `vh` leaves the root scrollable by exactly the URL bar height;
+   - browsers without `dvh` drop the height declaration altogether and the
+     shell stops being viewport-sized at all.
+
+   `.mailbox-locked` is set on <html> by the mailbox page while it is mounted
+   and is the guarantee: the root and <body> get a viewport height and
+   `overflow: hidden`, and a root with no scrollport cannot scroll on any
+   browser, whatever a rendered email does. Under the lock the shell chain is
+   sized in plain percentages (<html> -> <body> -> .app-shell -> .app-main ->
+   .mailbox-shell), which every browser resolves against the real, current
+   viewport, so the height matches what is visible without `dvh` and nothing
+   ends up below the fold.
    ============================== */
-@utility h-shell-below-topbar {
-  height: calc(100vh - 3.5rem);
+
+/* Shell size before the lock effect runs (first paint). */
+.mailbox-shell {
+  /* Mobile: the app's top bar is fixed and 3.5rem tall. */
   height: calc(100dvh - 3.5rem);
 }
-@utility h-shell {
-  height: 100vh;
-  height: 100dvh;
+@media (min-width: 48rem) {
+  .mailbox-shell {
+    height: 100dvh;
+  }
+}
+/* `vh` restatement for browsers without `dvh`, which otherwise drop the rules
+   above and leave the shell with no viewport height at all.
+   This MUST stay inside `@supports`: written as a second `height` line in the
+   same rule, the build's CSS minifier deletes it as redundant (its browser
+   targets all support `dvh`), which is how this fallback silently went missing
+   before. Verify with:
+     bun run build && grep -o '\.mailbox-shell{[^}]*}' .next/static/chunks/*.css
+   */
+@supports not (height: 1dvh) {
+  .mailbox-shell {
+    height: calc(100vh - 3.5rem);
+  }
+  @media (min-width: 48rem) {
+    .mailbox-shell {
+      height: 100vh;
+    }
+  }
+}
+
+/* Document lock, applied to <html> while the mailbox page is mounted. */
+html.mailbox-locked,
+html.mailbox-locked body {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  /* Stop touch drags at the edge of an inner pane from bouncing the page. */
+  overscroll-behavior: none;
+}
+
+/* Percentage height chain: <body> -> app shell -> <main> -> mailbox shell.
+   These are unlayered rules, so they win over the Tailwind utilities on the
+   same elements (`min-h-dvh` on the app shell) regardless of specificity. */
+html.mailbox-locked .app-shell,
+html.mailbox-locked .app-main,
+html.mailbox-locked .mailbox-shell {
+  height: 100%;
+  min-height: 0;
 }
 
 /* ==============================
