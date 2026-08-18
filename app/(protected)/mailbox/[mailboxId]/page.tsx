@@ -1255,6 +1255,23 @@ export default function MailboxPage() {
     return () => setFolderSection(null);
   }, [activeFolder, unreadCount, domainMailboxes, senderGroups, mbId, handleOpenCompose, setFolderSection, closeMobile, mailbox, updateSignature]);
 
+  // Lock the document to the viewport while the mailbox is open.
+  //
+  // The shell is already `overflow-hidden` and viewport-sized, but that only
+  // stops the SHELL from scrolling: the root stays a scroller, so on mobile a
+  // drag that chained out of a pane (notably out of the email body's iframe)
+  // scrolled the whole page, hiding the URL bar and dragging the `fixed`
+  // sidebar across it. Giving <html> `overflow: hidden` removes the document's
+  // scrollport outright, so no browser can scroll the page no matter what a
+  // rendered email does. The class also switches the shell's height chain from
+  // `vh`/`dvh` to plain percentages (see `.mailbox-locked` in globals.css) so
+  // it matches the visible viewport even where `dvh` is unsupported.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("mailbox-locked");
+    return () => root.classList.remove("mailbox-locked");
+  }, []);
+
   const handleReply = () => {
     if (!selectedEmail || !emailBody) return;
     setComposeMode("reply");
@@ -1368,7 +1385,7 @@ export default function MailboxPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-shell-below-topbar flex-col overflow-hidden md:h-shell">
+      <div className="mailbox-shell flex flex-col overflow-hidden">
         <div className="flex items-center border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-6 py-3">
           <div className="h-6 w-48 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
         </div>
@@ -1402,7 +1419,7 @@ export default function MailboxPage() {
   }
 
   return (
-    <div className="flex h-shell-below-topbar flex-col overflow-hidden md:h-shell">
+    <div className="mailbox-shell flex flex-col overflow-hidden">
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 md:px-6">
         <div className="flex min-w-0 items-center gap-2 md:gap-3">
@@ -1498,7 +1515,7 @@ export default function MailboxPage() {
               )}
             </div>
           </div>
-          <div className="flex-1 overflow-x-hidden overflow-y-auto">
+          <div className="flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
             {activeFolder === "follow-ups" ? (
               <div className="divide-y divide-gray-50 dark:divide-gray-700/30">
                 {!mailboxSequences || mailboxSequences.length === 0 ? (
@@ -1649,7 +1666,7 @@ export default function MailboxPage() {
           const isBatchDetail = (selectedGroup?.isBatch) ?? false;
           const batchAllRecipients = batchEmails.flatMap((e) => e.to);
           return (
-            <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-white dark:bg-gray-800 p-4 md:p-8">
+            <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-white dark:bg-gray-800 p-4 md:p-8">
               <div className="mb-6 flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <h2 className="break-words text-lg font-semibold text-gray-900 dark:text-white md:text-xl">
@@ -1971,7 +1988,7 @@ export default function MailboxPage() {
           const selectedSeq = mailboxSequences?.find((s) => s._id === expandedSequenceId);
           if (!selectedSeq) return null;
           return (
-            <div className="min-w-0 flex-1 overflow-y-auto bg-white dark:bg-gray-800 p-4 md:p-8">
+            <div className="min-w-0 flex-1 overflow-y-auto overscroll-contain bg-white dark:bg-gray-800 p-4 md:p-8">
               <div className="mb-6 flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -2202,7 +2219,7 @@ export default function MailboxPage() {
 
         {/* Compose panel - inline in the right pane */}
         {showCompose && (
-          <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-800 p-4 md:p-8">
+          <div className="min-w-0 flex-1 overflow-y-auto overscroll-contain bg-white dark:bg-gray-800 p-4 md:p-8">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white md:text-xl">
                 {{ compose: "New Message", reply: "Reply", replyAll: "Reply All", forward: "Forward" }[composeMode]}

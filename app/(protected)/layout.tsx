@@ -243,7 +243,7 @@ function AppShell({ children }: { children: ReactNode }) {
   }, [closeMobile, setCloseMobile]);
 
   return (
-    <div className="flex min-h-dvh bg-gray-50 dark:bg-gray-900">
+    <div className="app-shell flex min-h-dvh bg-gray-50 dark:bg-gray-900">
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
@@ -375,7 +375,7 @@ function AppShell({ children }: { children: ReactNode }) {
 
       {/* Main content */}
       <main
-        className={`flex-1 pt-14 transition-all md:pt-0 ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"
+        className={`app-main min-w-0 flex-1 pt-14 transition-all md:pt-0 ${sidebarCollapsed ? "md:ml-16" : "md:ml-60"
           }`}
       >
         <TrialGate>{children}</TrialGate>
