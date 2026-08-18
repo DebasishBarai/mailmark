@@ -64,17 +64,18 @@ export default function EmailBodyFrame({ html }: { html: string }) {
     const measure = () => {
       const doc = iframe.contentDocument;
       if (!doc || !doc.body) return;
-      // Measure the content wrapper's rendered box (padding included) rather
-      // than body.scrollHeight, which can round down and undershoot by a few
-      // pixels; that undershoot is what made the iframe scroll itself.
+      // Measure the content wrapper's rendered box (padding included). Do NOT
+      // fall back to documentElement.scrollHeight: for the root element that
+      // value never reports below the iframe's own viewport height, so once
+      // the frame grows it can never shrink, leaving blank space below short
+      // emails. The wrapper's box is the true content height and tracks both
+      // directions. body.scrollHeight can round down and cause an undershoot,
+      // so it is not used either.
       const wrapper = doc.getElementById("mm-email-content");
-      const next = Math.max(
-        wrapper ? Math.ceil(wrapper.getBoundingClientRect().height) : 0,
-        doc.body.scrollHeight,
-        doc.documentElement.scrollHeight
-      );
-      // +1px guards against sub-pixel rounding forcing a nested scrollbar.
-      if (next > 0) setHeight(next + 1);
+      const next = wrapper
+        ? Math.ceil(wrapper.getBoundingClientRect().height)
+        : doc.body.scrollHeight;
+      if (next > 0) setHeight(next);
     };
 
     const handleLoad = () => {
