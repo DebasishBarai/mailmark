@@ -3,6 +3,27 @@
 @variant dark (&:where(.dark, .dark *));
 
 /* ==============================
+   Viewport-height utilities with a vh fallback
+
+   Mobile browsers that do not support the `dvh` unit drop an invalid
+   `calc(100dvh - ...)` declaration and fall back to `height: auto`. On the
+   mailbox page that makes the fixed-height, overflow-hidden shell grow with a
+   long email, so the whole DOCUMENT scrolls (the browser URL bar hides) instead
+   of the email scrolling inside its pane. Declaring a valid `vh` value first
+   keeps the shell bounded everywhere; the `dvh` value overrides it when the
+   browser supports it (avoiding the URL-bar height jump). Keep both lines: the
+   `vh` fallback is load-bearing, not redundant.
+   ============================== */
+@utility h-shell-below-topbar {
+  height: calc(100vh - 3.5rem);
+  height: calc(100dvh - 3.5rem);
+}
+@utility h-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* ==============================
    Tailwind Theme Token Mapping
    ============================== */
 
