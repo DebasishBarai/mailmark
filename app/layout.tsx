@@ -1,8 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
+// Old fonts: Geist Sans / Geist Mono
+// import { GeistSans } from "geist/font/sans";
+// import { GeistMono } from "geist/font/mono";
+import { Fraunces, Schibsted_Grotesk, DM_Mono } from "next/font/google";
 import { Suspense } from "react";
 import ConvexClientProvider from "./components/ConvexClientProvider";
 import ThemeProvider from "./components/ThemeProvider";
@@ -11,8 +13,31 @@ import PreferenceSync from "./components/PreferenceSync";
 import RefCapture from "./components/RefCapture";
 import "./globals.css";
 
-const geistSans = GeistSans;
-const geistMono = GeistMono;
+// const geistSans = GeistSans;
+// const geistMono = GeistMono;
+
+// Editorial type stack from the landing page design.
+// Fraunces is the display serif (headlines), Schibsted Grotesk the UI sans,
+// DM Mono the monospace face for labels and code.
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-fraunces",
+  axes: ["SOFT", "WONK", "opsz"],
+});
+
+const schibstedGrotesk = Schibsted_Grotesk({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-schibsted-grotesk",
+});
+
+const dmMono = DM_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500"],
+  variable: "--font-dm-mono",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.mailmark.dev"),
@@ -54,8 +79,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      {/* Old: className={`${geistSans.variable} ${geistMono.variable} antialiased`} */}
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${schibstedGrotesk.variable} ${fraunces.variable} ${dmMono.variable} antialiased`}
       >
         <ThemeProvider>
           <ClerkThemeProvider>

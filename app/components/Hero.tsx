@@ -12,16 +12,23 @@ export default function Hero() {
               Built for multi-product developers
             </span>
             {/* Old headline: Send campaigns that land in inboxes, not spam. */}
-            <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 dark:text-white md:text-5xl lg:text-6xl">
-              One dashboard for{" "}
-              <span className="text-violet-600">every product&rsquo;s email.</span>
+            {/* Old headline: One dashboard for every product's email. */}
+            <h1 className="font-display text-4xl leading-[1.06] text-gray-900 dark:text-white md:text-5xl lg:text-6xl">
+              One email system for{" "}
+              <em className="italic text-violet-600">every</em> product you
+              ship.
             </h1>
             {/* Old subhead: Run email campaigns from your own domain... */}
-            <p className="mt-6 max-w-lg text-lg leading-relaxed text-gray-600 dark:text-gray-400">
-              Stop juggling ten domains, dozens of mailboxes, and five separate
-              tools just to talk to your users. Manage every product&rsquo;s
-              inbox, send updates and campaigns, and fire off emails straight
-              from your code, all from one place.
+            {/* Old subhead: Stop juggling ten domains, dozens of mailboxes... */}
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-gray-600 dark:text-gray-400">
+              Every app needs its own domain. Every domain needs its own
+              mailboxes just to talk to users. Run four products and you&rsquo;re
+              maintaining{" "}
+              <strong className="font-semibold text-gray-900 dark:text-gray-100">
+                four domains, a dozen mailboxes, and five separate tools
+              </strong>
+              , before you&rsquo;ve sent a single email. Mailmark is all of it,
+              once.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <CTAButton className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-violet-200 transition-all hover:bg-violet-700 hover:shadow-xl dark:shadow-violet-900/30">
