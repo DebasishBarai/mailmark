@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import SectionHeader from "./SectionHeader";
 
 const SNIPPETS = {
@@ -35,6 +35,69 @@ await client.send({
     "type": "transactional"
   }'`,
 };
+
+// Token colors from the design's code panel. They are fixed rather than themed:
+// the panel is dark under every theme, and these warm hues belong to the same
+// paper/ink family as the rest of the page.
+const TOKEN_CLASS = {
+  comment: "italic text-[#6f6959]",
+  string: "text-[#9fbf8c]",
+  keyword: "text-[#e39d7c]",
+  fn: "text-[#dcc98a]",
+} as const;
+
+const TOKEN_KINDS = ["comment", "string", "keyword", "fn"] as const;
+
+// A deliberately small highlighter. The two snippets are fixed and short, so
+// this covers exactly the syntax they use rather than pulling a highlighting
+// dependency into the bundle for one panel.
+//
+// Written with numbered groups and no lookbehind, because the project targets
+// below ES2018 and Safari only gained lookbehind in 16.4.
+//
+// The leading URL alternative captures nothing, so it is emitted as plain text,
+// but it consumes the https:// in the cURL snippet before the comment rule can
+// mistake those slashes for a line comment. The keyword rule refuses a
+// following colon, so the object key `from:` stays a plain key while the `from`
+// of an import stays a keyword.
+const TOKEN_PATTERN = new RegExp(
+  [
+    "[a-z][a-z0-9+.-]*://\\S*",
+    "(//[^\\n]*)",
+    "('[^'\\n]*'|\"[^\"\\n]*\")",
+    "\\b(import|from|const|await|new|export|return|async|function|let)\\b(?!\\s*:)",
+    "\\b([A-Za-z_$][\\w$]*)(?=\\()",
+  ].join("|"),
+  "g"
+);
+
+function highlight(source: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  let cursor = 0;
+  let key = 0;
+  let match: RegExpExecArray | null;
+
+  TOKEN_PATTERN.lastIndex = 0;
+  while ((match = TOKEN_PATTERN.exec(source)) !== null) {
+    const kindIndex = TOKEN_KINDS.findIndex(
+      (_, i) => match?.[i + 1] !== undefined
+    );
+    // No capture group matched: this is the URL guard, so leave it as plain
+    // text by not advancing the cursor past it.
+    if (kindIndex === -1) continue;
+
+    if (match.index > cursor) out.push(source.slice(cursor, match.index));
+    out.push(
+      <span key={key++} className={TOKEN_CLASS[TOKEN_KINDS[kindIndex]]}>
+        {match[0]}
+      </span>
+    );
+    cursor = match.index + match[0].length;
+  }
+
+  if (cursor < source.length) out.push(source.slice(cursor));
+  return out;
+}
 
 const bullets = [
   "One API key per domain, scoped to that product",
@@ -139,8 +202,8 @@ export default function DeveloperSection() {
                 {copied ? "Copied!" : "Copy"}
               </button>
             </div>
-            <pre className="overflow-x-auto p-5 text-xs leading-relaxed text-gray-100">
-              <code>{SNIPPETS[tab]}</code>
+            <pre className="overflow-x-auto p-5 text-xs leading-relaxed text-[#e7e1d5]">
+              <code>{highlight(SNIPPETS[tab])}</code>
             </pre>
           </div>
         </div>
