@@ -84,8 +84,8 @@ export default function Pricing() {
         <SectionHeader
           index="09"
           label="Pricing"
-          title="Simple, transparent pricing"
-          subtitle="Starter and Pro plans include a 7-day free trial."
+          title="Priced by how much you ship"
+          subtitle="Starter and Pro include a 7-day free trial. Billing details are taken when you start it, nothing is charged until day 8, and cancelling before then costs you nothing."
         />
 
         {/* Trial banner */}
