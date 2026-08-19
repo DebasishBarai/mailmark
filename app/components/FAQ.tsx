@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import SectionHeader from "./SectionHeader";
 
 const faqs = [
   {
@@ -82,16 +83,14 @@ export default function FAQ() {
   return (
     <section id="faq" className="bg-gray-50 px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-3xl">
-        <div className="text-center">
-          <h2 className="font-display text-3xl text-gray-900 dark:text-white md:text-4xl">
-            Frequently asked questions
-          </h2>
-          <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
-            Everything you need to know about Mailmark.
-          </p>
-        </div>
+        <SectionHeader
+          index="10"
+          label="Questions"
+          title="Frequently asked questions"
+          subtitle="Everything you need to know about Mailmark."
+        />
 
-        <dl className="mt-16 divide-y divide-gray-200 dark:divide-gray-700">
+        <dl className="divide-y divide-gray-200 dark:divide-gray-700">
           {faqs.map((faq, index) => {
             const isOpen = openIndex === index;
             return (

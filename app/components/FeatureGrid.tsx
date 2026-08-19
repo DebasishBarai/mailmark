@@ -1,3 +1,5 @@
+import SectionHeader from "./SectionHeader";
+
 const gridFeatures = [
   {
     icon: (
@@ -77,16 +79,13 @@ export default function FeatureGrid() {
   return (
     <section className="bg-white px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
-        <div className="text-center">
-          <h2 className="font-display text-3xl text-gray-900 dark:text-white md:text-4xl">
-            One tool instead of five
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            Domains, inboxes, campaigns, an API, and deliverability. Stop paying
-            for and wiring up a separate service for each.
-          </p>
-        </div>
-        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <SectionHeader
+          index="07"
+          label="One tool, not five"
+          title="One tool instead of five"
+          subtitle="Domains, inboxes, campaigns, an API, and deliverability. Stop paying for and wiring up a separate service for each."
+        />
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {gridFeatures.map((feature) => (
             <div
               key={feature.title}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import SectionHeader from "./SectionHeader";
 
 // Assumptions behind the counts, spelled out in the footnote below so the
 // comparison stays honest: three mailboxes per product, and a stitched-together
@@ -93,27 +94,26 @@ export default function Arithmetic() {
   return (
     <section className="bg-gray-50 px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-5xl">
-        {/* Section header */}
-        <div className="mb-6 flex items-center gap-4">
-          <span className="font-mono text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
-            02 / The arithmetic
-          </span>
-          <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-        </div>
-        <div className="grid gap-4 md:grid-cols-[1.15fr_1fr] md:items-end md:gap-14">
-          <h2 className="font-display text-3xl leading-[1.06] text-gray-900 dark:text-white md:text-5xl">
-            The cost isn&rsquo;t the subscription. It&rsquo;s the
-            multiplication.
-          </h2>
-          <p className="text-lg text-gray-600 dark:text-gray-400">
-            One product&rsquo;s email setup is an afternoon. The problem is that
-            it&rsquo;s an afternoon <em>again</em> for every product you ship,
-            and then it&rsquo;s yours to maintain forever.
-          </p>
-        </div>
+        <SectionHeader
+          index="01"
+          label="The arithmetic"
+          title={
+            <>
+              The cost isn&rsquo;t the subscription. It&rsquo;s the
+              multiplication.
+            </>
+          }
+          subtitle={
+            <>
+              One product&rsquo;s email setup is an afternoon. The problem is
+              that it&rsquo;s an afternoon <em>again</em> for every product you
+              ship, and then it&rsquo;s yours to maintain forever.
+            </>
+          }
+        />
 
         {/* Calculator */}
-        <div className="mt-12 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800 md:p-9">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800 md:p-9">
           <label
             htmlFor="product-count"
             className="font-mono text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400"

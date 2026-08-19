@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import SectionHeader from "./SectionHeader";
 
 const SNIPPETS = {
   npm: `import { Mailmark } from 'mailmark-sdk';
@@ -53,30 +54,26 @@ export default function DeveloperSection() {
   }
 
   return (
-    <section id="developers" className="border-t border-gray-200 bg-gray-100 px-6 py-24 dark:border-gray-700 dark:bg-gray-800">
+    <section id="developers" className="bg-gray-50 px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
-        <div className="grid items-center gap-12 lg:grid-cols-[0.9fr_1.1fr]">
-          {/* Copy */}
-          <div>
-            {/* Old eyebrow: a "For developers" pill badge */}
-            <div className="mb-6 flex items-center gap-4">
-              <span className="font-mono text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
-                06 / For your code
-              </span>
-              <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-            </div>
-            {/* Old headline: Send email straight from your code */}
-            <h2 className="font-display text-3xl text-gray-900 dark:text-white md:text-4xl">
-              Send email straight from your apps.
-            </h2>
-            {/* Old subhead: Every mailbox you create is reachable over a REST API... */}
-            <p className="mt-4 text-lg leading-relaxed text-gray-600 dark:text-gray-400">
+        {/* Old eyebrow: a "For developers" pill badge */}
+        {/* Old headline: Send email straight from your code */}
+        <SectionHeader
+          index="05"
+          label="For your code"
+          title="Send email straight from your apps"
+          subtitle={
+            <>
               One API key per domain, scoped to that product. Transactional and
               campaign sends hit the same endpoint, from the same reputation
               you&rsquo;ve been warming.
-            </p>
-
-            <div className="mt-6 rounded-lg bg-gray-900 px-4 py-3 font-mono text-sm text-gray-100 dark:bg-gray-950">
+            </>
+          }
+        />
+        <div className="grid items-center gap-12 lg:grid-cols-[0.9fr_1.1fr]">
+          {/* Copy */}
+          <div>
+            <div className="rounded-lg bg-gray-900 px-4 py-3 font-mono text-sm text-gray-100 dark:bg-gray-950">
               <span className="text-gray-500">$</span> bun add mailmark-sdk
             </div>
 

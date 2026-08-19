@@ -1,3 +1,5 @@
+import SectionHeader from "./SectionHeader";
+
 const testimonials = [
   {
     quote:
@@ -44,15 +46,13 @@ export default function Testimonials() {
   return (
     <section className="bg-gray-50 px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
-        <div className="text-center">
-          <h2 className="font-display text-3xl text-gray-900 dark:text-white md:text-4xl">
-            Loved by businesses everywhere
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            See why teams choose Mailmark for their email campaigns.
-          </p>
-        </div>
-        <div className="mt-16 grid gap-8 md:grid-cols-3">
+        <SectionHeader
+          index="08"
+          label="What people say"
+          title="Loved by businesses everywhere"
+          subtitle="See why teams choose Mailmark for their email campaigns."
+        />
+        <div className="grid gap-8 md:grid-cols-3">
           {testimonials.map((t, i) => (
             <div
               key={i}
