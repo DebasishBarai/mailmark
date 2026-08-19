@@ -43,7 +43,7 @@ export default function Footer() {
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
               <Logo size={32} />
-              <span className="text-2xl font-bold text-violet-600">Mailmark</span>
+              <span className="font-wordmark text-2xl text-violet-600">Mailmark</span>
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
               Email campaigns from your own domain. Built-in deliverability.

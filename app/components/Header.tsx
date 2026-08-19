@@ -23,7 +23,7 @@ export default function Header() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2.5">
           <Logo size={36} />
-          <span className="text-2xl font-bold text-violet-600">Mailmark</span>
+          <span className="font-wordmark text-2xl text-violet-600">Mailmark</span>
         </Link>
 
         {/* Desktop nav */}
