@@ -40,7 +40,7 @@ export default function PoweredBy() {
   return (
     <section className="bg-white px-6 py-12 dark:bg-gray-900">
       <div className="mx-auto max-w-5xl">
-        <p className="mb-8 text-center text-sm font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+        <p className="mb-8 text-center font-mono text-xs font-medium uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500">
           Built with
         </p>
         <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6">

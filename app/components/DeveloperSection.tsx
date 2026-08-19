@@ -58,10 +58,10 @@ export default function DeveloperSection() {
         <div className="grid items-center gap-12 lg:grid-cols-2">
           {/* Copy */}
           <div>
-            <span className="mb-4 inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+            <span className="mb-4 inline-block rounded-full bg-violet-100 px-4 py-1.5 font-mono text-xs font-medium uppercase tracking-[0.14em] text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
               For developers
             </span>
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
+            <h2 className="font-display text-3xl text-gray-900 dark:text-white md:text-4xl">
               Send email straight from your code
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-gray-600 dark:text-gray-400">

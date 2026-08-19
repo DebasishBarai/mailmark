@@ -83,7 +83,7 @@ export default function FAQ() {
     <section id="faq" className="bg-gray-50 px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-3xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
+          <h2 className="font-display text-3xl text-gray-900 dark:text-white md:text-4xl">
             Frequently asked questions
           </h2>
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
@@ -102,7 +102,7 @@ export default function FAQ() {
                     className="flex w-full items-start justify-between text-left"
                     aria-expanded={isOpen}
                   >
-                    <span className="text-base font-semibold text-gray-900 dark:text-white">
+                    <span className="font-display text-base text-gray-900 dark:text-white">
                       {faq.question}
                     </span>
                     <span className="ml-6 flex h-7 items-center">

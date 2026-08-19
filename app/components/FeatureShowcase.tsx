@@ -174,7 +174,7 @@ export default function FeatureShowcase() {
     <section id="how-it-works" className="bg-gray-50 px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
+          <h2 className="font-display text-3xl text-gray-900 dark:text-white md:text-4xl">
             How Mailmark works
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
@@ -203,7 +203,7 @@ export default function FeatureShowcase() {
                 <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">
                   {index + 1}
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h3 className="font-display text-2xl text-gray-900 dark:text-white">
                   {item.title}
                 </h3>
                 <p className="mt-4 text-base leading-relaxed text-gray-600 dark:text-gray-400">
