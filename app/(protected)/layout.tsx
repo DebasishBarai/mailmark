@@ -226,6 +226,15 @@ const adminLink = {
   ),
 };
 
+const sidebarToggleClass =
+  "rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300";
+
+const sidebarToggleIcon = (
+  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+  </svg>
+);
+
 function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -241,6 +250,19 @@ function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     setCloseMobile(closeMobile);
   }, [closeMobile, setCloseMobile]);
+
+  // The collapsed icon rail is a desktop affordance and mobile no longer has a
+  // control to undo it, so make sure a collapse from a wider layout cannot
+  // follow the user down into the mobile drawer and strand it half-width.
+  useEffect(() => {
+    const wide = window.matchMedia("(min-width: 48rem)");
+    const syncCollapsed = () => {
+      if (!wide.matches) setSidebarCollapsed(false);
+    };
+    syncCollapsed();
+    wide.addEventListener("change", syncCollapsed);
+    return () => wide.removeEventListener("change", syncCollapsed);
+  }, []);
 
   return (
     <div className="app-shell flex min-h-dvh bg-gray-50 dark:bg-gray-900">
@@ -265,7 +287,12 @@ function AppShell({ children }: { children: ReactNode }) {
               <span className="text-xl font-bold text-violet-600 truncate">Mailmark</span>
             )}
           </Link>
-          <button
+          {/* One toggle per layout. On mobile the sidebar is a slide-in drawer,
+              so this button dismisses it the same way tapping the overlay does.
+              Collapsing to an icon rail is a desktop affordance: on mobile it
+              only narrowed the drawer, leaving a strip of it on screen instead
+              of closing the menu. */}
+          {/* <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
             aria-label="Toggle sidebar"
@@ -273,6 +300,20 @@ function AppShell({ children }: { children: ReactNode }) {
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
+          </button> */}
+          <button
+            onClick={() => setMobileOpen(false)}
+            className={`${sidebarToggleClass} md:hidden`}
+            aria-label="Close menu"
+          >
+            {sidebarToggleIcon}
+          </button>
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className={`hidden ${sidebarToggleClass} md:block`}
+            aria-label="Toggle sidebar"
+          >
+            {sidebarToggleIcon}
           </button>
         </div>
 
