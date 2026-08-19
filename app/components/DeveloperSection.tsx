@@ -122,7 +122,7 @@ export default function DeveloperSection() {
         {/* Old eyebrow: a "For developers" pill badge */}
         {/* Old headline: Send email straight from your code */}
         <SectionHeader
-          index="05"
+          index="04"
           label="For your code"
           title="Send email straight from your apps"
           subtitle={
