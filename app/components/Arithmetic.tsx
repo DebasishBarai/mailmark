@@ -95,7 +95,7 @@ export default function Arithmetic() {
     <section className="bg-gray-50 px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-5xl">
         <SectionHeader
-          index="01"
+          index="02"
           label="The arithmetic"
           title={
             <>
