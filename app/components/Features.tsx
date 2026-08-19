@@ -108,7 +108,7 @@ export default function Features() {
     <section id="features" className="bg-white px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
         <SectionHeader
-          index="03"
+          index="06"
           label="What you get"
           title="Everything your products need to talk to users"
           subtitle="Domains, mailboxes, campaigns, an API, and deliverability, for one product or ten, all in a single platform."
