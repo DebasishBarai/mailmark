@@ -78,7 +78,7 @@ export default function PlatformStats() {
   return (
     <section className="border-y border-gray-100 bg-white px-6 py-16 dark:border-gray-800 dark:bg-gray-900">
       <div className="mx-auto max-w-5xl">
-        <p className="mb-10 text-center text-sm font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+        <p className="mb-10 text-center font-mono text-xs font-medium uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500">
           Powering products behind the scenes
         </p>
         <div className="grid gap-8 sm:grid-cols-3">
@@ -87,7 +87,7 @@ export default function PlatformStats() {
               <div className="rounded-xl bg-violet-100 p-3 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400">
                 {s.icon}
               </div>
-              <p className="mt-4 text-3xl font-extrabold text-gray-900 dark:text-white">
+              <p className="mt-4 font-display text-3xl text-gray-900 dark:text-white">
                 {stats ? <RollingCounter value={stats[s.key]} /> : "-"}
               </p>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{s.label}</p>

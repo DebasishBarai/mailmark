@@ -80,7 +80,7 @@ export default function Pricing() {
     <section id="pricing" className="bg-white px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
+          <h2 className="font-display text-3xl text-gray-900 dark:text-white md:text-4xl">
             Simple, transparent pricing
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
@@ -110,24 +110,24 @@ export default function Pricing() {
                 /* Old badge used bg-violet-900, which light themes (Warm Cream,
                    Notion, Pastel Soft) remap to a pale tint, making the cream
                    text-white label invisible. violet-800 stays dark in every theme.
-                <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-violet-900 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow">
+                <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-violet-900 px-4 py-1 font-mono text-[0.65rem] font-medium uppercase tracking-[0.12em] text-white shadow">
                   Most Popular
                 </span>
                 */
-                <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-violet-800 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow ring-1 ring-white/20">
+                <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-violet-800 px-4 py-1 font-mono text-[0.65rem] font-medium uppercase tracking-[0.12em] text-white shadow ring-1 ring-white/20">
                   Most Popular
                 </span>
               )}
 
               <div>
                 <h3
-                  className={`text-lg font-semibold ${plan.highlighted ? "text-white" : "text-gray-900 dark:text-white"}`}
+                  className={`font-display text-lg ${plan.highlighted ? "text-white" : "text-gray-900 dark:text-white"}`}
                 >
                   {plan.name}
                 </h3>
                 <div className="mt-4 flex items-baseline gap-1">
                   <span
-                    className={`text-4xl font-bold tracking-tight ${plan.highlighted ? "text-white" : "text-gray-900 dark:text-white"}`}
+                    className={`font-display text-4xl ${plan.highlighted ? "text-white" : "text-gray-900 dark:text-white"}`}
                   >
                     {plan.price}
                   </span>

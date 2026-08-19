@@ -11,7 +11,7 @@ export default function Hero() {
           {/* Text */}
           <div className="flex flex-col items-center text-center md:items-start md:text-left">
             {/* Old badge: Email Campaign Platform */}
-            <span className="mb-4 inline-block rounded-full bg-violet-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+            <span className="mb-4 inline-block rounded-full bg-violet-100 px-4 py-1.5 font-mono text-xs font-medium uppercase tracking-[0.14em] text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
               Built for multi-product developers
             </span>
             {/* Old headline: Send campaigns that land in inboxes, not spam. */}
@@ -91,7 +91,7 @@ export default function Hero() {
                     )}
                   </div>
                   <div className="mt-4 border-t border-gray-200 pt-3 dark:border-gray-700">
-                    <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                    <p className="mb-2 px-1 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-gray-400 dark:text-gray-500">
                       Your products
                     </p>
                     <div className="space-y-1">

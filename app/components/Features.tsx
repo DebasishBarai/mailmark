@@ -106,7 +106,7 @@ export default function Features() {
     <section id="features" className="bg-white px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white md:text-4xl">
+          <h2 className="font-display text-3xl text-gray-900 dark:text-white md:text-4xl">
             Everything your products need to talk to users
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
@@ -123,7 +123,7 @@ export default function Features() {
               <div className="mb-4 inline-flex rounded-xl bg-violet-100 p-3 text-violet-600 transition-colors group-hover:bg-violet-200 dark:bg-violet-900/40 dark:group-hover:bg-violet-800/50">
                 {feature.icon}
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h3 className="font-display text-lg text-gray-900 dark:text-white">
                 {feature.title}
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400">

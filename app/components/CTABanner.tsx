@@ -4,7 +4,7 @@ export default function CTABanner() {
   return (
     <section id="cta" className="px-6 py-24">
       <div className="mx-auto max-w-4xl rounded-3xl bg-gradient-to-r from-violet-600 to-purple-700 px-8 py-16 text-center shadow-2xl md:px-16">
-        <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+        <h2 className="font-display text-3xl text-white md:text-4xl">
           Put all your products&rsquo; email in one place
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-lg text-violet-100">
