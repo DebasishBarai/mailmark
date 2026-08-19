@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Header from "./components/Header";
 import Hero from "./components/Hero";
+import Arithmetic from "./components/Arithmetic";
 import VideoDemo from "./components/VideoDemo";
 import Features from "./components/Features";
 import FeatureShowcase from "./components/FeatureShowcase";
@@ -58,6 +59,7 @@ export default function Home() {
       />
       <Header />
       <Hero />
+      <Arithmetic />
       <VideoDemo />
       <Features />
       <FeatureShowcase />
