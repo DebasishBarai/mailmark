@@ -10,26 +10,26 @@ import {
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const C = {
-  violet50: "#fbeae5",
-  violet100: "#f6d6cc",
-  violet300: "#e38d74",
-  violet400: "#db6746",
-  violet500: "#d94a2b",
-  violet600: "#ce3a1b",
-  violet700: "#a82c11",
-  violet800: "#85230d",
-  violet900: "#6b1c0a",
-  violet950: "#2a1410",
-  gray50: "#f6f2ea",
-  gray100: "#ece7df",
-  gray200: "#e2dbd0",
-  gray300: "#d3cabb",
-  gray400: "#9d9482",
-  gray500: "#7c7365",
-  gray600: "#635b4f",
-  gray700: "#4b443a",
-  gray800: "#3a342b",
-  gray900: "#16130f",
+  violet50: "var(--color-violet-50, #fbeae5)",
+  violet100: "var(--color-violet-100, #f6d6cc)",
+  violet300: "var(--color-violet-300, #e38d74)",
+  violet400: "var(--color-violet-400, #db6746)",
+  violet500: "var(--color-violet-500, #d94a2b)",
+  violet600: "var(--color-violet-600, #ce3a1b)",
+  violet700: "var(--color-violet-700, #a82c11)",
+  violet800: "var(--color-violet-800, #85230d)",
+  violet900: "var(--color-violet-900, #6b1c0a)",
+  violet950: "var(--color-violet-950, #2a1410)",
+  gray50: "var(--color-gray-50, #f6f2ea)",
+  gray100: "var(--color-gray-100, #ece7df)",
+  gray200: "var(--color-gray-200, #e2dbd0)",
+  gray300: "var(--color-gray-300, #d3cabb)",
+  gray400: "var(--color-gray-400, #9d9482)",
+  gray500: "var(--color-gray-500, #7c7365)",
+  gray600: "var(--color-gray-600, #635b4f)",
+  gray700: "var(--color-gray-700, #4b443a)",
+  gray800: "var(--color-gray-800, #3a342b)",
+  gray900: "var(--color-gray-900, #16130f)",
   green400: "#4ade80",
   green500: "#22c55e",
   green100: "#dcfce7",
@@ -58,22 +58,22 @@ type TC = {
 function tc(theme: "light" | "dark"): TC {
   if (theme === "light") {
     return {
-      sceneBg: "linear-gradient(160deg, #f2ede3 0%, #f6f2ea 100%)",
-      shellBg: "#f6f2ea",
-      chromeBg: "#e2dbd0",
-      sidebarBg: "#ece7df",
-      mainBg: "#f6f2ea",
+      sceneBg: "linear-gradient(160deg, var(--color-gray-200, #e2dbd0) 0%, var(--color-gray-50, #f6f2ea) 100%)",
+      shellBg: "var(--color-gray-50, #f6f2ea)",
+      chromeBg: "var(--color-gray-200, #e2dbd0)",
+      sidebarBg: "var(--color-gray-100, #ece7df)",
+      mainBg: "var(--color-gray-50, #f6f2ea)",
       border: "rgba(22,19,15,0.10)",
-      text: "#16130f",
-      textSub: "#4b443a",
-      textMuted: "#9d9482",
-      inputBg: "#ece7df",
+      text: "var(--color-gray-900, #16130f)",
+      textSub: "var(--color-gray-700, #4b443a)",
+      textMuted: "var(--color-gray-400, #9d9482)",
+      inputBg: "var(--color-gray-100, #ece7df)",
       rowBg: "rgba(22,19,15,0.03)",
-      tagBg: "rgba(217,74,43,0.1)",
+      tagBg: "color-mix(in srgb, var(--color-violet-500, #d94a2b) 10%, transparent)",
     };
   }
   return {
-    sceneBg: "linear-gradient(160deg, #141009 0%, #16130f 100%)",
+    sceneBg: "linear-gradient(160deg, var(--color-gray-900, #16130f) 0%, var(--color-gray-900, #16130f) 100%)",
     shellBg: C.gray900,
     chromeBg: C.gray800,
     sidebarBg: C.gray800,
@@ -84,7 +84,7 @@ function tc(theme: "light" | "dark"): TC {
     textMuted: C.gray500,
     inputBg: C.gray800,
     rowBg: "rgba(255,255,255,0.03)",
-    tagBg: "rgba(217,74,43,0.15)",
+    tagBg: "color-mix(in srgb, var(--color-violet-500, #d94a2b) 15%, transparent)",
   };
 }
 
@@ -107,7 +107,7 @@ function typeText(text: string, frame: number, startFrame: number, fps: number, 
 
 // ─── Delivery tick ────────────────────────────────────────────────────────────
 function DeliveryTick({ status }: { status: "sent" | "delivered" | "read" }) {
-  const color = status === "read" ? C.blue400 : "#7c7365";
+  const color = status === "read" ? C.blue400 : "var(--color-gray-500, #7c7365)";
   if (status === "sent") {
     return (
       <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
@@ -129,8 +129,8 @@ function MailmarkLogo({ size = 80 }: { size?: number }) {
     <svg viewBox="0 0 100 100" width={size} height={size}>
       <defs>
         <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#d94a2b" />
-          <stop offset="100%" stopColor="#85230d" />
+          <stop offset="0%" style={{ stopColor: "var(--color-violet-500, #d94a2b)" }} />
+          <stop offset="100%" style={{ stopColor: "var(--color-violet-800, #85230d)" }} />
         </linearGradient>
         <clipPath id="envClip">
           <rect x="4" y="16" width="66" height="50" rx="8" />
@@ -201,7 +201,7 @@ function DashboardShell({
                 padding: "8px 10px", borderRadius: 8, fontSize: 13,
                 fontWeight: active ? 600 : 400,
                 color: active ? C.violet600 : t.textMuted,
-                background: active ? (theme === "dark" ? "rgba(217,74,43,0.15)" : C.violet50) : "transparent",
+                background: active ? (theme === "dark" ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 15%, transparent)" : C.violet50) : "transparent",
                 borderLeft: active ? `2px solid ${C.violet500}` : "2px solid transparent",
               }}>
                 {item}
@@ -255,11 +255,11 @@ function SceneIntro({ theme }: { theme: "light" | "dark" }) {
 
   const isLight = theme === "light";
   const bg = isLight
-    ? "radial-gradient(ellipse 80% 80% at 50% 50%, #f6d6cc 0%, #fbeae5 60%, #f6f2ea 100%)"
-    : "radial-gradient(ellipse 80% 80% at 50% 50%, #2a1410 0%, #000 100%)";
+    ? "radial-gradient(ellipse 80% 80% at 50% 50%, var(--color-violet-100, #f6d6cc) 0%, var(--color-violet-50, #fbeae5) 60%, var(--color-gray-50, #f6f2ea) 100%)"
+    : "radial-gradient(ellipse 80% 80% at 50% 50%, var(--color-violet-950, #2a1410) 0%, #000 100%)";
   const glowColor = isLight
-    ? "radial-gradient(circle, rgba(217,74,43,0.25), transparent 70%)"
-    : "radial-gradient(circle, #ce3a1b, transparent 70%)";
+    ? "radial-gradient(circle, color-mix(in srgb, var(--color-violet-500, #d94a2b) 25%, transparent), transparent 70%)"
+    : "radial-gradient(circle, var(--color-violet-600, #ce3a1b), transparent 70%)";
   const titleColor = isLight ? C.gray900 : C.white;
   const tagColor = C.violet600;
 
@@ -269,7 +269,7 @@ function SceneIntro({ theme }: { theme: "light" | "dark" }) {
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: font,
     }}>
       <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: glowColor, opacity: glowOp, pointerEvents: "none" }} />
-      <div style={{ opacity: logoOpacity, transform: `scale(${logoSp})`, marginBottom: 28, filter: "drop-shadow(0 8px 40px rgba(217,74,43,0.4))" }}>
+      <div style={{ opacity: logoOpacity, transform: `scale(${logoSp})`, marginBottom: 28, filter: "drop-shadow(0 8px 40px color-mix(in srgb, var(--color-violet-500, #d94a2b) 40%, transparent))" }}>
         <MailmarkLogo size={110} />
       </div>
       <div style={{ opacity: titleOpacity, transform: `translateY(${titleY}px)`, fontSize: 58, fontWeight: 900, letterSpacing: "-2px", color: titleColor, marginBottom: 12 }}>
@@ -290,13 +290,13 @@ function SceneHero({ theme }: { theme: "light" | "dark" }) {
   const { fps } = useVideoConfig();
   const isLight = theme === "light";
   const bg = isLight
-    ? `linear-gradient(135deg, #fbeae5 0%, #f6d6cc 30%, #f6f2ea 100%)`
-    : `linear-gradient(135deg, ${C.violet950} 0%, #241d15 60%, ${C.gray900} 100%)`;
-  const gridLine = isLight ? "rgba(206,58,27,0.04)" : "rgba(206,58,27,0.05)";
+    ? `linear-gradient(135deg, var(--color-violet-50, #fbeae5) 0%, var(--color-violet-100, #f6d6cc) 30%, var(--color-gray-50, #f6f2ea) 100%)`
+    : `linear-gradient(135deg, ${C.violet950} 0%, var(--color-gray-800, #3a342b) 60%, ${C.gray900} 100%)`;
+  const gridLine = isLight ? "color-mix(in srgb, var(--color-violet-600, #ce3a1b) 4%, transparent)" : "color-mix(in srgb, var(--color-violet-600, #ce3a1b) 5%, transparent)";
   const mainTextColor = isLight ? C.gray900 : C.white;
   const subTextColor = isLight ? C.gray600 : C.gray400;
   const featTextColor = isLight ? C.gray600 : C.gray400;
-  const featCheckBg = "rgba(217,74,43,0.12)";
+  const featCheckBg = "color-mix(in srgb, var(--color-violet-500, #d94a2b) 12%, transparent)";
   const lines = [
     { text: "Your domain.", color: mainTextColor },
     { text: "Your mailboxes.", color: mainTextColor },
@@ -378,7 +378,7 @@ function SceneAddDomain({ theme }: { theme: "light" | "dark" }) {
               <span>{domainText}</span>
               {frame >= 22 && frame < 60 && <span style={{ width: 2, height: 18, background: C.violet400, display: "inline-block", opacity: Math.floor(frame / 8) % 2 === 0 ? 1 : 0 }} />}
             </div>
-            <div style={{ opacity: buttonOp, transform: `scale(${buttonScale})`, background: `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 14, fontWeight: 700, padding: "10px 22px", borderRadius: 10, boxShadow: "0 4px 16px rgba(206,58,27,0.4)" }}>
+            <div style={{ opacity: buttonOp, transform: `scale(${buttonScale})`, background: `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 14, fontWeight: 700, padding: "10px 22px", borderRadius: 10, boxShadow: "0 4px 16px color-mix(in srgb, var(--color-violet-600, #ce3a1b) 40%, transparent)" }}>
               Add Domain
             </div>
           </div>
@@ -439,7 +439,7 @@ function SceneCreateMailboxes({ theme }: { theme: "light" | "dark" }) {
   const modalInput = typeText("sales", frame, 85, fps, 12);
 
   const mailboxes = [
-    { address: "sales", full: "sales@acme.com", color: "#ce3a1b", initial: "S", showAt: 132 },
+    { address: "sales", full: "sales@acme.com", color: "var(--color-violet-600, #ce3a1b)", initial: "S", showAt: 132 },
     { address: "support", full: "support@acme.com", color: "#0891b2", initial: "S", showAt: 162 },
     { address: "hello", full: "hello@acme.com", color: "#059669", initial: "H", showAt: 192 },
   ];
@@ -473,7 +473,7 @@ function SceneCreateMailboxes({ theme }: { theme: "light" | "dark" }) {
               <div style={{ fontSize: 20, fontWeight: 800, color: t.text }}>Mailboxes</div>
               <div style={{ fontSize: 13, color: t.textMuted, marginTop: 2 }}>acme.com</div>
             </div>
-            <div style={{ background: `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 13, fontWeight: 700, padding: "8px 18px", borderRadius: 9, transform: `scale(${frame >= 60 && frame < 70 ? interpolate(frame, [60, 65, 70], [1, 0.92, 1], { extrapolateRight: "clamp" }) : 1})`, boxShadow: "0 4px 14px rgba(206,58,27,0.4)" }}>
+            <div style={{ background: `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 13, fontWeight: 700, padding: "8px 18px", borderRadius: 9, transform: `scale(${frame >= 60 && frame < 70 ? interpolate(frame, [60, 65, 70], [1, 0.92, 1], { extrapolateRight: "clamp" }) : 1})`, boxShadow: "0 4px 14px color-mix(in srgb, var(--color-violet-600, #ce3a1b) 40%, transparent)" }}>
               + Add Mailbox
             </div>
           </div>
@@ -576,8 +576,8 @@ function SceneSendEmail({ theme }: { theme: "light" | "dark" }) {
         <span style={{ fontSize: 10, color: t.textMuted }}>▾</span>
         <span style={{ fontSize: 12, color: C.violet500, fontWeight: 600 }}>acme.com</span>
       </div>
-      {[{ label: "sales", color: "#ce3a1b", active: true }, { label: "support", color: "#0891b2", active: false }, { label: "hello", color: "#059669", active: false }].map((mb) => (
-        <div key={mb.label} style={{ padding: "5px 10px 5px 24px", fontSize: 11, color: mb.active ? C.violet500 : t.textMuted, background: mb.active ? (theme === "dark" ? "rgba(217,74,43,0.1)" : C.violet50) : "transparent", borderLeft: mb.active ? `2px solid ${C.violet500}` : "2px solid transparent", display: "flex", alignItems: "center", gap: 6 }}>
+      {[{ label: "sales", color: "var(--color-violet-600, #ce3a1b)", active: true }, { label: "support", color: "#0891b2", active: false }, { label: "hello", color: "#059669", active: false }].map((mb) => (
+        <div key={mb.label} style={{ padding: "5px 10px 5px 24px", fontSize: 11, color: mb.active ? C.violet500 : t.textMuted, background: mb.active ? (theme === "dark" ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 10%, transparent)" : C.violet50) : "transparent", borderLeft: mb.active ? `2px solid ${C.violet500}` : "2px solid transparent", display: "flex", alignItems: "center", gap: 6 }}>
           <div style={{ width: 14, height: 14, borderRadius: "50%", background: mb.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 800, color: C.white, flexShrink: 0 }}>{mb.label[0].toUpperCase()}</div>
           {mb.label}
         </div>
@@ -593,12 +593,12 @@ function SceneSendEmail({ theme }: { theme: "light" | "dark" }) {
           <div style={{ width: 200, borderRight: `1px solid ${t.border}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
             <div style={{ padding: "14px 14px 10px", borderBottom: `1px solid ${t.border}` }}>
               <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 6 }}>sales@acme.com</div>
-              <div style={{ background: `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 8, textAlign: "center", transform: `scale(${frame >= 62 && frame < 72 ? interpolate(frame, [62, 67, 72], [1, 0.92, 1], { extrapolateRight: "clamp" }) : 1})`, boxShadow: "0 4px 12px rgba(206,58,27,0.4)" }}>
+              <div style={{ background: `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 8, textAlign: "center", transform: `scale(${frame >= 62 && frame < 72 ? interpolate(frame, [62, 67, 72], [1, 0.92, 1], { extrapolateRight: "clamp" }) : 1})`, boxShadow: "0 4px 12px color-mix(in srgb, var(--color-violet-600, #ce3a1b) 40%, transparent)" }}>
                 ✏ New
               </div>
             </div>
             {["Inbox", "Sent", "Outbox", "Drafts", "Trash"].map((folder, i) => (
-              <div key={folder} style={{ padding: "8px 14px", fontSize: 13, color: i === activeFolderIdx ? C.violet600 : t.textMuted, background: i === activeFolderIdx ? (theme === "dark" ? "rgba(217,74,43,0.1)" : C.violet50) : "transparent", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div key={folder} style={{ padding: "8px 14px", fontSize: 13, color: i === activeFolderIdx ? C.violet600 : t.textMuted, background: i === activeFolderIdx ? (theme === "dark" ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 10%, transparent)" : C.violet50) : "transparent", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 {folder}
                 {i === 0 && <span style={{ background: C.violet600, color: C.white, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 99 }}>12</span>}
               </div>
@@ -612,7 +612,7 @@ function SceneSendEmail({ theme }: { theme: "light" | "dark" }) {
                 {inboxEmails.map((email, i) => {
                   const eOp = fadeIn(frame, 22 + i * 8, 34 + i * 8);
                   return (
-                    <div key={email.subject} style={{ opacity: eOp, padding: "12px 16px", borderBottom: `1px solid ${t.border}`, background: email.unread ? (theme === "dark" ? "rgba(217,74,43,0.06)" : C.violet50 + "80") : "transparent", display: "flex", flexDirection: "column", gap: 3 }}>
+                    <div key={email.subject} style={{ opacity: eOp, padding: "12px 16px", borderBottom: `1px solid ${t.border}`, background: email.unread ? (theme === "dark" ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 6%, transparent)" : C.violet50 + "80") : "transparent", display: "flex", flexDirection: "column", gap: 3 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontSize: 13, fontWeight: email.unread ? 700 : 400, color: email.unread ? t.text : t.textSub }}>{email.from}</span>
                         <span style={{ fontSize: 11, color: t.textMuted }}>{email.time}</span>
@@ -628,7 +628,7 @@ function SceneSendEmail({ theme }: { theme: "light" | "dark" }) {
                 {sentEmails.map((email, i) => {
                   const eOp = fadeIn(frame, email.showAt, email.showAt + 12);
                   return (
-                    <div key={email.subject} style={{ opacity: eOp, padding: "12px 16px", borderBottom: `1px solid ${t.border}`, background: i === 0 ? (theme === "dark" ? "rgba(217,74,43,0.06)" : C.violet50 + "80") : "transparent", display: "flex", flexDirection: "column", gap: 3 }}>
+                    <div key={email.subject} style={{ opacity: eOp, padding: "12px 16px", borderBottom: `1px solid ${t.border}`, background: i === 0 ? (theme === "dark" ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 6%, transparent)" : C.violet50 + "80") : "transparent", display: "flex", flexDirection: "column", gap: 3 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 400, color: i === 0 ? t.text : t.textSub }}>To: {email.to}</span>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -682,7 +682,7 @@ function SceneSendEmail({ theme }: { theme: "light" | "dark" }) {
                   <span style={{ fontSize: 12, color: t.textMuted }}>📎</span>
                   <span style={{ fontSize: 12, color: t.textMuted }}>🖼</span>
                 </div>
-                <div style={{ transform: `scale(${sendScale})`, background: frame >= 158 ? `linear-gradient(135deg, ${C.green500}, #16a34a)` : `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 13, fontWeight: 700, padding: "8px 20px", borderRadius: 8, boxShadow: "0 4px 14px rgba(206,58,27,0.4)" }}>
+                <div style={{ transform: `scale(${sendScale})`, background: frame >= 158 ? `linear-gradient(135deg, ${C.green500}, #16a34a)` : `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 13, fontWeight: 700, padding: "8px 20px", borderRadius: 8, boxShadow: "0 4px 14px color-mix(in srgb, var(--color-violet-600, #ce3a1b) 40%, transparent)" }}>
                   {frame >= 160 ? "✓ Sent!" : "Send"}
                 </div>
               </div>
@@ -758,8 +758,8 @@ function SceneSendAsCampaign({ theme }: { theme: "light" | "dark" }) {
         <span style={{ fontSize: 10, color: t.textMuted }}>▾</span>
         <span style={{ fontSize: 12, color: C.violet500, fontWeight: 600 }}>acme.com</span>
       </div>
-      {[{ label: "sales", color: "#ce3a1b", active: true }, { label: "support", color: "#0891b2", active: false }].map((mb) => (
-        <div key={mb.label} style={{ padding: "5px 10px 5px 24px", fontSize: 11, color: mb.active ? C.violet500 : t.textMuted, background: mb.active ? (theme === "dark" ? "rgba(217,74,43,0.1)" : C.violet50) : "transparent", borderLeft: mb.active ? `2px solid ${C.violet500}` : "2px solid transparent", display: "flex", alignItems: "center", gap: 6 }}>
+      {[{ label: "sales", color: "var(--color-violet-600, #ce3a1b)", active: true }, { label: "support", color: "#0891b2", active: false }].map((mb) => (
+        <div key={mb.label} style={{ padding: "5px 10px 5px 24px", fontSize: 11, color: mb.active ? C.violet500 : t.textMuted, background: mb.active ? (theme === "dark" ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 10%, transparent)" : C.violet50) : "transparent", borderLeft: mb.active ? `2px solid ${C.violet500}` : "2px solid transparent", display: "flex", alignItems: "center", gap: 6 }}>
           <div style={{ width: 14, height: 14, borderRadius: "50%", background: mb.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 800, color: C.white, flexShrink: 0 }}>{mb.label[0].toUpperCase()}</div>
           {mb.label}
         </div>
@@ -777,12 +777,12 @@ function SceneSendAsCampaign({ theme }: { theme: "light" | "dark" }) {
           <div style={{ width: 200, borderRight: `1px solid ${t.border}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
             <div style={{ padding: "14px 14px 10px", borderBottom: `1px solid ${t.border}` }}>
               <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 6 }}>sales@acme.com</div>
-              <div style={{ background: `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 8, textAlign: "center", transform: `scale(${frame >= 4 && frame < 14 ? interpolate(frame, [4, 9, 14], [1, 0.92, 1], { extrapolateRight: "clamp" }) : 1})`, boxShadow: "0 4px 12px rgba(206,58,27,0.4)" }}>
+              <div style={{ background: `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 8, textAlign: "center", transform: `scale(${frame >= 4 && frame < 14 ? interpolate(frame, [4, 9, 14], [1, 0.92, 1], { extrapolateRight: "clamp" }) : 1})`, boxShadow: "0 4px 12px color-mix(in srgb, var(--color-violet-600, #ce3a1b) 40%, transparent)" }}>
                 ✏ New
               </div>
             </div>
             {["Inbox", "Sent", "Outbox", "Drafts", "Trash"].map((folder, i) => (
-              <div key={folder} style={{ padding: "8px 14px", fontSize: 13, color: i === activeFolderIdx ? C.violet600 : t.textMuted, background: i === activeFolderIdx ? (theme === "dark" ? "rgba(217,74,43,0.1)" : C.violet50) : "transparent", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div key={folder} style={{ padding: "8px 14px", fontSize: 13, color: i === activeFolderIdx ? C.violet600 : t.textMuted, background: i === activeFolderIdx ? (theme === "dark" ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 10%, transparent)" : C.violet50) : "transparent", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 {folder}
                 {i === 0 && <span style={{ background: C.violet600, color: C.white, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 99 }}>5</span>}
               </div>
@@ -795,7 +795,7 @@ function SceneSendAsCampaign({ theme }: { theme: "light" | "dark" }) {
               <>
                 <div style={{ padding: "14px 16px", borderBottom: `1px solid ${t.border}`, fontSize: 14, fontWeight: 700, color: t.text }}>Inbox</div>
                 {inboxEmails.map((email, i) => (
-                  <div key={email.subject} style={{ opacity: fadeIn(frame, 8 + i * 6, 20 + i * 6), padding: "12px 16px", borderBottom: `1px solid ${t.border}`, background: email.unread ? (theme === "dark" ? "rgba(217,74,43,0.06)" : C.violet50 + "80") : "transparent" }}>
+                  <div key={email.subject} style={{ opacity: fadeIn(frame, 8 + i * 6, 20 + i * 6), padding: "12px 16px", borderBottom: `1px solid ${t.border}`, background: email.unread ? (theme === "dark" ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 6%, transparent)" : C.violet50 + "80") : "transparent" }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ fontSize: 13, fontWeight: email.unread ? 700 : 400, color: email.unread ? t.text : t.textSub }}>{email.from}</span>
                       <span style={{ fontSize: 11, color: t.textMuted }}>{email.time}</span>
@@ -813,7 +813,7 @@ function SceneSendAsCampaign({ theme }: { theme: "light" | "dark" }) {
                 {sentEmails.map((email, i) => {
                   const isSummary = email.to.startsWith("+");
                   return (
-                    <div key={email.to} style={{ opacity: fadeIn(frame, email.showAt, email.showAt + 10), padding: "12px 16px", borderBottom: `1px solid ${t.border}`, background: i === 0 ? (theme === "dark" ? "rgba(217,74,43,0.06)" : C.violet50 + "80") : "transparent" }}>
+                    <div key={email.to} style={{ opacity: fadeIn(frame, email.showAt, email.showAt + 10), padding: "12px 16px", borderBottom: `1px solid ${t.border}`, background: i === 0 ? (theme === "dark" ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 6%, transparent)" : C.violet50 + "80") : "transparent" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontSize: 13, fontWeight: isSummary ? 400 : 600, color: isSummary ? t.textMuted : t.text, fontStyle: isSummary ? "italic" : "normal" }}>
                           {isSummary ? email.to : `To: ${email.to}`}
@@ -846,7 +846,7 @@ function SceneSendAsCampaign({ theme }: { theme: "light" | "dark" }) {
                 <span style={{ fontSize: 12, color: t.textMuted, minWidth: 52 }}>To</span>
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4 }}>
                   {frame >= 20 ? (
-                    <span style={{ opacity: fadeIn(frame, 20, 30), background: t.tagBg, border: `1px solid rgba(217,74,43,0.3)`, borderRadius: 99, padding: "2px 10px", fontSize: 12, color: C.violet600 }}>
+                    <span style={{ opacity: fadeIn(frame, 20, 30), background: t.tagBg, border: `1px solid color-mix(in srgb, var(--color-violet-500, #d94a2b) 30%, transparent)`, borderRadius: 99, padding: "2px 10px", fontSize: 12, color: C.violet600 }}>
                       marketing-list · 847 contacts
                     </span>
                   ) : (
@@ -882,7 +882,7 @@ function SceneSendAsCampaign({ theme }: { theme: "light" | "dark" }) {
 
               {/* Send as Campaign toggle */}
               <div style={{ padding: "10px 18px", borderTop: `1px solid ${t.border}`, opacity: toggleOp }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: toggleOn ? (theme === "dark" ? "rgba(217,74,43,0.12)" : "#fbeae5") : t.rowBg, border: toggleOn ? `1px solid rgba(217,74,43,0.4)` : `1px solid ${t.border}`, borderRadius: 10, padding: "10px 14px", transform: `scale(${toggleBounce})` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: toggleOn ? (theme === "dark" ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 12%, transparent)" : "var(--color-violet-50, #fbeae5)") : t.rowBg, border: toggleOn ? `1px solid color-mix(in srgb, var(--color-violet-500, #d94a2b) 40%, transparent)` : `1px solid ${t.border}`, borderRadius: 10, padding: "10px 14px", transform: `scale(${toggleBounce})` }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: toggleOn ? C.violet600 : t.text }}>Send as Campaign</div>
                     <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>Each recipient gets a personal copy. Replies go only to you.</div>
@@ -895,7 +895,7 @@ function SceneSendAsCampaign({ theme }: { theme: "light" | "dark" }) {
 
               {/* 847 recipients banner */}
               {frame >= 152 && (
-                <div style={{ opacity: bannerOp, margin: "0 18px 8px", background: "rgba(217,74,43,0.08)", border: "1px solid rgba(217,74,43,0.25)", borderRadius: 8, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ opacity: bannerOp, margin: "0 18px 8px", background: "color-mix(in srgb, var(--color-violet-500, #d94a2b) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--color-violet-500, #d94a2b) 25%, transparent)", borderRadius: 8, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 13 }}>✦</span>
                   <span style={{ fontSize: 12, color: C.violet600, fontWeight: 500 }}>847 recipients · each gets a personal copy · replies only to you</span>
                 </div>
@@ -907,7 +907,7 @@ function SceneSendAsCampaign({ theme }: { theme: "light" | "dark" }) {
                   <span style={{ fontSize: 12, color: t.textMuted }}>📎</span>
                   <span style={{ fontSize: 12, color: t.textMuted }}>🖼</span>
                 </div>
-                <div style={{ transform: `scale(${sendScale})`, background: toggleOn ? `linear-gradient(135deg, ${C.violet600}, ${C.violet700})` : `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 13, fontWeight: 700, padding: "8px 20px", borderRadius: 8, boxShadow: "0 4px 14px rgba(206,58,27,0.4)" }}>
+                <div style={{ transform: `scale(${sendScale})`, background: toggleOn ? `linear-gradient(135deg, ${C.violet600}, ${C.violet700})` : `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 13, fontWeight: 700, padding: "8px 20px", borderRadius: 8, boxShadow: "0 4px 14px color-mix(in srgb, var(--color-violet-600, #ce3a1b) 40%, transparent)" }}>
                   {frame >= 180 ? "✓ Sending…" : (toggleOn ? "Send Campaign →" : "Send")}
                 </div>
               </div>
@@ -930,7 +930,7 @@ function SceneSendAsCampaign({ theme }: { theme: "light" | "dark" }) {
 
         {/* Success toast */}
         {frame >= 228 && frame < 300 && (
-          <div style={{ position: "absolute", top: 16, right: 16, opacity: fadeIn(frame, 228, 240), transform: `translateY(${interpolate(sp(frame, 228, fps, 14, 130), [0, 1], [-28, 0])}px)`, background: theme === "dark" ? "rgba(217,74,43,0.15)" : "#fbeae5", border: "1px solid rgba(217,74,43,0.35)", borderRadius: 10, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 8px 28px rgba(0,0,0,0.15)" }}>
+          <div style={{ position: "absolute", top: 16, right: 16, opacity: fadeIn(frame, 228, 240), transform: `translateY(${interpolate(sp(frame, 228, fps, 14, 130), [0, 1], [-28, 0])}px)`, background: theme === "dark" ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 15%, transparent)" : "var(--color-violet-50, #fbeae5)", border: "1px solid color-mix(in srgb, var(--color-violet-500, #d94a2b) 35%, transparent)", borderRadius: 10, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 8px 28px rgba(0,0,0,0.15)" }}>
             <div style={{ width: 26, height: 26, borderRadius: "50%", background: C.violet600, display: "flex", alignItems: "center", justifyContent: "center", color: C.white, fontSize: 13, flexShrink: 0 }}>✓</div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.violet600 }}>Campaign sent to 847 recipients</div>
@@ -951,19 +951,19 @@ function ScenePricing({ theme }: { theme: "light" | "dark" }) {
   const { fps } = useVideoConfig();
   const isLight = theme === "light";
   const bg = isLight
-    ? "linear-gradient(180deg, #fbeae5 0%, #f6f2ea 100%)"
+    ? "linear-gradient(180deg, var(--color-violet-50, #fbeae5) 0%, var(--color-gray-50, #f6f2ea) 100%)"
     : `linear-gradient(180deg, #0a0614 0%, ${C.gray900} 100%)`;
   const titleColor = isLight ? C.gray900 : C.white;
   const subtitleColor = isLight ? C.gray500 : C.gray400;
-  const cardBg = isLight ? "#f6f2ea" : "rgba(255,255,255,0.04)";
-  const cardBorder = isLight ? "1px solid rgba(217,74,43,0.15)" : "1px solid rgba(255,255,255,0.1)";
+  const cardBg = isLight ? "var(--color-gray-50, #f6f2ea)" : "rgba(255,255,255,0.04)";
+  const cardBorder = isLight ? "1px solid color-mix(in srgb, var(--color-violet-500, #d94a2b) 15%, transparent)" : "1px solid rgba(255,255,255,0.1)";
   const cardShadow = isLight ? "0 4px 24px rgba(0,0,0,0.07)" : "none";
   const planNameColor = isLight ? C.gray700 : C.gray300;
   const priceColor = isLight ? C.gray900 : C.white;
   const periodColor = isLight ? C.gray400 : C.gray500;
   const dividerColor = isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.07)";
   const featColor = isLight ? C.gray600 : C.gray400;
-  const checkBg = isLight ? "rgba(217,74,43,0.12)" : "rgba(217,74,43,0.25)";
+  const checkBg = isLight ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 12%, transparent)" : "color-mix(in srgb, var(--color-violet-500, #d94a2b) 25%, transparent)";
   const checkColor = isLight ? C.violet600 : C.white;
   const badgeBg = isLight ? C.violet700 : C.violet900;
 
@@ -982,7 +982,7 @@ function ScenePricing({ theme }: { theme: "light" | "dark" }) {
           const s = sp(frame, delay + 8, fps, 13, 95);
           const op = fadeIn(frame, delay + 8, delay + 26);
           return (
-            <div key={plan.name} style={{ opacity: op, transform: `translateY(${interpolate(s, [0, 1], [50, 0])}px) scale(${interpolate(s, [0, 1], [0.9, 1])})`, background: plan.highlight ? `linear-gradient(145deg, ${C.violet700}, ${C.violet600})` : cardBg, border: plan.highlight ? `2px solid ${C.violet500}` : cardBorder, borderRadius: 18, padding: "30px 26px", width: 230, display: "flex", flexDirection: "column", gap: 14, position: "relative", boxShadow: plan.highlight ? "0 20px 50px rgba(206,58,27,0.4)" : cardShadow }}>
+            <div key={plan.name} style={{ opacity: op, transform: `translateY(${interpolate(s, [0, 1], [50, 0])}px) scale(${interpolate(s, [0, 1], [0.9, 1])})`, background: plan.highlight ? `linear-gradient(145deg, ${C.violet700}, ${C.violet600})` : cardBg, border: plan.highlight ? `2px solid ${C.violet500}` : cardBorder, borderRadius: 18, padding: "30px 26px", width: 230, display: "flex", flexDirection: "column", gap: 14, position: "relative", boxShadow: plan.highlight ? "0 20px 50px color-mix(in srgb, var(--color-violet-600, #ce3a1b) 40%, transparent)" : cardShadow }}>
               {plan.badge && (
                 <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: badgeBg, color: C.white, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 14px", borderRadius: 99, border: `1px solid ${C.violet500}`, whiteSpace: "nowrap" }}>{plan.badge}</div>
               )}
@@ -1000,7 +1000,7 @@ function ScenePricing({ theme }: { theme: "light" | "dark" }) {
                   </div>
                 ))}
               </div>
-              <div style={{ marginTop: 4, padding: "10px", borderRadius: 10, textAlign: "center", background: plan.highlight ? "rgba(255,255,255,0.15)" : "rgba(217,74,43,0.12)", color: plan.highlight ? C.white : C.violet600, fontSize: 13, fontWeight: 700, border: plan.highlight ? "1px solid rgba(255,255,255,0.2)" : `1px solid rgba(217,74,43,0.25)` }}>
+              <div style={{ marginTop: 4, padding: "10px", borderRadius: 10, textAlign: "center", background: plan.highlight ? "rgba(255,255,255,0.15)" : "color-mix(in srgb, var(--color-violet-500, #d94a2b) 12%, transparent)", color: plan.highlight ? C.white : C.violet600, fontSize: 13, fontWeight: 700, border: plan.highlight ? "1px solid rgba(255,255,255,0.2)" : `1px solid color-mix(in srgb, var(--color-violet-500, #d94a2b) 25%, transparent)` }}>
                 Start Free Trial
               </div>
             </div>
@@ -1028,12 +1028,12 @@ function SceneCTA({ theme }: { theme: "light" | "dark" }) {
   const isLight = theme === "light";
 
   const bg = isLight
-    ? "radial-gradient(ellipse 90% 80% at 50% 50%, #f6d6cc 0%, #fbeae5 50%, #f6f2ea 100%)"
-    : "radial-gradient(ellipse 90% 80% at 50% 50%, #2a1410 0%, #050510 100%)";
+    ? "radial-gradient(ellipse 90% 80% at 50% 50%, var(--color-violet-100, #f6d6cc) 0%, var(--color-violet-50, #fbeae5) 50%, var(--color-gray-50, #f6f2ea) 100%)"
+    : "radial-gradient(ellipse 90% 80% at 50% 50%, var(--color-violet-950, #2a1410) 0%, #050510 100%)";
   const glowColor = isLight
-    ? "radial-gradient(ellipse, rgba(217,74,43,0.18), transparent 70%)"
-    : "radial-gradient(ellipse, rgba(206,58,27,0.28), transparent 70%)";
-  const ringColor = isLight ? "rgba(217,74,43,0.1)" : "rgba(206,58,27,0.1)";
+    ? "radial-gradient(ellipse, color-mix(in srgb, var(--color-violet-500, #d94a2b) 18%, transparent), transparent 70%)"
+    : "radial-gradient(ellipse, color-mix(in srgb, var(--color-violet-600, #ce3a1b) 28%, transparent), transparent 70%)";
+  const ringColor = isLight ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 10%, transparent)" : "color-mix(in srgb, var(--color-violet-600, #ce3a1b) 10%, transparent)";
   const titleColor = isLight ? C.gray900 : C.white;
   const accentColor = isLight ? C.violet600 : C.violet400;
   const subColor = isLight ? C.gray500 : C.gray400;
@@ -1046,14 +1046,14 @@ function SceneCTA({ theme }: { theme: "light" | "dark" }) {
         <div key={size} style={{ position: "absolute", width: size, height: size, borderRadius: "50%", border: `1px solid ${ringColor}`, pointerEvents: "none", opacity: subOp }} />
       ))}
       <div style={{ opacity: op, transform: `scale(${scale})`, display: "flex", flexDirection: "column", alignItems: "center", gap: 14, marginBottom: 28 }}>
-        <div style={{ filter: "drop-shadow(0 8px 40px rgba(217,74,43,0.4))" }}><MailmarkLogo size={72} /></div>
+        <div style={{ filter: "drop-shadow(0 8px 40px color-mix(in srgb, var(--color-violet-500, #d94a2b) 40%, transparent))" }}><MailmarkLogo size={72} /></div>
         <div style={{ fontSize: 26, fontWeight: 800, color: titleColor, letterSpacing: "-0.5px" }}>Mailmark</div>
       </div>
       <div style={{ opacity: op, transform: `scale(${scale})`, fontSize: 46, fontWeight: 900, color: titleColor, textAlign: "center", letterSpacing: "-1.5px", lineHeight: 1.2, marginBottom: 12 }}>
         Start your <span style={{ color: accentColor }}>7-day</span><br />free trial today
       </div>
       <div style={{ opacity: subOp, transform: `translateY(${subY}px)`, fontSize: 16, color: subColor, marginBottom: 30 }}>No credit card required · Cancel anytime</div>
-      <div style={{ opacity: btnOp, background: `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 18, fontWeight: 800, padding: "16px 44px", borderRadius: 99, letterSpacing: "0.02em", boxShadow: "0 10px 40px rgba(206,58,27,0.5)", marginBottom: 24 }}>
+      <div style={{ opacity: btnOp, background: `linear-gradient(135deg, ${C.violet600}, ${C.violet700})`, color: C.white, fontSize: 18, fontWeight: 800, padding: "16px 44px", borderRadius: 99, letterSpacing: "0.02em", boxShadow: "0 10px 40px color-mix(in srgb, var(--color-violet-600, #ce3a1b) 50%, transparent)", marginBottom: 24 }}>
         Start 7-Day Free Trial
       </div>
       <div style={{ opacity: urlOp, fontSize: 15, color: urlColor, letterSpacing: "0.06em", fontWeight: 600 }}>mailmark.dev</div>

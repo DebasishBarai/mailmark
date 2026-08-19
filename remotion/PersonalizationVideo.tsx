@@ -11,26 +11,26 @@ import {
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const C = {
-  violet50: "#fbeae5",
-  violet100: "#f6d6cc",
-  violet300: "#e38d74",
-  violet400: "#db6746",
-  violet500: "#d94a2b",
-  violet600: "#ce3a1b",
-  violet700: "#a82c11",
-  violet800: "#85230d",
-  violet900: "#6b1c0a",
-  violet950: "#2a1410",
-  gray50: "#f6f2ea",
-  gray100: "#ece7df",
-  gray200: "#e2dbd0",
-  gray300: "#d3cabb",
-  gray400: "#9d9482",
-  gray500: "#7c7365",
-  gray600: "#635b4f",
-  gray700: "#4b443a",
-  gray800: "#3a342b",
-  gray900: "#16130f",
+  violet50: "var(--color-violet-50, #fbeae5)",
+  violet100: "var(--color-violet-100, #f6d6cc)",
+  violet300: "var(--color-violet-300, #e38d74)",
+  violet400: "var(--color-violet-400, #db6746)",
+  violet500: "var(--color-violet-500, #d94a2b)",
+  violet600: "var(--color-violet-600, #ce3a1b)",
+  violet700: "var(--color-violet-700, #a82c11)",
+  violet800: "var(--color-violet-800, #85230d)",
+  violet900: "var(--color-violet-900, #6b1c0a)",
+  violet950: "var(--color-violet-950, #2a1410)",
+  gray50: "var(--color-gray-50, #f6f2ea)",
+  gray100: "var(--color-gray-100, #ece7df)",
+  gray200: "var(--color-gray-200, #e2dbd0)",
+  gray300: "var(--color-gray-300, #d3cabb)",
+  gray400: "var(--color-gray-400, #9d9482)",
+  gray500: "var(--color-gray-500, #7c7365)",
+  gray600: "var(--color-gray-600, #635b4f)",
+  gray700: "var(--color-gray-700, #4b443a)",
+  gray800: "var(--color-gray-800, #3a342b)",
+  gray900: "var(--color-gray-900, #16130f)",
   green400: "#4ade80",
   green500: "#22c55e",
   white: "#ffffff",
@@ -70,8 +70,8 @@ const themes: Record<string, ThemeColors> = {
     text: "#16130f",
     textSub: "#4b443a",
     textMuted: "#7c7365",
-    accent: C.violet600,
-    accentBg: C.violet50,
+    accent: "#ce3a1b",
+    accentBg: "#fbeae5",
     rowBg: "rgba(22,19,15,0.03)",
     isDark: false,
   },
@@ -211,8 +211,8 @@ function MailmarkLogo({ size = 80 }: { size?: number }) {
     <svg viewBox="0 0 100 100" width={size} height={size}>
       <defs>
         <linearGradient id="pgrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#d94a2b" />
-          <stop offset="100%" stopColor="#85230d" />
+          <stop offset="0%" style={{ stopColor: "var(--color-violet-500, #d94a2b)" }} />
+          <stop offset="100%" style={{ stopColor: "var(--color-violet-800, #85230d)" }} />
         </linearGradient>
         <clipPath id="penvClip">
           <rect x="4" y="16" width="66" height="50" rx="8" />
@@ -554,9 +554,9 @@ function SceneIntro({ theme }: { theme: "light" | "dark" }) {
   const subY = slideUp(frame, 35, 55, 14);
 
   const bg = isLight
-    ? "radial-gradient(ellipse 90% 80% at 50% 50%, #f6d6cc 0%, #fbeae5 50%, #f6f2ea 100%)"
-    : "radial-gradient(ellipse 90% 80% at 50% 50%, #2a1410 0%, #050510 100%)";
-  const ringColor = isLight ? "rgba(217,74,43,0.1)" : "rgba(206,58,27,0.1)";
+    ? "radial-gradient(ellipse 90% 80% at 50% 50%, var(--color-violet-100, #f6d6cc) 0%, var(--color-violet-50, #fbeae5) 50%, var(--color-gray-50, #f6f2ea) 100%)"
+    : "radial-gradient(ellipse 90% 80% at 50% 50%, var(--color-violet-950, #2a1410) 0%, #050510 100%)";
+  const ringColor = isLight ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 10%, transparent)" : "color-mix(in srgb, var(--color-violet-600, #ce3a1b) 10%, transparent)";
   const titleColor = isLight ? C.gray900 : C.white;
   const subColor = isLight ? C.gray500 : C.gray400;
 
@@ -591,7 +591,7 @@ function SceneIntro({ theme }: { theme: "light" | "dark" }) {
         style={{
           opacity: op,
           transform: `scale(${scale})`,
-          filter: "drop-shadow(0 8px 40px rgba(217,74,43,0.4))",
+          filter: "drop-shadow(0 8px 40px color-mix(in srgb, var(--color-violet-500, #d94a2b) 40%, transparent))",
           marginBottom: 20,
         }}
       >
@@ -694,7 +694,7 @@ function SceneThemes({ theme }: { theme: "light" | "dark" }) {
     <AbsoluteFill
       style={{
         background: isLight
-          ? "linear-gradient(160deg, #f2ede3 0%, #f6f2ea 100%)"
+          ? "linear-gradient(160deg, var(--color-gray-200, #e2dbd0) 0%, var(--color-gray-50, #f6f2ea) 100%)"
           : `linear-gradient(160deg, ${C.violet950} 0%, ${C.gray900} 100%)`,
         display: "flex",
         flexDirection: "column",
@@ -837,8 +837,8 @@ function SceneWallpapers({ theme }: { theme: "light" | "dark" }) {
     <AbsoluteFill
       style={{
         background: isLight
-          ? "linear-gradient(160deg, #f2ede3 0%, #f6f2ea 100%)"
-          : `linear-gradient(160deg, #141009 0%, ${C.gray900} 100%)`,
+          ? "linear-gradient(160deg, var(--color-gray-200, #e2dbd0) 0%, var(--color-gray-50, #f6f2ea) 100%)"
+          : `linear-gradient(160deg, var(--color-gray-900, #16130f) 0%, ${C.gray900} 100%)`,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -983,7 +983,7 @@ function SceneDensity({ theme }: { theme: "light" | "dark" }) {
     <AbsoluteFill
       style={{
         background: isLight
-          ? "linear-gradient(160deg, #f2ede3 0%, #f6f2ea 100%)"
+          ? "linear-gradient(160deg, var(--color-gray-200, #e2dbd0) 0%, var(--color-gray-50, #f6f2ea) 100%)"
           : `linear-gradient(160deg, ${C.violet950} 0%, ${C.gray900} 100%)`,
         display: "flex",
         flexDirection: "column",
@@ -1118,8 +1118,8 @@ function SceneSignature({ theme }: { theme: "light" | "dark" }) {
     <AbsoluteFill
       style={{
         background: isLight
-          ? "linear-gradient(160deg, #f2ede3 0%, #f6f2ea 100%)"
-          : `linear-gradient(160deg, #141009 0%, ${C.gray900} 100%)`,
+          ? "linear-gradient(160deg, var(--color-gray-200, #e2dbd0) 0%, var(--color-gray-50, #f6f2ea) 100%)"
+          : `linear-gradient(160deg, var(--color-gray-900, #16130f) 0%, ${C.gray900} 100%)`,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -1417,12 +1417,12 @@ function SceneCTA({ theme }: { theme: "light" | "dark" }) {
   });
 
   const bg = isLight
-    ? "radial-gradient(ellipse 90% 80% at 50% 50%, #f6d6cc 0%, #fbeae5 50%, #f6f2ea 100%)"
-    : "radial-gradient(ellipse 90% 80% at 50% 50%, #2a1410 0%, #050510 100%)";
+    ? "radial-gradient(ellipse 90% 80% at 50% 50%, var(--color-violet-100, #f6d6cc) 0%, var(--color-violet-50, #fbeae5) 50%, var(--color-gray-50, #f6f2ea) 100%)"
+    : "radial-gradient(ellipse 90% 80% at 50% 50%, var(--color-violet-950, #2a1410) 0%, #050510 100%)";
   const glowColor = isLight
-    ? "radial-gradient(ellipse, rgba(217,74,43,0.18), transparent 70%)"
-    : "radial-gradient(ellipse, rgba(206,58,27,0.28), transparent 70%)";
-  const ringColor = isLight ? "rgba(217,74,43,0.1)" : "rgba(206,58,27,0.1)";
+    ? "radial-gradient(ellipse, color-mix(in srgb, var(--color-violet-500, #d94a2b) 18%, transparent), transparent 70%)"
+    : "radial-gradient(ellipse, color-mix(in srgb, var(--color-violet-600, #ce3a1b) 28%, transparent), transparent 70%)";
+  const ringColor = isLight ? "color-mix(in srgb, var(--color-violet-500, #d94a2b) 10%, transparent)" : "color-mix(in srgb, var(--color-violet-600, #ce3a1b) 10%, transparent)";
   const titleColor = isLight ? C.gray900 : C.white;
   const accentColor = isLight ? C.violet600 : C.violet400;
   const subColor = isLight ? C.gray500 : C.gray400;
@@ -1476,7 +1476,7 @@ function SceneCTA({ theme }: { theme: "light" | "dark" }) {
       >
         <div
           style={{
-            filter: "drop-shadow(0 8px 40px rgba(217,74,43,0.4))",
+            filter: "drop-shadow(0 8px 40px color-mix(in srgb, var(--color-violet-500, #d94a2b) 40%, transparent))",
           }}
         >
           <MailmarkLogo size={72} />
@@ -1519,7 +1519,7 @@ function SceneCTA({ theme }: { theme: "light" | "dark" }) {
           padding: "16px 44px",
           borderRadius: 99,
           letterSpacing: "0.02em",
-          boxShadow: "0 10px 40px rgba(206,58,27,0.5)",
+          boxShadow: "0 10px 40px color-mix(in srgb, var(--color-violet-600, #ce3a1b) 50%, transparent)",
           marginBottom: 24,
         }}
       >
