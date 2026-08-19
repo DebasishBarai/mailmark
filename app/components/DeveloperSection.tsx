@@ -10,7 +10,7 @@ const client = new Mailmark(process.env.MAILMARK_API_KEY);
 // Transactional: welcome a new signup from your app
 await client.send({
   from: 'hello@app-one.com',
-  to: user.email,
+  to: [user.email],
   subject: 'Welcome to App One',
   html: '<h1>You are in.</h1><p>Thanks for signing up.</p>',
 });
@@ -53,25 +53,27 @@ export default function DeveloperSection() {
   }
 
   return (
-    <section id="developers" className="bg-gray-50 px-6 py-24 dark:bg-gray-900">
+    <section id="developers" className="border-t border-gray-200 bg-gray-100 px-6 py-24 dark:border-gray-700 dark:bg-gray-800">
       <div className="mx-auto max-w-7xl">
-        <div className="grid items-center gap-12 lg:grid-cols-2">
+        <div className="grid items-center gap-12 lg:grid-cols-[0.9fr_1.1fr]">
           {/* Copy */}
           <div>
-            <span className="mb-4 inline-block rounded-full bg-violet-100 px-4 py-1.5 font-mono text-xs font-medium uppercase tracking-[0.14em] text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
-              For developers
-            </span>
+            {/* Old eyebrow: a "For developers" pill badge */}
+            <div className="mb-6 flex items-center gap-4">
+              <span className="font-mono text-xs uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                06 / For your code
+              </span>
+              <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+            </div>
+            {/* Old headline: Send email straight from your code */}
             <h2 className="font-display text-3xl text-gray-900 dark:text-white md:text-4xl">
-              Send email straight from your code
+              Send email straight from your apps.
             </h2>
+            {/* Old subhead: Every mailbox you create is reachable over a REST API... */}
             <p className="mt-4 text-lg leading-relaxed text-gray-600 dark:text-gray-400">
-              Every mailbox you create is reachable over a REST API and the{" "}
-              <code className="rounded bg-gray-200 px-1.5 py-0.5 font-mono text-sm text-violet-700 dark:bg-gray-800 dark:text-violet-400">
-                mailmark-sdk
-              </code>{" "}
-              npm package. Fire welcome emails, receipts, and password resets
-              from your app, or blast a release announcement, without wiring up
-              a separate sending service.
+              One API key per domain, scoped to that product. Transactional and
+              campaign sends hit the same endpoint, from the same reputation
+              you&rsquo;ve been warming.
             </p>
 
             <div className="mt-6 rounded-lg bg-gray-900 px-4 py-3 font-mono text-sm text-gray-100 dark:bg-gray-950">
@@ -112,8 +114,13 @@ export default function DeveloperSection() {
 
           {/* Code */}
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-950 shadow-2xl dark:border-gray-700">
-            <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2.5">
-              <div className="flex gap-1 rounded-lg bg-gray-800/60 p-1">
+            <div className="flex items-center justify-between gap-3 border-b border-gray-800 px-4 py-2.5">
+              <div className="hidden shrink-0 gap-1.5 sm:flex">
+                <span className="h-2.5 w-2.5 rounded-full bg-gray-100/25" />
+                <span className="h-2.5 w-2.5 rounded-full bg-gray-100/25" />
+                <span className="h-2.5 w-2.5 rounded-full bg-gray-100/25" />
+              </div>
+              <div className="mr-auto flex gap-1 rounded-lg bg-gray-800/60 p-1">
                 {(["npm", "curl"] as const).map((t) => (
                   <button
                     key={t}
