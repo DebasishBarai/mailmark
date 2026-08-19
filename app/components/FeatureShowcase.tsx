@@ -192,7 +192,12 @@ export default function FeatureShowcase() {
             >
               {/* Visual */}
               <div className="w-full md:w-1/2">
-                <div className={`rounded-2xl bg-gradient-to-br ${item.gradient} p-8 shadow-lg`}>
+                {/* showcase-canvas + data-step let globals.css repaint these
+                    panels under the Warm Cream theme only. See the note there. */}
+                <div
+                  data-step={index + 1}
+                  className={`showcase-canvas rounded-2xl bg-gradient-to-br ${item.gradient} p-8 shadow-lg`}
+                >
                   {item.visual}
                 </div>
               </div>

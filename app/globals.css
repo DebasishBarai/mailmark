@@ -932,3 +932,64 @@ a[aria-disabled="true"],
 [data-theme="nord"] .rounded-full.bg-violet-500 {
   box-shadow: 0 0 8px rgba(136, 192, 208, 0.3);
 }
+
+/* ==============================
+   Showcase panels, Warm Cream only
+
+   The "how it works" panels tint each step with a different hue family:
+   green/emerald/teal, violet/purple/fuchsia, blue/sky/cyan, amber/orange/
+   yellow. Against the paper palette the mint and pink ones read as foreign.
+
+   Those token families are deliberately NOT remapped by this theme, because
+   green still has to mean verified and amber still has to mean pending, both
+   inside these very panels and throughout the app. So this repaints the four
+   panels directly instead of moving the tokens, and does it only under Warm
+   Cream. Every other theme keeps its original gradients.
+
+   The `html:not([data-theme])` half covers first paint, before ThemeProvider
+   stamps the attribute, since Warm Cream is also the default.
+   ============================== */
+
+html:not([data-theme]) .showcase-canvas,
+[data-theme="clean-white"] .showcase-canvas {
+  /* 1. Add your domain: sand */
+  background-image: linear-gradient(
+    to bottom right,
+    #e8e1d2,
+    #f5f1e8,
+    #ded6c6
+  );
+}
+
+html:not([data-theme]) .showcase-canvas[data-step="2"],
+[data-theme="clean-white"] .showcase-canvas[data-step="2"] {
+  /* 2. Mailboxes: clay */
+  background-image: linear-gradient(
+    to bottom right,
+    #efdfd6,
+    #f8f1ec,
+    #e5d3c8
+  );
+}
+
+html:not([data-theme]) .showcase-canvas[data-step="3"],
+[data-theme="clean-white"] .showcase-canvas[data-step="3"] {
+  /* 3. Inbox: stone */
+  background-image: linear-gradient(
+    to bottom right,
+    #e4e2d8,
+    #f3f1e9,
+    #d9d5c9
+  );
+}
+
+html:not([data-theme]) .showcase-canvas[data-step="4"],
+[data-theme="clean-white"] .showcase-canvas[data-step="4"] {
+  /* 4. Campaigns: ochre */
+  background-image: linear-gradient(
+    to bottom right,
+    #f0e6d0,
+    #f8f3e5,
+    #e7dabe
+  );
+}
