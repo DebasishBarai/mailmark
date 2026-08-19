@@ -11,7 +11,7 @@ export default function VideoDemo() {
     <section className="relative bg-white px-6 py-20 dark:bg-gray-900">
       <div className="mx-auto max-w-6xl">
         <SectionHeader
-          index="02"
+          index="01"
           label="See it work"
           title="See Mailmark in action"
           subtitle="Watch how easy it is to set up your domain, create sender mailboxes, and launch your first email campaign."
