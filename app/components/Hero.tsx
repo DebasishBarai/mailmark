@@ -1,8 +1,11 @@
 import CTAButton from "./CTAButton";
 
 export default function Hero() {
+  // Old background: bg-gradient-to-b from-violet-50 to-white
+  // dark:from-violet-950/30 dark:to-gray-900. Replaced with the flat base
+  // paper tone (gray-50, #ece7df) so the hero matches the page.
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-violet-50 to-white px-6 py-24 dark:from-violet-950/30 dark:to-gray-900 md:py-32">
+    <section className="relative overflow-hidden bg-gray-50 px-6 py-24 dark:bg-gray-900 md:py-32">
       <div className="mx-auto max-w-7xl">
         <div className="grid items-center gap-12 md:grid-cols-2">
           {/* Text */}

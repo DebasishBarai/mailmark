@@ -143,26 +143,33 @@ html.mailbox-locked .mailbox-shell {
      violet 50-950: #f9ece4 #f0d9ce #e3bba9 #d19878 #c4744f #b85a34
                     #b4552f #9c4526 #7e3a22 #f9ece4 #fdf4ef
      purple 500-800: #7e3a22 #4a3423 #2e2116 #241a11
+
+   First pass at the paper palette, before the base was deepened to #ece7df:
+     --background: #f2eee5;  --surface: #e9e3d6;  --surface-hover: #ded7c7;
+     --border: #d6cebe;      --color-white: #fbf9f4;
+     gray   50-300: #f7f4ec #e9e3d6 #d6cebe #c1b8a4
    ============================== */
 
 :root,
 [data-theme="clean-white"] {
-  --background: #f2eee5;
+  --background: #ece7df;
   --foreground: #16130f;
-  --surface: #e9e3d6;
-  --surface-hover: #ded7c7;
-  --border: #d6cebe;
+  --surface: #e2dbd0;
+  --surface-hover: #d8d0c2;
+  --border: #d3cabb;
   --muted: #7c7365;
   --accent: #ce3a1b;
   --accent-hover: #a82c11;
   --accent-text: #fbf9f4;
   --input-bg: #fbf9f4;
 
-  /* Remap gray scale -> paper/ink (light→dark preserved for text) */
-  --color-gray-50: #f7f4ec;
-  --color-gray-100: #e9e3d6;
-  --color-gray-200: #d6cebe;
-  --color-gray-300: #c1b8a4;
+  /* Remap gray scale -> paper/ink (light→dark preserved for text).
+     gray-50 is the base paper tone: it and --color-white are what actually
+     paint the marketing sections, so they carry the cream, not --background. */
+  --color-gray-50: #ece7df;
+  --color-gray-100: #e2dbd0;
+  --color-gray-200: #d3cabb;
+  --color-gray-300: #beb5a1;
   --color-gray-400: #9d9482;
   --color-gray-500: #7c7365;
   --color-gray-600: #635b4f;
@@ -190,8 +197,9 @@ html.mailbox-locked .mailbox-shell {
   --color-purple-700: #24201a;
   --color-purple-800: #16130f;
 
-  /* Warm the base white so bg-white surfaces read as card stock */
-  --color-white: #fbf9f4;
+  /* Card stock: one step lighter than the base paper, so bg-white panels,
+     cards and modals lift off the page instead of matching it. */
+  --color-white: #f6f2ea;
 }
 
 /* Dark themes rely on a pure white for text-white; clean-white warms

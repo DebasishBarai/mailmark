@@ -13,7 +13,7 @@ import {
 
 const THEME_PREVIEW_COLORS: Record<ThemeId, { bg: string; fg: string; accent: string }> = {
   // Old warm sand swatch: { bg: "#f6ede3", fg: "#2b2018", accent: "#b4552f" }
-  "clean-white": { bg: "#f2eee5", fg: "#16130f", accent: "#ce3a1b" },
+  "clean-white": { bg: "#ece7df", fg: "#16130f", accent: "#ce3a1b" },
   "enterprise-dark": { bg: "#0f172a", fg: "#e2e8f0", accent: "#3b82f6" },
   "notion": { bg: "#fafaf9", fg: "#37352f", accent: "#2f80ed" },
   "matrix": { bg: "#000000", fg: "#00ff9c", accent: "#00ff9c" },
