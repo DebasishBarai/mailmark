@@ -176,7 +176,7 @@ export default function FeatureShowcase() {
     <section id="how-it-works" className="bg-gray-50 px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
         <SectionHeader
-          index="04"
+          index="03"
           label="How it works"
           title="From a bare domain to talking to users"
           subtitle="From your first product domain to talking to your users, in four simple steps."
