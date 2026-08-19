@@ -1,3 +1,5 @@
+import SectionHeader from "./SectionHeader";
+
 const features = [
   {
     icon: (
@@ -105,16 +107,13 @@ export default function Features() {
   return (
     <section id="features" className="bg-white px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
-        <div className="text-center">
-          <h2 className="font-display text-3xl text-gray-900 dark:text-white md:text-4xl">
-            Everything your products need to talk to users
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            Domains, mailboxes, campaigns, an API, and deliverability, for one
-            product or ten, all in a single platform.
-          </p>
-        </div>
-        <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        <SectionHeader
+          index="03"
+          label="What you get"
+          title="Everything your products need to talk to users"
+          subtitle="Domains, mailboxes, campaigns, an API, and deliverability, for one product or ten, all in a single platform."
+        />
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => (
             <div
               key={feature.title}

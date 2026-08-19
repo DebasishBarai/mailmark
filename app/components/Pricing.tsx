@@ -1,4 +1,5 @@
 import CTAButton from "./CTAButton";
+import SectionHeader from "./SectionHeader";
 
 const plans = [
   {
@@ -79,18 +80,16 @@ export default function Pricing() {
   return (
     <section id="pricing" className="bg-white px-6 py-24 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl">
-        <div className="text-center">
-          <h2 className="font-display text-3xl text-gray-900 dark:text-white md:text-4xl">
-            Simple, transparent pricing
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-            {/* Every plan includes a 7-day free trial. No credit card required. */}
-            Starter and Pro plans include a 7-day free trial.
-          </p>
-        </div>
+        {/* Old subtitle: Every plan includes a 7-day free trial. No credit card required. */}
+        <SectionHeader
+          index="09"
+          label="Pricing"
+          title="Simple, transparent pricing"
+          subtitle="Starter and Pro plans include a 7-day free trial."
+        />
 
         {/* Trial banner */}
-        <div className="mx-auto mt-10 max-w-2xl rounded-2xl border border-violet-200 bg-violet-50 px-6 py-4 text-center dark:border-violet-800 dark:bg-violet-950/30">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-violet-200 bg-violet-50 px-6 py-4 text-center dark:border-violet-800 dark:bg-violet-950/30">
           <p className="text-sm font-medium text-violet-800 dark:text-violet-300">
             {/* Try any plan free for 7 days with full access. No credit card needed. Your account pauses after the trial until you choose a plan. */}
             Try Starter or Pro free for 7 days with full access. Cancel anytime during the trial, no charge.
