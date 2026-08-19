@@ -113,6 +113,17 @@ html.mailbox-locked .mailbox-shell {
    its character.
    ============================== */
 
+/* The wordmark. Heavier and tighter than the heading face, per the design's
+   .logo rule, and shared by the header, footer and app sidebar so the brand
+   reads the same wherever it appears. */
+
+.font-wordmark {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-variation-settings: "SOFT" 0, "WONK" 1;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
 .font-display {
   font-family: var(--font-fraunces), Georgia, serif;
   font-variation-settings: "SOFT" 0, "WONK" 1;

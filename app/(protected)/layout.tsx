@@ -284,7 +284,7 @@ function AppShell({ children }: { children: ReactNode }) {
           <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
             <Logo size={32} />
             {!sidebarCollapsed && (
-              <span className="text-xl font-bold text-violet-600 truncate">Mailmark</span>
+              <span className="font-wordmark text-xl text-violet-600 truncate">Mailmark</span>
             )}
           </Link>
           {/* One toggle per layout. On mobile the sidebar is a slide-in drawer,
@@ -410,7 +410,7 @@ function AppShell({ children }: { children: ReactNode }) {
         </button>
         <Link href="/dashboard" className="ml-3 flex items-center gap-2">
           <Logo size={28} />
-          <span className="text-lg font-bold text-violet-600">Mailmark</span>
+          <span className="font-wordmark text-lg text-violet-600">Mailmark</span>
         </Link>
       </div>
 
