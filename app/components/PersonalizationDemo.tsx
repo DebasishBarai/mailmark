@@ -10,7 +10,7 @@ export default function PersonalizationDemo() {
     <section className="relative bg-white px-6 py-20 dark:bg-gray-900">
       <div className="mx-auto max-w-6xl">
         <SectionHeader
-          index="06"
+          index="05"
           label="Make it yours"
           title="Make it yours"
           subtitle="Choose from 11 themes, set background wallpapers, adjust UI density, and craft professional email signatures, all synced across devices."
