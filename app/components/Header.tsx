@@ -2,21 +2,38 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import Logo from "./Logo";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import ThemeToggle from "./ThemeToggle";
 
-const navLinks = [
+// const navLinks = [
+//   { label: "Features", href: "#features" },
+//   { label: "How It Works", href: "#how-it-works" },
+//   { label: "Pricing", href: "#pricing" },
+//   { label: "FAQ", href: "#faq" },
+//   { label: "Docs", href: "/docs" },
+// ];
+
+// Anchor links that only resolve to sections on the landing page
+const landingNavLinks = [
   { label: "Features", href: "#features" },
   { label: "How It Works", href: "#how-it-works" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
-  { label: "Docs", href: "/docs" },
 ];
+
+// Links to real routes, shown on every page the header appears on
+const commonNavLinks = [{ label: "Docs", href: "/docs" }];
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+  const isLandingPage = pathname === "/";
+  const navLinks = isLandingPage
+    ? [...landingNavLinks, ...commonNavLinks]
+    : commonNavLinks;
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-md dark:border-gray-700/50 dark:bg-gray-900/80">
