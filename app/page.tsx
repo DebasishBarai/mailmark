@@ -59,12 +59,12 @@ export default function Home() {
       />
       <Header />
       <Hero />
-      <Arithmetic />
       <VideoDemo />
-      <Features />
+      <Arithmetic />
       <FeatureShowcase />
       <DeveloperSection />
       <PersonalizationDemo />
+      <Features />
       <FeatureGrid />
       <PlatformStats />
       <Testimonials />
