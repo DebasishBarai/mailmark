@@ -218,7 +218,14 @@ export default function BillingPage() {
               }`}
             >
               {p.highlighted && (
+                /* Old badge used bg-violet-900, which light themes (Warm Cream,
+                   Notion, Pastel Soft) remap to a pale tint, making the cream
+                   text-white label invisible. violet-800 stays dark in every theme.
                 <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-violet-900 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow">
+                  Most Popular
+                </span>
+                */
+                <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-violet-800 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow ring-1 ring-white/20">
                   Most Popular
                 </span>
               )}
