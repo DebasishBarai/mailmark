@@ -71,11 +71,32 @@ export default function ThemeToggle() {
       setOpen(false);
     }
 
+    // Clicks landing inside an <iframe> never reach the parent document, so
+    // handleClick above never sees them. The mailbox reading pane renders the
+    // email body in an iframe (EmailBodyFrame), which is why clicking an email
+    // left this pane open while clicking anywhere else closed it.
+    //
+    // The browser does move focus into the iframe element on such a click,
+    // which blurs the parent window, so treat "window lost focus to an iframe"
+    // as an outside click. Switching browser tabs or windows also blurs the
+    // window but leaves document.activeElement untouched, so the IFRAME check
+    // keeps the pane open in that case. activeElement is read on the next tick
+    // because it is not guaranteed to be updated yet while blur is dispatching.
+    let blurCheck: ReturnType<typeof setTimeout> | undefined;
+    function handleWindowBlur() {
+      blurCheck = setTimeout(() => {
+        if (document.activeElement?.tagName === "IFRAME") setOpen(false);
+      }, 0);
+    }
+
     document.addEventListener("mousedown", handleClick);
+    window.addEventListener("blur", handleWindowBlur);
     window.addEventListener("resize", updatePosition);
     window.addEventListener("scroll", updatePosition, true);
     return () => {
+      if (blurCheck !== undefined) clearTimeout(blurCheck);
       document.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("blur", handleWindowBlur);
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
