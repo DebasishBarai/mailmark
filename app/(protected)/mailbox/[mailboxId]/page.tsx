@@ -1255,23 +1255,6 @@ export default function MailboxPage() {
     return () => setFolderSection(null);
   }, [activeFolder, unreadCount, domainMailboxes, senderGroups, mbId, handleOpenCompose, setFolderSection, closeMobile, mailbox, updateSignature]);
 
-  // Lock the document to the viewport while the mailbox is open.
-  //
-  // The shell is already `overflow-hidden` and viewport-sized, but that only
-  // stops the SHELL from scrolling: the root stays a scroller, so on mobile a
-  // drag that chained out of a pane (notably out of the email body's iframe)
-  // scrolled the whole page, hiding the URL bar and dragging the `fixed`
-  // sidebar across it. Giving <html> `overflow: hidden` removes the document's
-  // scrollport outright, so no browser can scroll the page no matter what a
-  // rendered email does. The class also switches the shell's height chain from
-  // `vh`/`dvh` to plain percentages (see `.mailbox-locked` in globals.css) so
-  // it matches the visible viewport even where `dvh` is unsupported.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.add("mailbox-locked");
-    return () => root.classList.remove("mailbox-locked");
-  }, []);
-
   // Browser Back returns to the email list on mobile.
   //
   // On mobile the detail view (an open email, the compose form, or an expanded

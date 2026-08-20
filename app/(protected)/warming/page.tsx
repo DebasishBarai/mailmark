@@ -88,7 +88,7 @@ export default function WarmingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 dark:bg-gray-900 md:p-10">
+    <div className="min-h-full bg-gray-50 p-6 dark:bg-gray-900 md:p-10">
       <div className="mx-auto max-w-5xl">
         {/* Header */}
         <div className="mb-8">
