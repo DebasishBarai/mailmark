@@ -251,6 +251,22 @@ function AppShell({ children }: { children: ReactNode }) {
     setCloseMobile(closeMobile);
   }, [closeMobile, setCloseMobile]);
 
+  // Lock the document to the viewport for the whole protected app.
+  //
+  // The shell's chrome is fixed, so the content area is what should scroll. The
+  // document staying scrollable meant any long page dragged the whole document
+  // on mobile: the URL bar hid and the fixed sidebar and top bar moved against
+  // the content. Giving <html> `overflow: hidden` removes the document's
+  // scrollport outright, so no browser can scroll the page whatever a page
+  // renders, and the class also sizes the shell chain in plain percentages and
+  // makes <main> the scroll container (see `.app-locked` in globals.css), which
+  // matches the visible viewport even where `dvh` is unsupported.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("app-locked");
+    return () => root.classList.remove("app-locked");
+  }, []);
+
   // The collapsed icon rail is a desktop affordance and mobile no longer has a
   // control to undo it, so make sure a collapse from a wider layout cannot
   // follow the user down into the mobile drawer and strand it half-width.

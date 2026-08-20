@@ -3,36 +3,34 @@
 @variant dark (&:where(.dark, .dark *));
 
 /* ==============================
-   Mailbox viewport lock
+   App viewport lock
 
-   The mailbox is a full-screen app view: the document itself must never
-   scroll, only the inner panes (email list / open email body). On mobile it
-   did: opening a long email scrolled the WHOLE PAGE (the URL bar hid as you
-   dragged the email) instead of scrolling the email inside its pane, and the
-   `fixed` sidebar then painted across the scrolled page.
+   The protected app is a shell: a fixed sidebar and a fixed mobile top bar
+   around a content area. The document itself must never scroll, only the
+   content area (or, in the mailbox, its inner panes). Without that, dragging
+   any long page on a phone scrolled the whole document, the URL bar hid, and
+   the fixed chrome moved against the content.
 
-   `overflow: hidden` on the shell plus a `dvh` height is not enough to prevent
-   that, because it leaves the ROOT a scroller:
+   Sizing the shell with `dvh` and `overflow: hidden` alone does not achieve
+   it, because it leaves the ROOT a scroller:
 
-   - a touch drag that chains out of an inner pane (or out of the sandboxed
-     iframe the email body renders in, which on mobile can chain past the pane)
-     lands on the root and moves the page;
-   - `vh` resolves against the LARGE viewport (URL bar hidden), so a shell
+   - a touch drag that chains out of an inner scroller (or out of the sandboxed
+     iframe the mailbox renders email bodies in, which on mobile can chain past
+     its pane) lands on the root and moves the page;
+   - `vh` resolves against the LARGE viewport (URL bar hidden), so anything
      sized in `vh` leaves the root scrollable by exactly the URL bar height;
-   - browsers without `dvh` drop the height declaration altogether and the
-     shell stops being viewport-sized at all.
+   - browsers without `dvh` drop the height declaration altogether.
 
-   `.mailbox-locked` is set on <html> by the mailbox page while it is mounted
+   `.app-locked` is set on <html> by the protected shell while it is mounted
    and is the guarantee: the root and <body> get a viewport height and
    `overflow: hidden`, and a root with no scrollport cannot scroll on any
-   browser, whatever a rendered email does. Under the lock the shell chain is
-   sized in plain percentages (<html> -> <body> -> .app-shell -> .app-main ->
-   .mailbox-shell), which every browser resolves against the real, current
-   viewport, so the height matches what is visible without `dvh` and nothing
-   ends up below the fold.
+   browser. Under the lock the chain is sized in plain percentages (<html> ->
+   <body> -> .app-shell -> .app-main), which every browser resolves against the
+   real, current viewport, so nothing depends on `dvh` and nothing ends up
+   below the fold. Public pages are outside this shell and scroll normally.
    ============================== */
 
-/* Shell size before the lock effect runs (first paint). */
+/* Mailbox shell size before the lock effect runs (first paint). */
 .mailbox-shell {
   /* Mobile: the app's top bar is fixed and 3.5rem tall. */
   height: calc(100dvh - 3.5rem);
@@ -61,22 +59,37 @@
   }
 }
 
-/* Document lock, applied to <html> while the mailbox page is mounted. */
-html.mailbox-locked,
-html.mailbox-locked body {
+/* Document lock, applied to <html> while the protected shell is mounted. */
+html.app-locked,
+html.app-locked body {
   height: 100%;
   max-height: 100%;
   overflow: hidden;
-  /* Stop touch drags at the edge of an inner pane from bouncing the page. */
+  /* Stop touch drags at the edge of an inner scroller bouncing the page. */
   overscroll-behavior: none;
 }
 
-/* Percentage height chain: <body> -> app shell -> <main> -> mailbox shell.
-   These are unlayered rules, so they win over the Tailwind utilities on the
-   same elements (`min-h-dvh` on the app shell) regardless of specificity. */
-html.mailbox-locked .app-shell,
-html.mailbox-locked .app-main,
-html.mailbox-locked .mailbox-shell {
+/* These are unlayered rules, so they win over the Tailwind utilities on the
+   same elements (`min-h-dvh` on the shell) regardless of specificity. */
+html.app-locked .app-shell {
+  height: 100%;
+  min-height: 0;
+}
+
+/* <main> is the scroll container for ordinary pages: the fixed sidebar and top
+   bar stay put while the page scrolls inside it, instead of the page dragging
+   the whole document. Its `pt-14` keeps content clear of the mobile top bar at
+   rest and lets it scroll under that bar, exactly as before. */
+html.app-locked .app-main {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* The mailbox fills <main> exactly and scrolls in its own panes instead. */
+html.app-locked .mailbox-shell {
   height: 100%;
   min-height: 0;
 }
