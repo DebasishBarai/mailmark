@@ -1,126 +1,90 @@
 <!DOCTYPE html>
-<html>
-<body style="background:#f3f4f6; padding:48px; font-family:sans-serif;">
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mailmark logo preview</title>
+<!--
+  A contact sheet for the brand assets, served at /logo-preview.html.
 
-  <h2 style="color:#1e1b4b; margin-bottom:32px;">Mailmark — Logo Preview</h2>
+  Every mark below is an <img> pointing at the real asset file rather than a
+  copy of its markup, so this page cannot drift out of step with what ships
+  the way the old hand-inlined version did.
 
-  <div style="display:flex; gap:48px; align-items:center; flex-wrap:wrap;">
+  Colours are the Warm Cream palette, the site's signature theme:
+    accent      #ce3a1b   accent deepened  #a82c11
+    accent-text #fbf9f4   card stock       #f6f2ea
+    paper       #ece7df   ink              #16130f
+-->
+<style>
+  :root {
+    --paper: #ece7df; --card: #f6f2ea; --ink: #16130f;
+    --accent: #ce3a1b; --muted: #7c7365; --border: #d3cabb;
+  }
+  body {
+    margin: 0; padding: 48px; background: var(--paper); color: var(--ink);
+    font-family: system-ui, sans-serif;
+  }
+  h2 { margin: 0 0 8px; font-size: 22px; }
+  h3 { margin: 44px 0 14px; font-size: 15px; text-transform: uppercase;
+       letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+  p.note { margin: 0 0 32px; color: var(--muted); font-size: 14px; max-width: 62ch; }
+  .row { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
+  .tile { text-align: center; }
+  .swatch {
+    background: var(--card); border: 1px solid var(--border); padding: 24px;
+    border-radius: 14px; display: inline-flex; align-items: center;
+    justify-content: center; gap: 10px;
+  }
+  .swatch.paper { background: var(--paper); }
+  .swatch.dark  { background: var(--ink); border-color: #3a342b; }
+  .swatch.white { background: #ffffff; }
+  .cap { margin: 8px 0 0; color: var(--muted); font-size: 12px; font-family: ui-monospace, monospace; }
+</style>
+</head>
+<body>
 
-    <!-- Icon on white -->
-    <div style="text-align:center">
-      <div style="background:white; padding:28px; border-radius:16px; display:inline-block; box-shadow:0 2px 12px rgba(0,0,0,.08)">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="80" height="80">
-          <defs>
-            <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#8b5cf6"/>
-              <stop offset="100%" stop-color="#5b21b6"/>
-            </linearGradient>
-            <clipPath id="c1"><rect x="4" y="16" width="66" height="50" rx="8"/></clipPath>
-          </defs>
-          <rect x="4" y="16" width="66" height="50" rx="8" fill="white"/>
-          <rect x="4" y="16" width="66" height="50" rx="8" fill="none" stroke="url(#g1)" stroke-width="7" stroke-linejoin="round"/>
-          <line x1="4"  y1="16" x2="37" y2="44" stroke="url(#g1)" stroke-width="7" stroke-linecap="round" clip-path="url(#c1)"/>
-          <line x1="70" y1="16" x2="37" y2="44" stroke="url(#g1)" stroke-width="7" stroke-linecap="round" clip-path="url(#c1)"/>
-          <circle cx="67" cy="62" r="20" fill="white"/>
-          <circle cx="67" cy="62" r="18" fill="url(#g1)"/>
-          <polyline points="58,62 65,69 77,53" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <p style="margin:10px 0 0;color:#6b7280;font-size:13px">Icon — on white</p>
-    </div>
+  <h2>Mailmark brand assets</h2>
+  <p class="note">
+    The static files are pinned to the Warm Cream palette. The in-app mark
+    (app/components/Logo.tsx) is the same artwork driven by CSS variables, so
+    there it recolours with whichever theme the visitor has chosen.
+  </p>
 
-    <!-- Icon on dark -->
-    <div style="text-align:center">
-      <div style="background:#1e1b4b; padding:28px; border-radius:16px; display:inline-block; box-shadow:0 2px 12px rgba(0,0,0,.2)">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="80" height="80">
-          <defs>
-            <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#c4b5fd"/>
-              <stop offset="100%" stop-color="#8b5cf6"/>
-            </linearGradient>
-            <clipPath id="c2"><rect x="4" y="16" width="66" height="50" rx="8"/></clipPath>
-          </defs>
-          <rect x="4" y="16" width="66" height="50" rx="8" fill="#1e1b4b"/>
-          <rect x="4" y="16" width="66" height="50" rx="8" fill="none" stroke="url(#g2)" stroke-width="7" stroke-linejoin="round"/>
-          <line x1="4"  y1="16" x2="37" y2="44" stroke="url(#g2)" stroke-width="7" stroke-linecap="round" clip-path="url(#c2)"/>
-          <line x1="70" y1="16" x2="37" y2="44" stroke="url(#g2)" stroke-width="7" stroke-linecap="round" clip-path="url(#c2)"/>
-          <circle cx="67" cy="62" r="20" fill="#1e1b4b"/>
-          <circle cx="67" cy="62" r="18" fill="url(#g2)"/>
-          <polyline points="58,62 65,69 77,53" fill="none" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <p style="margin:10px 0 0;color:#6b7280;font-size:13px">Icon — on dark</p>
-    </div>
-
-    <!-- Full wordmark -->
-    <div style="text-align:center">
-      <div style="background:white; padding:16px 28px; border-radius:16px; display:inline-block; box-shadow:0 2px 12px rgba(0,0,0,.08)">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 80" width="260" height="80">
-          <defs>
-            <linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#8b5cf6"/>
-              <stop offset="100%" stop-color="#5b21b6"/>
-            </linearGradient>
-            <clipPath id="c3"><rect x="3" y="9" width="54" height="42" rx="6"/></clipPath>
-          </defs>
-          <rect x="3" y="9" width="54" height="42" rx="6" fill="white"/>
-          <rect x="3" y="9" width="54" height="42" rx="6" fill="none" stroke="url(#g3)" stroke-width="5.5" stroke-linejoin="round"/>
-          <line x1="3"  y1="9" x2="30" y2="33" stroke="url(#g3)" stroke-width="5.5" stroke-linecap="round" clip-path="url(#c3)"/>
-          <line x1="57" y1="9" x2="30" y2="33" stroke="url(#g3)" stroke-width="5.5" stroke-linecap="round" clip-path="url(#c3)"/>
-          <circle cx="55" cy="49" r="16" fill="white"/>
-          <circle cx="55" cy="49" r="14" fill="url(#g3)"/>
-          <polyline points="47,49 53,55 64,41" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-          <text x="82" y="48" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" font-size="28" font-weight="800" letter-spacing="-0.5">
-            <tspan fill="#7c3aed">Mail</tspan><tspan fill="#1e1b4b">mark</tspan>
-          </text>
-        </svg>
-      </div>
-      <p style="margin:10px 0 0;color:#6b7280;font-size:13px">Full wordmark</p>
-    </div>
-
+  <h3>Mark, on each surface</h3>
+  <div class="row">
+    <div class="tile"><div class="swatch card"><img src="logo.svg" width="80" height="80" alt="Mailmark mark on card stock"></div><p class="cap">card #f6f2ea</p></div>
+    <div class="tile"><div class="swatch paper"><img src="logo.svg" width="80" height="80" alt="Mailmark mark on paper"></div><p class="cap">paper #ece7df</p></div>
+    <div class="tile"><div class="swatch white"><img src="logo.svg" width="80" height="80" alt="Mailmark mark on white"></div><p class="cap">white</p></div>
+    <div class="tile"><div class="swatch dark"><img src="logo.svg" width="80" height="80" alt="Mailmark mark on ink"></div><p class="cap">ink #16130f</p></div>
   </div>
 
-  <!-- Larger isolated icon for detail -->
-  <h3 style="color:#1e1b4b; margin:48px 0 16px;">Icon — large detail</h3>
-  <div style="background:white; padding:32px; border-radius:16px; display:inline-block; box-shadow:0 2px 12px rgba(0,0,0,.08)">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="140" height="140">
-      <defs>
-        <linearGradient id="g5" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#8b5cf6"/>
-          <stop offset="100%" stop-color="#5b21b6"/>
-        </linearGradient>
-        <clipPath id="c5"><rect x="4" y="16" width="66" height="50" rx="8"/></clipPath>
-      </defs>
-      <rect x="4" y="16" width="66" height="50" rx="8" fill="white"/>
-      <rect x="4" y="16" width="66" height="50" rx="8" fill="none" stroke="url(#g5)" stroke-width="7" stroke-linejoin="round"/>
-      <line x1="4"  y1="16" x2="37" y2="44" stroke="url(#g5)" stroke-width="7" stroke-linecap="round" clip-path="url(#c5)"/>
-      <line x1="70" y1="16" x2="37" y2="44" stroke="url(#g5)" stroke-width="7" stroke-linecap="round" clip-path="url(#c5)"/>
-      <circle cx="67" cy="62" r="20" fill="white"/>
-      <circle cx="67" cy="62" r="18" fill="url(#g5)"/>
-      <polyline points="58,62 65,69 77,53" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
+  <h3>Mark, down to favicon sizes</h3>
+  <div class="row">
+    <div class="tile"><div class="swatch"><img src="logo.svg" width="140" height="140" alt="Mailmark mark at 140px"></div><p class="cap">140</p></div>
+    <div class="tile"><div class="swatch"><img src="logo.svg" width="64" height="64" alt="Mailmark mark at 64px"></div><p class="cap">64</p></div>
+    <div class="tile"><div class="swatch"><img src="logo.svg" width="32" height="32" alt="Mailmark mark at 32px"></div><p class="cap">32</p></div>
+    <div class="tile"><div class="swatch"><img src="logo.svg" width="16" height="16" alt="Mailmark mark at 16px"></div><p class="cap">16</p></div>
   </div>
 
-  <!-- Header mockup -->
-  <h3 style="color:#1e1b4b; margin:48px 0 16px;">Header preview</h3>
-  <div style="background:white; padding:14px 24px; border-radius:12px; display:inline-flex; align-items:center; gap:10px; box-shadow:0 2px 12px rgba(0,0,0,.08)">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="36" height="36">
-      <defs>
-        <linearGradient id="g4" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#8b5cf6"/>
-          <stop offset="100%" stop-color="#5b21b6"/>
-        </linearGradient>
-        <clipPath id="c4"><rect x="4" y="16" width="66" height="50" rx="8"/></clipPath>
-      </defs>
-      <rect x="4" y="16" width="66" height="50" rx="8" fill="white"/>
-      <rect x="4" y="16" width="66" height="50" rx="8" fill="none" stroke="url(#g4)" stroke-width="7" stroke-linejoin="round"/>
-      <line x1="4"  y1="16" x2="37" y2="44" stroke="url(#g4)" stroke-width="7" stroke-linecap="round" clip-path="url(#c4)"/>
-      <line x1="70" y1="16" x2="37" y2="44" stroke="url(#g4)" stroke-width="7" stroke-linecap="round" clip-path="url(#c4)"/>
-      <circle cx="67" cy="62" r="20" fill="white"/>
-      <circle cx="67" cy="62" r="18" fill="url(#g4)"/>
-      <polyline points="58,62 65,69 77,53" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <span style="font-size:22px; font-weight:800; color:#7c3aed; font-family:system-ui,sans-serif; letter-spacing:-0.5px">Mailmark</span>
+  <h3>Lockup</h3>
+  <div class="row">
+    <div class="tile"><div class="swatch"><img src="logo-full.svg" width="226" height="48" alt="Mailmark lockup on card stock"></div><p class="cap">logo-full.svg</p></div>
+    <div class="tile"><div class="swatch dark"><img src="logo-full.svg" width="226" height="48" alt="Mailmark lockup on ink"></div><p class="cap">on ink</p></div>
+  </div>
+
+  <h3>Header preview</h3>
+  <div class="row">
+    <div class="swatch card" style="padding:14px 24px">
+      <img src="logo.svg" width="36" height="36" alt="">
+      <span style="font-family:Fraunces,Georgia,serif;font-weight:700;font-size:24px;letter-spacing:-.03em;color:var(--accent)">Mailmark</span>
+    </div>
+  </div>
+
+  <h3>Raster exports</h3>
+  <div class="row">
+    <div class="tile"><div class="swatch"><img src="logo-icon.png" width="100" height="100" alt="200px PNG mark"></div><p class="cap">logo-icon.png 200</p></div>
+    <div class="tile"><div class="swatch"><img src="icon-192.png" width="96" height="96" alt="Apple touch icon"></div><p class="cap">icon-192.png</p></div>
+    <div class="tile"><div class="swatch"><img src="favicon.ico" width="48" height="48" alt="Favicon"></div><p class="cap">favicon.ico 16/32/48</p></div>
   </div>
 
 </body>
