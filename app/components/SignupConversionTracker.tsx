@@ -7,24 +7,28 @@ import { fireSignupConversion, getGtag, isGoogleAdsConfigured } from "../../lib/
 /**
  * Fires the Google Ads trial signup conversion exactly once per new user.
  *
- * Why the Clerk user object and not `useSignUp()`: signups happen through
- * Clerk's modal (`<SignUpButton mode="modal" forceRedirectUrl="/dashboard">`),
- * and the OAuth providers (GitHub, Google) take the browser off site and bring
- * it back on a fresh page load. There is no client component of ours alive
- * across that round trip, so the only signal that survives every path is the
- * age of the Clerk user on the landing route. A brand new user has a
- * `createdAt` a few seconds old, a returning login has one from days ago, so
- * logins never fire the conversion.
+ * The gate is `isNewUser`, which comes from `api.users.addUser`: that action
+ * creates the Convex user row (and the Polar customer) only the first time a
+ * given Clerk account is seen, so it reports isNew true on exactly one call
+ * ever. A returning login always resolves false, whatever route it lands on.
  *
- * Mounted from `app/(protected)/layout.tsx` inside `<Authenticated>`, which
- * covers /dashboard (the post-signup redirect target) and every other
- * protected route in case Clerk returns the user somewhere else.
+ * Rendered by SyncUser in `app/(protected)/layout.tsx`, which owns that call.
+ * That covers /dashboard, the post-signup redirect target, plus every other
+ * protected route in case Clerk returns the user somewhere else. It matters
+ * that the signal is not route based: the OAuth providers (GitHub, Google) take
+ * the browser off site and bring it back on a fresh page load, so nothing of
+ * ours survives the round trip. addUser runs again on that landing load and is
+ * what answers the question.
+ *
+ * The Clerk account age is kept as a secondary sanity check. It cannot rescue a
+ * wrong isNew, but it does catch the case where a stale or replayed sync
+ * reports a new user for an account that plainly is not new.
  */
 
-// How fresh a Clerk account has to be to count as "just signed up". Generous
-// enough to absorb an OAuth round trip plus a slow first dashboard render, far
-// short of anything a returning user could hit.
-const NEW_USER_WINDOW_MS = 10 * 60 * 1000;
+// How fresh a Clerk account has to be for an isNew report to be believable.
+// Generous enough to absorb an OAuth round trip plus a slow first dashboard
+// render, far short of anything a returning user could hit.
+const NEW_USER_MAX_AGE_MS = 10 * 60 * 1000;
 
 // The Google tag loads with strategy="afterInteractive", so it can still be in
 // flight when this effect runs. Poll briefly rather than dropping the event.
@@ -35,9 +39,9 @@ const storageKey = (userId: string) => `mailmark_ads_signup_conversion_${userId}
 
 /**
  * Persistent "already fired" flag. localStorage is preferred over
- * sessionStorage so a second tab or a browser restart inside the freshness
- * window cannot fire a duplicate. Both are wrapped because storage throws in
- * Safari private mode and when cookies are blocked.
+ * sessionStorage so a second tab or a browser restart cannot fire a duplicate.
+ * Both are wrapped because storage throws in Safari private mode and when
+ * cookies are blocked.
  */
 function hasFired(userId: string): boolean {
   const key = storageKey(userId);
@@ -73,19 +77,33 @@ function markFired(userId: string) {
 // which both re-run the effect before any storage write would be observed.
 const inFlight = new Set<string>();
 
-export default function SignupConversionTracker() {
+export default function SignupConversionTracker({
+  isNewUser,
+}: {
+  /** null while the user sync is still in flight, or if it failed. */
+  isNewUser: boolean | null;
+}) {
   const { isLoaded, isSignedIn, user } = useUser();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!isGoogleAdsConfigured) return;
+
+    // Not a signup, or not yet known to be one. Either way, nothing to report.
+    if (isNewUser !== true) return;
+
     if (!isLoaded || !isSignedIn || !user) return;
 
+    // Sanity check: a genuinely new signup has a brand new Clerk account.
     const createdAt = user.createdAt?.getTime();
-    if (!createdAt) return;
-
-    // Returning login, not a trial start.
-    if (Date.now() - createdAt > NEW_USER_WINDOW_MS) return;
+    if (createdAt && Date.now() - createdAt > NEW_USER_MAX_AGE_MS) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[google-ads] addUser reported a new user but the Clerk account is not fresh, skipping"
+        );
+      }
+      return;
+    }
 
     if (inFlight.has(user.id) || hasFired(user.id)) return;
     inFlight.add(user.id);
@@ -108,7 +126,8 @@ export default function SignupConversionTracker() {
       attempts += 1;
       if (attempts >= GTAG_MAX_ATTEMPTS) {
         // Tag never showed up (ad blocker, or the tag is not on this route).
-        // Leave the flag unset so a later visit inside the window can retry.
+        // Nothing is marked, but addUser will report isNew false from here on,
+        // so this conversion is simply lost rather than reported late.
         inFlight.delete(user.id);
         return;
       }
@@ -122,7 +141,7 @@ export default function SignupConversionTracker() {
       if (timer) clearTimeout(timer);
       inFlight.delete(user.id);
     };
-  }, [isLoaded, isSignedIn, user]);
+  }, [isNewUser, isLoaded, isSignedIn, user]);
 
   return null;
 }
