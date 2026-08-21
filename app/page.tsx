@@ -34,7 +34,9 @@ const organizationSchema = {
   "@type": "Organization",
   name: "Mailmark",
   url: "https://www.mailmark.dev",
-  logo: "https://www.mailmark.dev/og-image.png",
+  // The og-image is a social card with a headline on it, not a logo.
+  // Schema.org wants the mark itself here, so point at the square PNG.
+  logo: "https://www.mailmark.dev/logo-icon.png",
   description:
     "One email platform for developers running multiple products: multi-domain mailboxes, user campaigns, and a send API with npm SDK.",
 };
