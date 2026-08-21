@@ -38,6 +38,19 @@ export const currentStatus = query({
     const isBetaUser = user.category === "beta";
     const isAdmin = user.category === "admin";
 
+    // With TRIAL_DURATION_MS at 0 nobody ever gets in-app trial time, so a brand
+    // new account is "expired" the moment it is created. That is intentional
+    // (the 7 day trial now runs through Polar checkout), but it means the UI
+    // must not tell a first time visitor that a trial they never had has ended.
+    const hadInAppTrial = TRIAL_DURATION_MS > 0;
+    const hasEverSubscribed = subscription !== null;
+    const upgradeReason: "new_user" | "trial_ended" | "subscription_ended" =
+      hasEverSubscribed
+        ? "subscription_ended"
+        : hadInAppTrial
+          ? "trial_ended"
+          : "new_user";
+
     return {
       subscription,
       trialEndsAt,
@@ -45,6 +58,10 @@ export const currentStatus = query({
       hasActiveSubscription,
       isBetaUser,
       isAdmin,
+      // Old: only trialExpired was exposed, which the UI read as "trial ended".
+      hadInAppTrial,
+      hasEverSubscribed,
+      upgradeReason,
       needsUpgrade: trialExpired && !hasActiveSubscription && !isBetaUser && !isAdmin,
     };
   },

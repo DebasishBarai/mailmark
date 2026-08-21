@@ -132,6 +132,9 @@ export default function BillingPage() {
   const isActive = status?.hasActiveSubscription;
   const trialEndsAt = status?.trialEndsAt;
   const trialExpired = status?.trialExpired;
+  // A brand new account has no in-app trial time at all, so "expired" here means
+  // "never started" and must not be worded as an expiry.
+  const upgradeReason = status?.upgradeReason;
 
   return (
     <div className="p-8">
@@ -180,9 +183,20 @@ export default function BillingPage() {
               </button>
             </div>
           ) : trialExpired ? (
-            <p className="text-sm font-medium text-red-600 dark:text-red-400">
-              Your trial has expired. Choose a plan below to continue.
-            </p>
+            /* Old copy for every expired case: "Your trial has expired. Choose a plan below to continue." */
+            upgradeReason === "new_user" ? (
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                No plan yet. Choose one below to start sending. Starter and Pro include a 7-day free trial.
+              </p>
+            ) : upgradeReason === "subscription_ended" ? (
+              <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                Your subscription has ended. Choose a plan below to continue.
+              </p>
+            ) : (
+              <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                Your trial has expired. Choose a plan below to continue.
+              </p>
+            )
           ) : (
             <div>
               <div className="flex items-center gap-3">

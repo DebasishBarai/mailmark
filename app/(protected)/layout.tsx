@@ -170,7 +170,8 @@ function TrialGate({ children }: { children: ReactNode }) {
         <div className="pointer-events-none select-none opacity-40">
           {children}
         </div>
-        <UpgradeModal />
+        {/* Old: <UpgradeModal /> always claimed the trial had ended. */}
+        <UpgradeModal reason={status.upgradeReason} />
       </>
     );
   }
