@@ -5,14 +5,16 @@
  * server rendering, so every entry point guards on `typeof window`.
  */
 
-// ---------------------------------------------------------------------------
-// REPLACE THESE TWO CONSTANTS once the Google Ads conversion action exists.
-// Google Ads gives you a snippet shaped like:
-//   gtag('event', 'conversion', { send_to: 'AW-123456789/AbC-D_efG12hIjKlMn' })
+// From the "Sign-up" conversion action in Google Ads (account 154-296-6784).
+// Its event snippet reads:
+//   gtag('event', 'conversion', {'send_to': 'AW-849451490/iqpTCL3O0eUcEOKzhpUD'});
 // The part before the slash is the conversion ID, the part after is the label.
-// ---------------------------------------------------------------------------
-export const GOOGLE_ADS_CONVERSION_ID = "AW-XXXXXXXXX"; // TODO: replace
-export const GOOGLE_ADS_SIGNUP_CONVERSION_LABEL = "YYYYYYYYYYY"; // TODO: replace
+//
+// Old placeholders, before the conversion action existed:
+// export const GOOGLE_ADS_CONVERSION_ID = "AW-XXXXXXXXX";
+// export const GOOGLE_ADS_SIGNUP_CONVERSION_LABEL = "YYYYYYYYYYY";
+export const GOOGLE_ADS_CONVERSION_ID = "AW-849451490";
+export const GOOGLE_ADS_SIGNUP_CONVERSION_LABEL = "iqpTCL3O0eUcEOKzhpUD";
 
 /** `send_to` value for the trial signup conversion action. */
 export const SIGNUP_CONVERSION_SEND_TO = `${GOOGLE_ADS_CONVERSION_ID}/${GOOGLE_ADS_SIGNUP_CONVERSION_LABEL}`;
@@ -21,10 +23,19 @@ export const SIGNUP_CONVERSION_SEND_TO = `${GOOGLE_ADS_CONVERSION_ID}/${GOOGLE_A
 export const SIGNUP_CONVERSION_VALUE = 10.0;
 export const SIGNUP_CONVERSION_CURRENCY = "USD";
 
-/** True once the placeholders above have been swapped for real values. */
+/**
+ * True when both constants above hold real values.
+ *
+ * Old check looked for an "X" in the ID and a "Y" in the label. That only
+ * worked while the placeholders were in place: a genuine Google Ads label is
+ * a random string that can contain either letter.
+ */
+// export const isGoogleAdsConfigured =
+//   !GOOGLE_ADS_CONVERSION_ID.includes("X") &&
+//   !GOOGLE_ADS_SIGNUP_CONVERSION_LABEL.includes("Y");
 export const isGoogleAdsConfigured =
-  !GOOGLE_ADS_CONVERSION_ID.includes("X") &&
-  !GOOGLE_ADS_SIGNUP_CONVERSION_LABEL.includes("Y");
+  /^AW-\d+$/.test(GOOGLE_ADS_CONVERSION_ID) &&
+  GOOGLE_ADS_SIGNUP_CONVERSION_LABEL.length > 0;
 
 /**
  * Optional GA4 measurement ID (the `G-XXXXXXX` value, not the numeric property
