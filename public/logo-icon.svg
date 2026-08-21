@@ -1,25 +1,53 @@
+<!-- Mailmark brand mark, in the Warm Cream palette (the site's signature
+     theme): the postmark red the app renders as the `accent` token (#ce3a1b),
+     deepening to `color-violet-700` (#a82c11), with the checkmark on
+     `accent-text` (#fbf9f4).
+
+     A standalone file cannot read the app's data-theme attribute, so unlike
+     the Logo component (app/components/Logo.tsx) this is pinned to one
+     palette rather than tracking whichever theme the visitor has chosen.
+
+     The mark paints nothing but its own strokes. The badge is knocked out of
+     the envelope with a mask instead of being covered by an opaque disc, so
+     the file needs no background colour and sits correctly on a light or dark
+     browser tab, page or README. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="Mailmark logo">
   <defs>
     <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#8b5cf6"/>
-      <stop offset="100%" stop-color="#5b21b6"/>
+      <stop offset="0%" stop-color="#ce3a1b"/>
+      <stop offset="100%" stop-color="#a82c11"/>
     </linearGradient>
+
+    <!-- Keeps the M-fold lines inside the envelope body. -->
     <clipPath id="envClip">
       <rect x="4" y="16" width="66" height="50" rx="8"/>
     </clipPath>
+
+    <!-- Cuts a hole in the envelope where the badge overlaps it, so the gap
+         between the two is whatever sits behind the mark. -->
+    <mask id="badgeMask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+      <rect x="0" y="0" width="100" height="100" fill="white"/>
+      <circle cx="67" cy="62" r="20" fill="black"/>
+    </mask>
   </defs>
 
-  <rect x="4" y="16" width="66" height="50" rx="8"
-        fill="none" stroke="url(#grad)" stroke-width="7" stroke-linejoin="round"/>
+  <g mask="url(#badgeMask)">
+    <!-- Envelope body outline -->
+    <rect x="4" y="16" width="66" height="50" rx="8"
+          fill="none" stroke="url(#grad)" stroke-width="7" stroke-linejoin="round"/>
 
-  <line x1="4"  y1="16" x2="37" y2="44"
-        stroke="url(#grad)" stroke-width="7" stroke-linecap="round" clip-path="url(#envClip)"/>
-  <line x1="70" y1="16" x2="37" y2="44"
-        stroke="url(#grad)" stroke-width="7" stroke-linecap="round" clip-path="url(#envClip)"/>
+    <!-- M-letter fold lines -->
+    <line x1="4"  y1="16" x2="37" y2="44"
+          stroke="url(#grad)" stroke-width="7" stroke-linecap="round" clip-path="url(#envClip)"/>
+    <line x1="70" y1="16" x2="37" y2="44"
+          stroke="url(#grad)" stroke-width="7" stroke-linecap="round" clip-path="url(#envClip)"/>
+  </g>
 
+  <!-- Badge circle -->
   <circle cx="67" cy="62" r="18" fill="url(#grad)"/>
 
+  <!-- Checkmark inside badge -->
   <polyline points="58,62 65,69 77,53"
-            fill="none" stroke="white" stroke-width="4"
+            fill="none" stroke="#fbf9f4" stroke-width="4"
             stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
