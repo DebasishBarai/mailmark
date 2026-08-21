@@ -11,12 +11,15 @@ const plans = [
     name: "Starter",
     price: "$10",
     features: ["1,000 emails / month", "1 domain", "3 mailboxes", "Full email UI", "Email campaigns", "Campaign analytics"],
+    // Starter and Pro carry the 7 day Polar trial, Business does not (see Pricing.tsx)
+    hasTrial: true,
   },
   {
     key: "pro" as const,
     name: "Pro",
     price: "$50",
     features: ["25,000 emails / month", "5 domains", "Unlimited mailboxes", "Full email UI", "Email campaigns", "Campaign analytics"],
+    hasTrial: true,
     highlighted: true,
   },
   {
@@ -24,10 +27,35 @@ const plans = [
     name: "Business",
     price: "$100",
     features: ["100,000 emails / month", "Unlimited domains", "Full email UI", "Email campaigns", "Campaign analytics", "Dedicated support"],
+    hasTrial: false,
   },
 ];
 
-export default function UpgradeModal() {
+// Why the paywall is up. A brand new account never had in-app trial time
+// (TRIAL_DURATION_MS is 0), so telling it that a trial "has ended" is wrong.
+export type UpgradeReason = "new_user" | "trial_ended" | "subscription_ended";
+
+const COPY: Record<UpgradeReason, { title: string; subtitle: string }> = {
+  new_user: {
+    title: "Choose a plan to get started",
+    subtitle:
+      "Starter and Pro include a 7-day free trial. Nothing is charged until day 8, and cancelling before then costs you nothing.",
+  },
+  trial_ended: {
+    title: "Your free trial has ended",
+    subtitle: "Choose a plan to continue using Mailmark. All your data is safe and waiting.",
+  },
+  subscription_ended: {
+    title: "Your subscription has ended",
+    subtitle: "Choose a plan to continue using Mailmark. All your data is safe and waiting.",
+  },
+};
+
+// Old signature, before the modal knew why it was being shown:
+// export default function UpgradeModal() {
+export default function UpgradeModal({ reason = "trial_ended" }: { reason?: UpgradeReason }) {
+  const copy = COPY[reason];
+  const isNewUser = reason === "new_user";
   const createCheckoutSession = useAction(api.subscriptions.createCheckoutSession);
   const { signOut } = useClerk();
   const [loading, setLoading] = useState<string | null>(null);
@@ -57,14 +85,19 @@ export default function UpgradeModal() {
         <div className="shrink-0 px-6 pt-6 pb-4 text-center border-b border-gray-100 dark:border-gray-700 md:px-8 md:pt-8">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/40">
             <svg className="h-7 w-7 text-violet-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              {isNewUser ? (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.63 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              )}
             </svg>
           </div>
           <h2 id="upgrade-dialog-title" className="text-2xl font-bold text-gray-900 dark:text-white">
-            Your free trial has ended
+            {/* Old hardcoded heading: Your free trial has ended */}
+            {copy.title}
           </h2>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Choose a plan to continue using Mailmark. All your data is safe and waiting.
+            {copy.subtitle}
           </p>
         </div>
 
@@ -98,8 +131,13 @@ export default function UpgradeModal() {
                   <span className="text-3xl font-bold text-gray-900 dark:text-white">
                     {plan.price}
                   </span>
-                  <span className="text-sm text-gray-500 dark:text-gray:400">/mo</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">/mo</span>
                 </div>
+                {isNewUser && plan.hasTrial && (
+                  <p className="mt-1 text-xs font-medium text-violet-600 dark:text-violet-400">
+                    7-day free trial included
+                  </p>
+                )}
                 <ul className="mt-4 flex-1 space-y-2">
                   {plan.features.map((f) => (
                     <li key={f} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
@@ -131,6 +169,9 @@ export default function UpgradeModal() {
                       </svg>
                       Redirecting...
                     </>
+                  ) : isNewUser && plan.hasTrial ? (
+                    // Old: always `Choose ${plan.name}`
+                    "Start free trial"
                   ) : (
                     `Choose ${plan.name}`
                   )}
