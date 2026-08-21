@@ -12,6 +12,7 @@ import Logo from "../components/Logo";
 import { SidebarProvider, useSidebar } from "../components/SidebarContext";
 import UpgradeModal from "../components/UpgradeModal";
 import ReferralTracker from "../components/ReferralTracker";
+import SignupConversionTracker from "../components/SignupConversionTracker";
 
 const sidebarLinks = [
   {
@@ -453,6 +454,7 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
       <Authenticated>
         <SyncUser />
         <ReferralTracker />
+        <SignupConversionTracker />
         <AppShell>{children}</AppShell>
       </Authenticated>
     </SidebarProvider>
