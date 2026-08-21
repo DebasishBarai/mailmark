@@ -553,8 +553,11 @@ export default async function BlogArticlePage({
       name: "Mailmark",
       url: "https://www.mailmark.dev",
       logo: {
+        // The mark itself, not the social card, which carries a headline.
         "@type": "ImageObject",
-        url: "https://www.mailmark.dev/og-image.png",
+        url: "https://www.mailmark.dev/logo-icon.png",
+        width: 200,
+        height: 200,
       },
     },
     mainEntityOfPage: {
