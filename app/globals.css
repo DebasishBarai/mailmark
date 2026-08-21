@@ -137,6 +137,34 @@ html.app-locked .mailbox-shell {
   letter-spacing: -0.03em;
 }
 
+/* ==============================
+   Brand mark
+
+   The envelope-and-badge mark next to the wordmark. It used to carry the
+   original violet gradient baked into the SVG, so it stayed violet while
+   every themed surface around it moved, and the wordmark beside it changed
+   colour without it.
+
+   These tokens hand the mark the same colours the wordmark already gets.
+   `.font-wordmark` text is `text-violet-600`, and in every palette below the
+   violet scale is remapped so violet-500 and violet-600 both land on that
+   theme's --accent, with violet-700 as the next step down. So the mark's
+   gradient runs violet-500 -> violet-700: it starts on the exact colour of
+   the wordmark and deepens from there. The checkmark sits on top of that
+   gradient, so it takes the accent's own contrast colour.
+
+   The mark paints no background of its own (it knocks the badge out of the
+   envelope with a mask instead of covering it with an opaque disc), so it
+   needs no "paper" colour and stays correct on any surface: header, footer,
+   the app sidebar, light themes and dark ones alike.
+   ============================== */
+
+:root {
+  --logo-from: var(--color-violet-500);
+  --logo-to: var(--color-violet-700);
+  --logo-check: var(--accent-text);
+}
+
 .font-display {
   font-family: var(--font-fraunces), Georgia, serif;
   font-variation-settings: "SOFT" 0, "WONK" 1;
