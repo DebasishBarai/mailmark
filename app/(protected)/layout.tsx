@@ -12,6 +12,7 @@ import Logo from "../components/Logo";
 import { SidebarProvider, useSidebar } from "../components/SidebarContext";
 import UpgradeModal from "../components/UpgradeModal";
 import ReferralTracker from "../components/ReferralTracker";
+import SignupConversionTracker from "../components/SignupConversionTracker";
 
 const sidebarLinks = [
   {
@@ -135,14 +136,25 @@ function SyncUser() {
   const { isAuthenticated } = useConvexAuth();
   const addUser = useAction(api.users.addUser);
   const hasSynced = useRef(false);
+  // null until addUser answers. True only on the call that actually created the
+  // Convex user row, which is the authoritative trial-start signal.
+  const [isNewUser, setIsNewUser] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated || hasSynced.current) return;
     hasSynced.current = true;
-    addUser();
+    // Old: addUser();
+    addUser()
+      .then((result) => setIsNewUser(result?.isNew ?? false))
+      .catch(() => {
+        // Sync failed (for example the Polar customer call). Leave the flag
+        // unresolved so no conversion is reported on a guess.
+      });
   }, [isAuthenticated, addUser]);
 
-  return null;
+  // Old: return null;
+  // The signup conversion is owned by whoever knows the isNew answer.
+  return <SignupConversionTracker isNewUser={isNewUser} />;
 }
 
 function TrialGate({ children }: { children: ReactNode }) {
@@ -453,6 +465,9 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
       <Authenticated>
         <SyncUser />
         <ReferralTracker />
+        {/* Old: mounted standalone, when the gate was the Clerk account age.
+            It now renders inside SyncUser, which owns the isNew flag. */}
+        {/* <SignupConversionTracker /> */}
         <AppShell>{children}</AppShell>
       </Authenticated>
     </SidebarProvider>

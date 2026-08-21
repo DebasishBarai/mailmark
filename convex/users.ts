@@ -59,9 +59,15 @@ export const updateUserProfile = internalMutation({
   },
 });
 
+// The client needs to know whether this call created the user or just refreshed
+// an existing profile: that is the authoritative "trial started" signal, and it
+// gates the Google Ads signup conversion. `isNew` is true on exactly one call
+// per user, the first one ever.
 export const addUser = action({
   args: {},
-  handler: async (ctx): Promise<Doc<"users"> | null | undefined> => {
+  // Old return type, before the isNew flag:
+  // handler: async (ctx): Promise<Doc<"users"> | null | undefined> => {
+  handler: async (ctx): Promise<{ user: Doc<"users">; isNew: boolean }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) throw new Error("Not authenticated");
 
@@ -72,12 +78,15 @@ export const addUser = action({
 
     if (existingUser) {
       // Existing user - update profile fields only (no Polar API call)
-      return await ctx.runMutation(internal.users.updateUserProfile, {
+      // Old: returned the doc directly
+      // return await ctx.runMutation(internal.users.updateUserProfile, {
+      const user = await ctx.runMutation(internal.users.updateUserProfile, {
         subject: identity.subject,
         email: identity.email,
         name: identity.name,
         imageUrl: identity.pictureUrl,
       });
+      return { user, isNew: false };
     }
 
     // New user - create a Polar customer first
@@ -101,13 +110,16 @@ export const addUser = action({
 
     const polarCustomer = await polarResponse.json();
 
-    return await ctx.runMutation(internal.users.createUser, {
+    // Old: returned the doc directly
+    // return await ctx.runMutation(internal.users.createUser, {
+    const user = await ctx.runMutation(internal.users.createUser, {
       subject: identity.subject,
       email: identity.email,
       name: identity.name,
       imageUrl: identity.pictureUrl,
       polarCustomerId: polarCustomer.id,
     });
+    return { user, isNew: true };
   },
 });
 

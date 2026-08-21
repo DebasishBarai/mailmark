@@ -11,6 +11,7 @@ import ThemeProvider from "./components/ThemeProvider";
 import ClerkThemeProvider from "./components/ClerkThemeProvider";
 import PreferenceSync from "./components/PreferenceSync";
 import RefCapture from "./components/RefCapture";
+import GoogleTag from "./components/GoogleTag";
 import "./globals.css";
 
 // const geistSans = GeistSans;
@@ -83,6 +84,9 @@ export default function RootLayout({
       <body
         className={`${schibstedGrotesk.variable} ${fraunces.variable} ${dmMono.variable} antialiased`}
       >
+        {/* Google tag (gtag.js). Mounted at the root so it is present on the
+            marketing pages and on the post-signup app routes alike. */}
+        <GoogleTag />
         <ThemeProvider>
           <ClerkThemeProvider>
             <ConvexClientProvider>
