@@ -13,6 +13,7 @@ import PreferenceSync from "./components/PreferenceSync";
 import RefCapture from "./components/RefCapture";
 import GoogleTag from "./components/GoogleTag";
 import "./globals.css";
+import { ogImages, twitterImages } from "./og";
 
 // const geistSans = GeistSans;
 // const geistMono = GeistMono;
@@ -55,14 +56,14 @@ export const metadata: Metadata = {
     description:
       "Add your domain, create unlimited mailboxes, and run powerful email campaigns. A complete email platform with inbox, sent, outbox, and built-in campaign tools.",
     url: "https://www.mailmark.dev",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Mailmark" }],
+    images: ogImages,
   },
   twitter: {
     card: "summary_large_image",
     title: "Mailmark - Email Hosting & Campaigns for Your Domain",
     description:
       "Add your domain, create unlimited mailboxes, and run powerful email campaigns. A complete email platform with inbox, sent, outbox, and built-in campaign tools.",
-    images: ["/og-image.png"],
+    images: twitterImages,
   },
   icons: {
     icon: [

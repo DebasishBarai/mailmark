@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ogImages, twitterImages } from "./og";
 import Header from "./components/Header";
 import Hero from "./components/Hero";
 import Arithmetic from "./components/Arithmetic";
@@ -16,13 +17,32 @@ import FAQ from "./components/FAQ";
 import CTABanner from "./components/CTABanner";
 import Footer from "./components/Footer";
 
+const title = "Mailmark - One Email Platform for All Your Products";
+const description =
+  "Built for developers running more than one product. Manage every product's domain and mailboxes, send update campaigns to your users, and send email from your code with a REST API and npm SDK, all in one dashboard.";
+
 export const metadata: Metadata = {
-  title: "Mailmark - One Email Platform for All Your Products",
-  description:
-    "Built for developers running more than one product. Manage every product's domain and mailboxes, send update campaigns to your users, and send email from your code with a REST API and npm SDK, all in one dashboard.",
+  title,
+  description,
+  // This page's openGraph replaces the root layout's rather than merging with
+  // it, so everything the card needs has to be restated here, images included.
+  // Previously only `type` and `url` were, which left the home page with no
+  // og:image and no og:site_name. The twitter block is restated for the same
+  // reason: without it the card inherits the layout's title, which is not this
+  // page's title.
   openGraph: {
     type: "website",
+    siteName: "Mailmark",
+    title,
+    description,
     url: "https://www.mailmark.dev",
+    images: ogImages,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: twitterImages,
   },
   alternates: {
     canonical: "https://www.mailmark.dev",
