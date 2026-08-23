@@ -24,6 +24,21 @@ export const SIGNUP_CONVERSION_VALUE = 10.0;
 export const SIGNUP_CONVERSION_CURRENCY = "USD";
 
 /**
+ * When the real conversion ID first reached production: the Vercel deploy of
+ * commit 59b75b2, 2026-08-21T18:27:35Z. Before it, GOOGLE_ADS_CONVERSION_ID was
+ * the AW-XXXXXXXXX placeholder, isGoogleAdsConfigured was false and GoogleTag
+ * rendered nothing, so gtag.js was never even requested.
+ *
+ * This is the backfill, expressed as a constant instead of a migration. A user
+ * row created before this instant was never owed a conversion and must never
+ * fire one: without this floor, adding signupConversionReportedAt would make
+ * every pre-existing user report a signup on their next visit, which would be
+ * far worse for the Ads data than the current silence. The nearest rows sit
+ * about two days either side of it, so the boundary is not tight.
+ */
+export const ADS_TAG_LIVE_AT = 1787336855561;
+
+/**
  * True when both constants above hold real values.
  *
  * Old check looked for an "X" in the ID and a "Y" in the label. That only

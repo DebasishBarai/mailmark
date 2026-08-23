@@ -14,6 +14,13 @@ export default defineSchema({
     prefTheme: v.optional(v.string()),
     prefDensity: v.optional(v.string()),
     prefWallpaper: v.optional(v.string()),
+    // When the Google Ads trial-signup conversion was reported for this user.
+    // Absent means it is still owed. The old design carried that fact only in
+    // addUser's in-memory isNew reply, so a fire lost on the signup page load
+    // (tag blocked, tab closed, user clicked through to Polar checkout) could
+    // never be retried: every later addUser found the row and answered false.
+    // Persisting it lets the client settle the debt on any later visit.
+    signupConversionReportedAt: v.optional(v.number()),
   }).index("by_clerk_id", ["clerkId"]),
 
   domains: defineTable({

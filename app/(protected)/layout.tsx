@@ -136,25 +136,23 @@ function SyncUser() {
   const { isAuthenticated } = useConvexAuth();
   const addUser = useAction(api.users.addUser);
   const hasSynced = useRef(false);
-  // null until addUser answers. True only on the call that actually created the
-  // Convex user row, which is the authoritative trial-start signal.
-  const [isNewUser, setIsNewUser] = useState<boolean | null>(null);
+  // Old: the isNew answer was held here and passed to the tracker.
+  // const [isNewUser, setIsNewUser] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated || hasSynced.current) return;
     hasSynced.current = true;
-    // Old: addUser();
-    addUser()
-      .then((result) => setIsNewUser(result?.isNew ?? false))
-      .catch(() => {
-        // Sync failed (for example the Polar customer call). Leave the flag
-        // unresolved so no conversion is reported on a guess.
-      });
+    // Old: addUser().then((result) => setIsNewUser(result?.isNew ?? false))
+    addUser().catch(() => {
+      // Sync failed (for example the Polar customer call). The row is not
+      // created, so nothing is owed yet and the next visit retries.
+    });
   }, [isAuthenticated, addUser]);
 
-  // Old: return null;
-  // The signup conversion is owned by whoever knows the isNew answer.
-  return <SignupConversionTracker isNewUser={isNewUser} />;
+  // Old: return <SignupConversionTracker isNewUser={isNewUser} />;
+  // The tracker now reads the persisted flag off the user row itself, so it no
+  // longer depends on catching addUser's one-shot reply.
+  return <SignupConversionTracker />;
 }
 
 function TrialGate({ children }: { children: ReactNode }) {

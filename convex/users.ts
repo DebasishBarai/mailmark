@@ -149,6 +149,33 @@ export const updatePreferences = mutation({
   },
 });
 
+/**
+ * Stamps the Google Ads trial-signup conversion as reported for the calling
+ * user. Idempotent: the first stamp wins, so a duplicate call from a second tab
+ * or a remount cannot move the timestamp.
+ *
+ * The client calls this only after gtag has accepted the event. Until then the
+ * field stays absent and the conversion is still owed, which is what makes a
+ * lost fire recoverable on the user's next visit.
+ */
+export const markSignupConversionReported = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) throw new Error("User not found");
+    if (user.signupConversionReportedAt !== undefined) return;
+
+    await ctx.db.patch(user._id, { signupConversionReportedAt: Date.now() });
+  },
+});
+
 export const current = query({
   args: {},
   handler: async (ctx) => {
