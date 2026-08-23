@@ -51,4 +51,13 @@ crons.daily(
   {}
 );
 
+// Daily at 3:15 AM UTC: delete resume uploads that were never attached to a
+// job application (abandoned careers forms)
+crons.daily(
+  "cleanup orphaned resumes",
+  { hourUTC: 3, minuteUTC: 15 },
+  internal.jobApplications.cleanupOrphanedResumes,
+  {}
+);
+
 export default crons;

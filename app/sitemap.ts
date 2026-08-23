@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { jobOpenings } from "../lib/jobs";
 
 const BASE_URL = "https://www.mailmark.dev";
 
@@ -47,11 +48,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/terms`, priority: 0.4, changeFrequency: "monthly" },
   ];
 
+  // One entry per open role. The /apply forms are deliberately excluded:
+  // they are noindex and have nothing to rank for.
+  const jobRoutes: MetadataRoute.Sitemap = jobOpenings.map((job) => ({
+    url: `${BASE_URL}/careers/${job.slug}`,
+    priority: 0.6,
+    changeFrequency: "weekly",
+  }));
+
   const blogRoutes: MetadataRoute.Sitemap = blogSlugs.map((slug) => ({
     url: `${BASE_URL}/blog/${slug}`,
     priority: 0.7,
     changeFrequency: "monthly",
   }));
 
-  return [...staticRoutes, ...blogRoutes];
+  return [...staticRoutes, ...jobRoutes, ...blogRoutes];
 }

@@ -24,6 +24,8 @@ import type * as emailVerification from "../emailVerification.js";
 import type * as emailVerificationQueries from "../emailVerificationQueries.js";
 import type * as emails from "../emails.js";
 import type * as http from "../http.js";
+import type * as jobApplications from "../jobApplications.js";
+import type * as jobsPipeline from "../jobsPipeline.js";
 import type * as lib_awsClients from "../lib/awsClients.js";
 import type * as mailboxes from "../mailboxes.js";
 import type * as platformStats from "../platformStats.js";
@@ -68,6 +70,8 @@ declare const fullApi: ApiFromModules<{
   emailVerificationQueries: typeof emailVerificationQueries;
   emails: typeof emails;
   http: typeof http;
+  jobApplications: typeof jobApplications;
+  jobsPipeline: typeof jobsPipeline;
   "lib/awsClients": typeof lib_awsClients;
   mailboxes: typeof mailboxes;
   platformStats: typeof platformStats;

@@ -416,4 +416,45 @@ export default defineSchema({
   })
     .index("by_user_id", ["userId"])
     .index("by_key_hash", ["keyHash"]),
+
+  // Applications submitted through the public careers portal (/careers).
+  // Each row is the durable record; the pipeline in convex/jobsPipeline.ts
+  // then drops a copy into the jobs@ mailbox and acknowledges the applicant.
+  jobApplications: defineTable({
+    jobSlug: v.string(),
+    jobTitle: v.string(),
+    name: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    location: v.optional(v.string()),
+    portfolioUrl: v.optional(v.string()),
+    githubUrl: v.optional(v.string()),
+    linkedinUrl: v.optional(v.string()),
+    coverLetter: v.string(),
+    resumeStorageId: v.id("_storage"),
+    resumeFilename: v.string(),
+    resumeContentType: v.string(),
+    resumeSize: v.number(),
+    status: v.union(
+      v.literal("new"),
+      v.literal("reviewing"),
+      v.literal("shortlisted"),
+      v.literal("rejected"),
+      v.literal("hired")
+    ),
+    // Where the application came from, e.g. "portal".
+    source: v.string(),
+    submittedAt: v.number(),
+    // Email pipeline bookkeeping. The application is stored first and the
+    // emails are delivered afterwards, so these stay unset if delivery fails.
+    inboxEmailId: v.optional(v.id("emails")),
+    inboxDeliveredAt: v.optional(v.number()),
+    ackMessageId: v.optional(v.string()),
+    ackSentAt: v.optional(v.number()),
+    deliveryError: v.optional(v.string()),
+  })
+    .index("by_job_slug", ["jobSlug"])
+    .index("by_email", ["email"])
+    .index("by_status", ["status"])
+    .index("by_email_job", ["email", "jobSlug"]),
 });
