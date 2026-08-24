@@ -173,11 +173,14 @@ function getRawEmail(emailStr: string): string {
   return emailStr;
 }
 
-function MailboxSidebarItem({ mb, currentMailboxId }: { mb: Doc<"mailboxes">; currentMailboxId: Id<"mailboxes"> }) {
+function MailboxSidebarItem({ mb, currentMailboxId, onNavigate }: { mb: Doc<"mailboxes">; currentMailboxId: Id<"mailboxes">; onNavigate?: () => void }) {
   const unread = useQuery(api.emails.countUnreadByMailbox, { mailboxId: mb._id });
   return (
     <Link
       href={`/mailbox/${mb._id}`}
+      // Switching mailboxes is navigation like any other sidebar entry, so it
+      // has to dismiss the mobile drawer too.
+      onClick={onNavigate}
       className={`flex items-center justify-between truncate rounded-md px-2 py-1 text-[10px] transition-colors ${mb._id === currentMailboxId
         ? "bg-violet-50 dark:bg-violet-900/20 font-medium text-violet-700 dark:text-violet-300"
         : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -1244,7 +1247,7 @@ export default function MailboxPage() {
               </p>
               <div className="space-y-1">
                 {domainMailboxes.map((mb: Doc<"mailboxes">) => (
-                  <MailboxSidebarItem key={mb._id} mb={mb} currentMailboxId={mbId} />
+                  <MailboxSidebarItem key={mb._id} mb={mb} currentMailboxId={mbId} onNavigate={closeMobile} />
                 ))}
               </div>
             </div>
