@@ -189,7 +189,7 @@ function MailboxUnreadBadge({ mailboxId }: { mailboxId: Id<"mailboxes"> }) {
   );
 }
 
-function DomainSubNav({ domainId, collapsed }: { domainId: Id<"domains">; collapsed: boolean }) {
+function DomainSubNav({ domainId, collapsed, onNavigate }: { domainId: Id<"domains">; collapsed: boolean; onNavigate?: () => void }) {
   const domain = useQuery(api.domains.getById, { domainId });
   const mailboxes = useQuery(api.mailboxes.listByDomain, domain ? { domainId: domain._id } : "skip");
 
@@ -210,6 +210,7 @@ function DomainSubNav({ domainId, collapsed }: { domainId: Id<"domains">; collap
           <Link
             key={mb._id}
             href={`/mailbox/${mb._id}`}
+            onClick={onNavigate}
             className="flex items-center gap-2 rounded-md px-1 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-700/60 dark:hover:text-gray-200"
           >
             <div
@@ -308,7 +309,7 @@ function AppShell({ children }: { children: ReactNode }) {
       >
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4 dark:border-gray-700/50">
-          <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
+          <Link href="/dashboard" onClick={closeMobile} className="flex items-center gap-2 min-w-0">
             <Logo size={32} />
             {!sidebarCollapsed && (
               <span className="font-wordmark text-xl text-violet-600 truncate">Mailmark</span>
@@ -405,7 +406,7 @@ function AppShell({ children }: { children: ReactNode }) {
 
           {/* Domain sub-nav: shows active domain + its mailboxes */}
           {activeDomainId && (
-            <DomainSubNav domainId={activeDomainId} collapsed={sidebarCollapsed} />
+            <DomainSubNav domainId={activeDomainId} collapsed={sidebarCollapsed} onNavigate={closeMobile} />
           )}
 
           {/* Injected folder section (e.g. from mailbox page) */}
