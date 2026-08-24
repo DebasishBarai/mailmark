@@ -1703,8 +1703,8 @@ export default function MailboxPage() {
           const batchAllRecipients = batchEmails.flatMap((e) => e.to);
           return (
             <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-white dark:bg-gray-800 p-4 md:p-8">
-              <div className="mb-6 flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
+              <div className="mb-6 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0 md:flex-1">
                   <h2 className="break-words text-lg font-semibold text-gray-900 dark:text-white md:text-xl">
                     {selectedEmail.subject}
                   </h2>
@@ -1712,7 +1712,7 @@ export default function MailboxPage() {
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
                       {getDisplayName(selectedEmail.from, contactNameMap)[0].toUpperCase()}
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1 md:flex-initial">
                       <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
                         {getDisplayName(selectedEmail.from, contactNameMap)}
                         {showEmailIds && (
@@ -1796,10 +1796,10 @@ export default function MailboxPage() {
                         </div>
                       )}
                     </div>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">{timeAgo(selectedEmail.date)}</span>
+                    <span className="shrink-0 self-start whitespace-nowrap text-xs text-gray-400 dark:text-gray-500 md:self-auto">{timeAgo(selectedEmail.date)}</span>
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="order-first flex w-full items-center justify-end gap-1 md:order-none md:w-auto md:shrink-0">
                   {emailBody && (
                     <>
                       <button
