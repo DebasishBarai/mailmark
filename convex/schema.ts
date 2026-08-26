@@ -56,9 +56,10 @@ export default defineSchema({
     // When the verification check last ran, and the error it hit (if any).
     lastVerificationCheckAt: v.optional(v.number()),
     lastVerificationError: v.optional(v.string()),
-    // When support last emailed the owner about the pending setup, and how
-    // many times. Shown in the admin panel so nobody nudges the same
-    // customer twice in a row.
+    // Legacy, from when the admin panel sent the setup notice itself. Nothing
+    // writes these any more: the notice is composed and sent from a real
+    // mailbox, so its record is that mailbox's Sent folder. Kept so existing
+    // rows carrying them still validate.
     pendingNoticeSentAt: v.optional(v.number()),
     pendingNoticeCount: v.optional(v.number()),
     // Bring-your-own AWS: when set, all SES/S3/SNS calls for this domain use

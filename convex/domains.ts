@@ -237,6 +237,17 @@ export const listPendingVerification = internalQuery({
 
 // ── Admin ──
 
+async function isAdminUser(ctx: QueryCtx): Promise<boolean> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity?.subject) return false;
+  const clerkId = identity.subject;
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+    .unique();
+  return user?.category === "admin";
+}
+
 async function requireAdminUser(ctx: QueryCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity?.subject) throw new Error("Admin access required");
@@ -288,7 +299,10 @@ async function regionForDomain(
 export const pendingNoticePreview = query({
   args: { domainId: v.id("domains"), note: v.optional(v.string()) },
   handler: async (ctx, { domainId, note }) => {
-    await requireAdminUser(ctx);
+    // Returns null rather than throwing for non-admins: the mailbox compose
+    // page runs this off a URL parameter that any signed-in user could type,
+    // and a thrown query there would surface as a crashed page.
+    if (!(await isAdminUser(ctx))) return null;
 
     const domain = await ctx.db.get(domainId);
     if (!domain) return null;
@@ -330,5 +344,42 @@ export const recordPendingNoticeSent = internalMutation({
       pendingNoticeSentAt: Date.now(),
       pendingNoticeCount: (domain.pendingNoticeCount ?? 0) + 1,
     });
+  },
+});
+
+// The mailbox an admin should compose support mail from. Prefers the address
+// in SUPPORT_FROM_EMAIL, falling back to any mailbox the admin owns so the
+// handoff still works before that mailbox exists. Admin only.
+export const supportMailbox = query({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await requireAdminUser(ctx);
+
+    const supportAddress = (
+      process.env.SUPPORT_FROM_EMAIL ?? "support@mailmark.dev"
+    ).toLowerCase();
+
+    const exact = await ctx.db
+      .query("mailboxes")
+      .withIndex("by_full_address", (q) => q.eq("fullAddress", supportAddress))
+      .unique();
+
+    // Only usable if the admin actually owns it, otherwise fall back.
+    const owned = exact && exact.userId === admin._id ? exact : null;
+    const fallback = owned
+      ? null
+      : await ctx.db
+          .query("mailboxes")
+          .withIndex("by_user_id", (q) => q.eq("userId", admin._id))
+          .first();
+
+    const chosen = owned ?? fallback;
+
+    return {
+      supportAddress,
+      mailboxId: chosen?._id ?? null,
+      mailboxAddress: chosen?.fullAddress ?? null,
+      isSupportAddress: !!owned,
+    };
   },
 });

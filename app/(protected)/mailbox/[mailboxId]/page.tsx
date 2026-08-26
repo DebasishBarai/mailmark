@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -754,6 +754,42 @@ export default function MailboxPage() {
     setShowFollowUps(false);
     setVerificationResults({});
   };
+
+  // Prefill from a handoff link, e.g. the admin domains panel sending an owner
+  // a note about their pending setup. The body is generated server side and
+  // fetched by id rather than passed through the URL, so the link stays short
+  // and the copy stays in one place. Everything lands in the normal composer:
+  // nothing is sent until the person here presses Send.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const noticeDomainId =
+    searchParams.get("compose") === "domain-notice"
+      ? searchParams.get("domainId")
+      : null;
+  const noticePrefill = useQuery(
+    api.domains.pendingNoticePreview,
+    noticeDomainId
+      ? { domainId: noticeDomainId as Id<"domains"> }
+      : "skip"
+  );
+  const noticePrefillApplied = useRef(false);
+
+  useEffect(() => {
+    if (!noticePrefill || noticePrefillApplied.current) return;
+    noticePrefillApplied.current = true;
+
+    setComposeMode("compose");
+    setComposeTo(noticePrefill.recipient ? [noticePrefill.recipient] : []);
+    setComposeSubject(noticePrefill.subject);
+    setComposeContentType("html");
+    setComposeBody(noticePrefill.html);
+    setComposeSignature(mailbox?.signature ?? "");
+    setShowCompose(true);
+
+    // Drop the handoff parameters once applied, so refreshing after sending
+    // does not reopen the same draft.
+    router.replace(`/mailbox/${mbId}`, { scroll: false });
+  }, [noticePrefill, mailbox?.signature, router, mbId]);
 
   const hasMergeData = mergeRecipients.length > 0;
 

@@ -190,10 +190,11 @@ export function buildDomainPendingNotice(
         </div>`
     : "";
 
-  const html = `<!DOCTYPE html>
-<html>
-  <body style="margin:0;padding:0;background:#f6f6f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#f6f6f7;padding:24px 12px;">
+  // A fragment, not a full HTML document: this lands in the compose editor,
+  // which appends the signature and any quoted text after it and lets the
+  // send path add its own wrapping. A doctype and <html> here would leave
+  // that trailing content outside the document.
+  const html = `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#f6f6f7;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
       <tr>
         <td align="center">
           <table role="presentation" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;padding:32px;">
@@ -216,9 +217,7 @@ export function buildDomainPendingNotice(
           </table>
         </td>
       </tr>
-    </table>
-  </body>
-</html>`;
+    </table>`;
 
   // ── Plain text ──
 
