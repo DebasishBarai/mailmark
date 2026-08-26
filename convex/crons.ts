@@ -27,6 +27,17 @@ crons.interval(
   {}
 );
 
+// Every hour: re-check domains still waiting on SES verification.
+// Domain status used to refresh only when the owner clicked "Verify DNS",
+// so a domain SES verified an hour after the last click stayed unverified
+// in our database until someone happened to look again.
+crons.interval(
+  "reverify pending domains",
+  { hours: 1 },
+  internal.domainActions.reverifyPendingDomainsInternal,
+  {}
+);
+
 // Every 30 minutes: send warmup emails (mailbox <-> platform Gmail accounts)
 crons.interval(
   "warmup exchange",
