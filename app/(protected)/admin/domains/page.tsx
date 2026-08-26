@@ -113,7 +113,9 @@ export default function AdminDomainsPage() {
     if (!support?.mailboxId) {
       setMessage("");
       setError(
-        `No mailbox available to send from. Create ${support?.supportAddress ?? "a support"} mailbox on a verified domain in your own account first.`
+        support?.reason === "not-owned"
+          ? `${support.supportAddress} exists but belongs to another account, so it cannot be used to send from here.`
+          : `${support?.supportAddress ?? "The support"} mailbox was not found. Create it on your verified mailmark.dev domain before emailing customers.`
       );
       return;
     }
@@ -150,10 +152,18 @@ export default function AdminDomainsPage() {
             Pending domains are re-checked automatically every hour.
           </p>
           {support && (
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+            <p
+              className={`mt-1 text-xs ${
+                support.mailboxId
+                  ? "text-gray-400 dark:text-gray-500"
+                  : "text-red-600 dark:text-red-400"
+              }`}
+            >
               {support.mailboxId
-                ? `Draft email composes from ${support.mailboxAddress}${support.isSupportAddress ? "" : " (no " + support.supportAddress + " mailbox found)"}.`
-                : `No mailbox to compose from yet. Create ${support.supportAddress} on a verified domain in your own account.`}
+                ? `Draft email composes from ${support.supportAddress}.`
+                : support.reason === "not-owned"
+                  ? `${support.supportAddress} belongs to another account and cannot be used here.`
+                  : `${support.supportAddress} mailbox not found. Create it before emailing customers.`}
             </p>
           )}
         </div>

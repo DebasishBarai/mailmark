@@ -347,9 +347,12 @@ export const recordPendingNoticeSent = internalMutation({
   },
 });
 
-// The mailbox an admin should compose support mail from. Prefers the address
-// in SUPPORT_FROM_EMAIL, falling back to any mailbox the admin owns so the
-// handoff still works before that mailbox exists. Admin only.
+// The mailbox support mail is composed from. This is always the
+// SUPPORT_FROM_EMAIL address (support@mailmark.dev unless overridden), owned
+// by the admin. There is deliberately no fallback to another mailbox: sending
+// a support notice from whatever other address happened to exist would be
+// worse than not sending it, so a missing mailbox surfaces as an error the
+// admin can act on. Admin only.
 export const supportMailbox = query({
   args: {},
   handler: async (ctx) => {
@@ -359,27 +362,18 @@ export const supportMailbox = query({
       process.env.SUPPORT_FROM_EMAIL ?? "support@mailmark.dev"
     ).toLowerCase();
 
-    const exact = await ctx.db
+    const mailbox = await ctx.db
       .query("mailboxes")
       .withIndex("by_full_address", (q) => q.eq("fullAddress", supportAddress))
       .unique();
 
-    // Only usable if the admin actually owns it, otherwise fall back.
-    const owned = exact && exact.userId === admin._id ? exact : null;
-    const fallback = owned
-      ? null
-      : await ctx.db
-          .query("mailboxes")
-          .withIndex("by_user_id", (q) => q.eq("userId", admin._id))
-          .first();
+    if (!mailbox) {
+      return { supportAddress, mailboxId: null, reason: "missing" as const };
+    }
+    if (mailbox.userId !== admin._id) {
+      return { supportAddress, mailboxId: null, reason: "not-owned" as const };
+    }
 
-    const chosen = owned ?? fallback;
-
-    return {
-      supportAddress,
-      mailboxId: chosen?._id ?? null,
-      mailboxAddress: chosen?.fullAddress ?? null,
-      isSupportAddress: !!owned,
-    };
+    return { supportAddress, mailboxId: mailbox._id, reason: null };
   },
 });
