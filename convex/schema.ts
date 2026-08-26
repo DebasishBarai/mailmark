@@ -56,6 +56,11 @@ export default defineSchema({
     // When the verification check last ran, and the error it hit (if any).
     lastVerificationCheckAt: v.optional(v.number()),
     lastVerificationError: v.optional(v.string()),
+    // When support last emailed the owner about the pending setup, and how
+    // many times. Shown in the admin panel so nobody nudges the same
+    // customer twice in a row.
+    pendingNoticeSentAt: v.optional(v.number()),
+    pendingNoticeCount: v.optional(v.number()),
     // Bring-your-own AWS: when set, all SES/S3/SNS calls for this domain use
     // the referenced AWS account's credentials and bucket. When undefined the
     // platform's shared AWS account is used (legacy behavior).

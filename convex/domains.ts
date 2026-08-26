@@ -1,10 +1,15 @@
 import { v } from "convex/values";
 import {
+  buildDomainPendingNotice,
+  noticeInputFromDomain,
+} from "./lib/domainNotice";
+import {
   query,
   internalMutation,
   internalQuery,
   type QueryCtx,
 } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
 // ── Queries ──
 
@@ -262,5 +267,68 @@ export const listAllForAdmin = query({
         };
       })
     );
+  },
+});
+
+// The region whose SES endpoints a domain's DNS records must point at. BYO
+// domains use their own account's region, platform domains the shared one.
+async function regionForDomain(
+  ctx: QueryCtx,
+  domain: { awsAccountId?: Id<"awsAccounts"> }
+): Promise<string> {
+  if (domain.awsAccountId) {
+    const account = await ctx.db.get(domain.awsAccountId);
+    if (account) return account.region;
+  }
+  return process.env.AWS_REGION ?? "ap-south-1";
+}
+
+// Preview of the setup notice for a domain, so an admin can read exactly what
+// the customer would receive before deciding to send it. Admin only.
+export const pendingNoticePreview = query({
+  args: { domainId: v.id("domains"), note: v.optional(v.string()) },
+  handler: async (ctx, { domainId, note }) => {
+    await requireAdminUser(ctx);
+
+    const domain = await ctx.db.get(domainId);
+    if (!domain) return null;
+
+    const owner = await ctx.db.get(domain.userId);
+    const region = await regionForDomain(ctx, domain);
+    const notice = buildDomainPendingNotice(
+      noticeInputFromDomain(domain, region),
+      { note, domainUrl: `${process.env.APP_URL ?? "https://www.mailmark.dev"}/domains/${domainId}` }
+    );
+
+    return {
+      ...notice,
+      alreadyVerified: domain.verified,
+      recipient: owner?.email ?? null,
+      sentAt: domain.pendingNoticeSentAt,
+      sentCount: domain.pendingNoticeCount ?? 0,
+    };
+  },
+});
+
+export const getOwnerForDomain = internalQuery({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }) => {
+    const domain = await ctx.db.get(domainId);
+    if (!domain) return null;
+    const owner = await ctx.db.get(domain.userId);
+    const region = await regionForDomain(ctx, domain);
+    return { domain, owner, region };
+  },
+});
+
+export const recordPendingNoticeSent = internalMutation({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }) => {
+    const domain = await ctx.db.get(domainId);
+    if (!domain) return;
+    await ctx.db.patch(domainId, {
+      pendingNoticeSentAt: Date.now(),
+      pendingNoticeCount: (domain.pendingNoticeCount ?? 0) + 1,
+    });
   },
 });
