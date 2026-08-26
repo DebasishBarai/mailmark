@@ -7,7 +7,11 @@ if (typeof globalThis.DOMParser === "undefined") {
 }
 
 import { v } from "convex/values";
-import { action, internalAction } from "./_generated/server";
+import {
+  action,
+  internalAction,
+  type ActionCtx,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
   CreateEmailIdentityCommand,
@@ -63,6 +67,22 @@ async function resolveTxt(hostname: string): Promise<string[][]> {
   } catch {
     return [];
   }
+}
+
+// Admin gate for actions. Actions have no database access, so the user row is
+// fetched through an internal query rather than ctx.db.
+async function requireAdminUser(ctx: ActionCtx): Promise<Doc<"users">> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Admin access required");
+
+  const user: Doc<"users"> | null = await ctx.runQuery(
+    internal.domains.getUserByClerkId,
+    { clerkId: identity.subject }
+  );
+  if (!user || user.category !== "admin") {
+    throw new Error("Admin access required");
+  }
+  return user;
 }
 
 export const add = action({
@@ -150,12 +170,27 @@ export const add = action({
   },
 });
 
-export const verifyDns = action({
-  args: { domainId: v.id("domains") },
-  handler: async (ctx, { domainId }): Promise<{ verified: boolean; dkimVerified: boolean; mxVerified: boolean; spfVerified: boolean; dmarcVerified: boolean; dkimRecordStatus: boolean[] }> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+// Result of one verification pass. The raw SES status strings are included
+// so the admin panel can distinguish "Pending" (SES is still polling DNS)
+// from "Failed" (SES gave up after 72 hours and will not retry on its own).
+export type DomainVerificationResult = {
+  verified: boolean;
+  dkimVerified: boolean;
+  mxVerified: boolean;
+  spfVerified: boolean;
+  dmarcVerified: boolean;
+  dkimRecordStatus: boolean[];
+  sesDkimStatus?: string;
+  sesMailFromStatus?: string;
+  error?: string;
+};
 
+// Core verification routine. Carries no authorization of its own: every
+// caller below is responsible for deciding who may run it (the domain owner,
+// an admin, or the hourly cron).
+export const verifyDomainInternal = internalAction({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }): Promise<DomainVerificationResult> => {
     const domain = await ctx.runQuery(internal.domains.getByIdInternal, {
       domainId,
     });
@@ -234,31 +269,84 @@ export const verifyDns = action({
     // Check SES status for overall DKIM verification
     const sesv2 = clients.sesv2;
 
-    // Ensure custom MAIL FROM is configured in SES (for domains added before this feature)
+    // Old behavior: the MAIL FROM attributes were re-put on every single check,
+    // unconditionally, immediately before reading the identity back. Setting
+    // MAIL FROM restarts its verification in SES, so the GetEmailIdentity call
+    // that followed read a MailFromDomainStatus this action had just reset to
+    // PENDING. Since `verified` requires that status to be SUCCESS, a domain
+    // with perfectly correct DNS could never go verified through this path.
+    //
+    // // Ensure custom MAIL FROM is configured in SES (for domains added before this feature)
+    // try {
+    //   await sesv2.send(
+    //     new PutEmailIdentityMailFromAttributesCommand({
+    //       EmailIdentity: domain.domain,
+    //       MailFromDomain: mailFromDomain,
+    //       BehaviorOnMxFailure: "USE_DEFAULT_VALUE",
+    //     })
+    //   );
+    // } catch {
+    //   // Non-fatal: domain may not exist in SES yet
+    // }
+    //
+    // const result = await sesv2.send(
+    //   new GetEmailIdentityCommand({
+    //     EmailIdentity: domain.domain,
+    //   })
+    // );
+
+    let sesDkimStatus: string | undefined;
+    let sesMailFromStatus: string | undefined;
+    let sesVerified = false;
+    let sesMailFromVerified = false;
+    let dkimVerified = false;
+    let verificationError: string | undefined;
+
     try {
-      await sesv2.send(
-        new PutEmailIdentityMailFromAttributesCommand({
+      // Read the identity first, and only write MAIL FROM when it is actually
+      // missing or points somewhere else (domains added before the MAIL FROM
+      // feature shipped). A no-op check must not mutate SES state.
+      let result = await sesv2.send(
+        new GetEmailIdentityCommand({
           EmailIdentity: domain.domain,
-          MailFromDomain: mailFromDomain,
-          BehaviorOnMxFailure: "USE_DEFAULT_VALUE",
         })
       );
-    } catch {
-      // Non-fatal: domain may not exist in SES yet
+
+      if (result.MailFromAttributes?.MailFromDomain !== mailFromDomain) {
+        await sesv2.send(
+          new PutEmailIdentityMailFromAttributesCommand({
+            EmailIdentity: domain.domain,
+            MailFromDomain: mailFromDomain,
+            BehaviorOnMxFailure: "USE_DEFAULT_VALUE",
+          })
+        );
+        // Re-read so the status we store reflects the identity after the write.
+        // It will read PENDING here, which is the truth: SES has just started
+        // verifying, and the next check will pick up the result.
+        result = await sesv2.send(
+          new GetEmailIdentityCommand({
+            EmailIdentity: domain.domain,
+          })
+        );
+      }
+
+      sesDkimStatus = result.DkimAttributes?.Status;
+      sesMailFromStatus = result.MailFromAttributes?.MailFromDomainStatus;
+      dkimVerified = sesDkimStatus === "SUCCESS";
+      // VerifiedForSendingStatus is the authoritative "can this domain send email" flag from SES.
+      // It is more stable than DkimAttributes.Status which can transiently flap.
+      sesVerified = result.VerifiedForSendingStatus === true;
+      sesMailFromVerified = sesMailFromStatus === "SUCCESS";
+    } catch (error: unknown) {
+      // Record the failure instead of throwing. The DNS results gathered above
+      // are still worth persisting, and an action that throws here would leave
+      // the row untouched with no trace of why the check did not take.
+      verificationError = error instanceof Error ? error.message : String(error);
+      console.error(
+        `[verify] SES lookup failed for ${domain.domain}:`,
+        error
+      );
     }
-
-    const result = await sesv2.send(
-      new GetEmailIdentityCommand({
-        EmailIdentity: domain.domain,
-      })
-    );
-
-    const dkimStatus = result.DkimAttributes?.Status;
-    const dkimVerified = dkimStatus === "SUCCESS";
-    // VerifiedForSendingStatus is the authoritative "can this domain send email" flag from SES.
-    // It is more stable than DkimAttributes.Status which can transiently flap.
-    const sesVerified = result.VerifiedForSendingStatus === true;
-    const sesMailFromVerified = result.MailFromAttributes?.MailFromDomainStatus === "SUCCESS";
 
     // Sticky verification: once a record is verified, never flip it back to false
     // from a user-triggered check. DNS propagation and SES internal state are
@@ -285,6 +373,14 @@ export const verifyDns = action({
       actualDmarcValue: domain.dmarcVerified ? undefined : actualDmarcValue,
       mailFromMxVerified: sticky(mailFromMxVerified, domain.mailFromMxVerified ?? false),
       mailFromSpfVerified: sticky(mailFromSpfVerified, domain.mailFromSpfVerified ?? false),
+      // Raw SES state, stored as-is and deliberately not sticky: this is the
+      // live diagnostic the admin panel reads, so it must reflect the last
+      // check rather than the best result ever seen.
+      sesDkimStatus,
+      sesMailFromStatus,
+      sesVerifiedForSending: sesVerified,
+      lastVerificationCheckAt: Date.now(),
+      lastVerificationError: verificationError,
     };
 
     await ctx.runMutation(internal.domains.updateVerification, status);
@@ -312,13 +408,120 @@ export const verifyDns = action({
     }
 
     return {
-      verified: sesVerified,
+      verified: status.verified,
       dkimVerified,
       mxVerified,
       spfVerified,
       dmarcVerified,
       dkimRecordStatus,
+      sesDkimStatus,
+      sesMailFromStatus,
+      error: verificationError,
     };
+  },
+});
+
+export const verifyDns = action({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }): Promise<DomainVerificationResult> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.runQuery(internal.domains.getUserByClerkId, {
+      clerkId: identity.subject,
+    });
+    if (!user) throw new Error("User not found");
+
+    const domain = await ctx.runQuery(internal.domains.getByIdInternal, {
+      domainId,
+    });
+    if (!domain) throw new Error("Domain not found");
+
+    // Ownership check. This action previously accepted any domainId from any
+    // signed-in caller, which let one user drive SES writes (MAIL FROM config,
+    // receipt rules) against another user's domain.
+    if (domain.userId !== user._id && user.category !== "admin") {
+      throw new Error("Not authorized");
+    }
+
+    return await ctx.runAction(internal.domainActions.verifyDomainInternal, {
+      domainId,
+    });
+  },
+});
+
+// Run the verification for any domain on the platform, regardless of owner.
+export const adminVerifyDomain = action({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }): Promise<DomainVerificationResult> => {
+    await requireAdminUser(ctx);
+    return await ctx.runAction(internal.domainActions.verifyDomainInternal, {
+      domainId,
+    });
+  },
+});
+
+// Domains created within this window are re-checked by the cron. A domain that
+// has sat unverified for longer is not going to flip on its own, and polling it
+// forever would spend SES rate limit that genuinely pending domains need.
+const REVERIFY_WINDOW_DAYS = 14;
+const REVERIFY_BATCH_SIZE = 100;
+// SES identity-management APIs are rate limited to roughly one request per
+// second, and each check spends one or two. Pace the sweep accordingly.
+const REVERIFY_DELAY_MS = 1100;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Re-check every domain still waiting on SES. Without this, a domain's stored
+// status only ever refreshes when its owner happens to click "Verify DNS", so
+// a domain that SES verified hours after the last click stays false forever.
+export const reverifyPendingDomainsInternal = internalAction({
+  args: {},
+  handler: async (ctx): Promise<{ checked: number; verified: number }> => {
+    const domains = await ctx.runQuery(
+      internal.domains.listPendingVerification,
+      {
+        createdAfter: Date.now() - REVERIFY_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+        limit: REVERIFY_BATCH_SIZE,
+      }
+    );
+
+    let checked = 0;
+    let verified = 0;
+
+    for (const domain of domains) {
+      try {
+        const result: DomainVerificationResult = await ctx.runAction(
+          internal.domainActions.verifyDomainInternal,
+          { domainId: domain._id }
+        );
+        checked++;
+        if (result.verified) verified++;
+      } catch (error: unknown) {
+        console.error(
+          `[reverify] Check failed for ${domain.domain}:`,
+          error
+        );
+      }
+      await sleep(REVERIFY_DELAY_MS);
+    }
+
+    console.log(
+      `[reverify] Checked ${checked} pending domain(s), ${verified} now verified`
+    );
+    return { checked, verified };
+  },
+});
+
+// Admin action - run the pending sweep on demand instead of waiting for the cron.
+export const adminReverifyPendingDomains = action({
+  args: {},
+  handler: async (ctx): Promise<{ checked: number; verified: number }> => {
+    await requireAdminUser(ctx);
+    return await ctx.runAction(
+      internal.domainActions.reverifyPendingDomainsInternal,
+      {}
+    );
   },
 });
 
@@ -369,12 +572,22 @@ export const setupSendingNotifications = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
+    const user = await ctx.runQuery(internal.domains.getUserByClerkId, {
+      clerkId: identity.subject,
+    });
+    if (!user) throw new Error("User not found");
+
     let clients: AwsClientBundle;
     if (awsAccountId) {
       const account = await ctx.runQuery(internal.awsAccounts.getByIdInternal, {
         accountId: awsAccountId,
       });
       if (!account) throw new Error("AWS account not found");
+      // Ownership check: any signed-in caller could previously pass another
+      // user's awsAccountId and drive SES writes into their AWS account.
+      if (account.userId !== user._id && user.category !== "admin") {
+        throw new Error("Not authorized");
+      }
       clients = await getAwsClientsForAccount(account);
     } else {
       clients = getPlatformAwsClients();
@@ -516,10 +729,15 @@ export const cleanupUnverifiedDomainsInternal = internalAction({
   },
 });
 
-// Admin action - call from the Convex dashboard to manually trigger cleanup.
+// Admin action - manually trigger cleanup.
+// This was previously a public action with no authorization of any kind, so
+// any caller who knew the deployment URL could invoke it with olderThanDays: 0
+// and destroy every unverified domain on the platform, along with its SES
+// identity, mailboxes, and all of their emails.
 export const cleanupUnverifiedDomains = action({
   args: { olderThanDays: v.number() },
   handler: async (ctx, { olderThanDays }): Promise<{ deleted: number }> => {
+    await requireAdminUser(ctx);
     return await ctx.runAction(
       internal.domainActions.cleanupUnverifiedDomainsInternal,
       { olderThanDays }

@@ -1,5 +1,10 @@
 import { v } from "convex/values";
-import { query, internalMutation, internalQuery } from "./_generated/server";
+import {
+  query,
+  internalMutation,
+  internalQuery,
+  type QueryCtx,
+} from "./_generated/server";
 
 // ── Queries ──
 
@@ -119,6 +124,12 @@ export const updateVerification = internalMutation({
     actualDmarcValue: v.optional(v.string()),
     mailFromMxVerified: v.optional(v.boolean()),
     mailFromSpfVerified: v.optional(v.boolean()),
+    // Raw SES statuses, so the admin panel can tell Pending from Failed.
+    sesDkimStatus: v.optional(v.string()),
+    sesMailFromStatus: v.optional(v.string()),
+    sesVerifiedForSending: v.optional(v.boolean()),
+    lastVerificationCheckAt: v.optional(v.number()),
+    lastVerificationError: v.optional(v.string()),
   },
   handler: async (ctx, { domainId, ...status }) => {
     await ctx.db.patch(domainId, status);
@@ -197,5 +208,59 @@ export const listUnverifiedOlderThan = internalQuery({
         )
       )
       .collect();
+  },
+});
+
+// Domains still waiting on SES, used by the hourly re-verification cron.
+// Scoped to recently created rows: a domain that has sat unverified for
+// weeks is never going to flip on its own, and polling it forever would
+// burn SES rate limit that pending domains need.
+export const listPendingVerification = internalQuery({
+  args: { createdAfter: v.number(), limit: v.number() },
+  handler: async (ctx, { createdAfter, limit }) => {
+    return await ctx.db
+      .query("domains")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("verified"), false),
+          q.gt(q.field("_creationTime"), createdAfter)
+        )
+      )
+      .take(limit);
+  },
+});
+
+// ── Admin ──
+
+async function requireAdminUser(ctx: QueryCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity?.subject) throw new Error("Admin access required");
+  const clerkId = identity.subject;
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+    .unique();
+  if (!user || user.category !== "admin") throw new Error("Admin access required");
+  return user;
+}
+
+// Every domain on the platform with its owner, newest first. Admin only.
+export const listAllForAdmin = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminUser(ctx);
+
+    const domains = await ctx.db.query("domains").order("desc").collect();
+
+    return await Promise.all(
+      domains.map(async (domain) => {
+        const owner = await ctx.db.get(domain.userId);
+        return {
+          ...domain,
+          ownerEmail: owner?.email ?? null,
+          ownerName: owner?.name ?? null,
+        };
+      })
+    );
   },
 });

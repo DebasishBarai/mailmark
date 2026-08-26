@@ -44,6 +44,18 @@ export default defineSchema({
     // Custom MAIL FROM domain verification (mail.yourdomain.com)
     mailFromMxVerified: v.optional(v.boolean()),
     mailFromSpfVerified: v.optional(v.boolean()),
+    // Raw SES identity statuses from the most recent verification check,
+    // stored verbatim as GetEmailIdentity returned them. The booleans above
+    // collapse "Pending" and "Failed" into a single false, which hides the
+    // difference that matters when debugging a stuck domain: Pending means
+    // SES is still polling DNS, Failed means it gave up after 72 hours and
+    // will never retry without the identity being recreated.
+    sesDkimStatus: v.optional(v.string()),
+    sesMailFromStatus: v.optional(v.string()),
+    sesVerifiedForSending: v.optional(v.boolean()),
+    // When the verification check last ran, and the error it hit (if any).
+    lastVerificationCheckAt: v.optional(v.number()),
+    lastVerificationError: v.optional(v.string()),
     // Bring-your-own AWS: when set, all SES/S3/SNS calls for this domain use
     // the referenced AWS account's credentials and bucket. When undefined the
     // platform's shared AWS account is used (legacy behavior).
