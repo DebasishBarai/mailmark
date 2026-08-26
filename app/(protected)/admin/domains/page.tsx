@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -59,13 +60,17 @@ function relativeTime(timestamp?: number) {
   return `${Math.round(hours / 24)}d ago`;
 }
 
+
 export default function AdminDomainsPage() {
+  const router = useRouter();
   const domains = useQuery(api.domains.listAllForAdmin);
+  const support = useQuery(api.domains.supportMailbox);
   const verifyDomain = useAction(api.domainActions.adminVerifyDomain);
   const reverifyPending = useAction(api.domainActions.adminReverifyPendingDomains);
 
   const [pendingOnly, setPendingOnly] = useState(false);
   const [busyId, setBusyId] = useState<Id<"domains"> | null>(null);
+
   const [sweeping, setSweeping] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -101,6 +106,24 @@ export default function AdminDomainsPage() {
     }
   }
 
+  // Hands off to the normal composer with the notice already filled in.
+  // Nothing is sent from here: the admin reads it, edits if needed, and sends
+  // from a real mailbox so the message lands in that mailbox's Sent folder.
+  function handleDraftEmail(domainId: Id<"domains">) {
+    if (!support?.mailboxId) {
+      setMessage("");
+      setError(
+        support?.reason === "not-owned"
+          ? `${support.supportAddress} exists but belongs to another account, so it cannot be used to send from here.`
+          : `${support?.supportAddress ?? "The support"} mailbox was not found. Create it on your verified mailmark.dev domain before emailing customers.`
+      );
+      return;
+    }
+    router.push(
+      `/mailbox/${support.mailboxId}?compose=domain-notice&domainId=${domainId}`
+    );
+  }
+
   async function handleSweep() {
     setSweeping(true);
     setError("");
@@ -128,6 +151,21 @@ export default function AdminDomainsPage() {
             {domains.length} total, {unverifiedCount} awaiting SES verification.
             Pending domains are re-checked automatically every hour.
           </p>
+          {support && (
+            <p
+              className={`mt-1 text-xs ${
+                support.mailboxId
+                  ? "text-gray-400 dark:text-gray-500"
+                  : "text-red-600 dark:text-red-400"
+              }`}
+            >
+              {support.mailboxId
+                ? `Draft email composes from ${support.supportAddress}.`
+                : support.reason === "not-owned"
+                  ? `${support.supportAddress} belongs to another account and cannot be used here.`
+                  : `${support.supportAddress} mailbox not found. Create it before emailing customers.`}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -251,14 +289,24 @@ export default function AdminDomainsPage() {
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => handleVerify(domain._id)}
-                      disabled={busyId === domain._id}
-                      className="rounded-lg border border-violet-200 px-3 py-1.5 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-50 disabled:opacity-50 dark:border-violet-800 dark:text-violet-400 dark:hover:bg-violet-900/20"
-                    >
-                      {busyId === domain._id ? "Checking..." : "Re-verify"}
-                    </button>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => handleVerify(domain._id)}
+                        disabled={busyId === domain._id}
+                        className="rounded-lg border border-violet-200 px-3 py-1.5 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-50 disabled:opacity-50 dark:border-violet-800 dark:text-violet-400 dark:hover:bg-violet-900/20"
+                      >
+                        {busyId === domain._id ? "Checking..." : "Re-verify"}
+                      </button>
+                      {!domain.verified && (
+                        <button
+                          onClick={() => handleDraftEmail(domain._id)}
+                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                        >
+                          Draft email
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

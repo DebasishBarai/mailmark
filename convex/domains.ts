@@ -1,10 +1,15 @@
 import { v } from "convex/values";
 import {
+  buildDomainPendingNotice,
+  noticeInputFromDomain,
+} from "./lib/domainNotice";
+import {
   query,
   internalMutation,
   internalQuery,
   type QueryCtx,
 } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
 // ── Queries ──
 
@@ -232,6 +237,17 @@ export const listPendingVerification = internalQuery({
 
 // ── Admin ──
 
+async function isAdminUser(ctx: QueryCtx): Promise<boolean> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity?.subject) return false;
+  const clerkId = identity.subject;
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+    .unique();
+  return user?.category === "admin";
+}
+
 async function requireAdminUser(ctx: QueryCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity?.subject) throw new Error("Admin access required");
@@ -262,5 +278,102 @@ export const listAllForAdmin = query({
         };
       })
     );
+  },
+});
+
+// The region whose SES endpoints a domain's DNS records must point at. BYO
+// domains use their own account's region, platform domains the shared one.
+async function regionForDomain(
+  ctx: QueryCtx,
+  domain: { awsAccountId?: Id<"awsAccounts"> }
+): Promise<string> {
+  if (domain.awsAccountId) {
+    const account = await ctx.db.get(domain.awsAccountId);
+    if (account) return account.region;
+  }
+  return process.env.AWS_REGION ?? "ap-south-1";
+}
+
+// Preview of the setup notice for a domain, so an admin can read exactly what
+// the customer would receive before deciding to send it. Admin only.
+export const pendingNoticePreview = query({
+  args: { domainId: v.id("domains"), note: v.optional(v.string()) },
+  handler: async (ctx, { domainId, note }) => {
+    // Returns null rather than throwing for non-admins: the mailbox compose
+    // page runs this off a URL parameter that any signed-in user could type,
+    // and a thrown query there would surface as a crashed page.
+    if (!(await isAdminUser(ctx))) return null;
+
+    const domain = await ctx.db.get(domainId);
+    if (!domain) return null;
+
+    const owner = await ctx.db.get(domain.userId);
+    const region = await regionForDomain(ctx, domain);
+    const notice = buildDomainPendingNotice(
+      noticeInputFromDomain(domain, region),
+      { note, domainUrl: `${process.env.APP_URL ?? "https://www.mailmark.dev"}/domains/${domainId}` }
+    );
+
+    return {
+      ...notice,
+      alreadyVerified: domain.verified,
+      recipient: owner?.email ?? null,
+      sentAt: domain.pendingNoticeSentAt,
+      sentCount: domain.pendingNoticeCount ?? 0,
+    };
+  },
+});
+
+export const getOwnerForDomain = internalQuery({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }) => {
+    const domain = await ctx.db.get(domainId);
+    if (!domain) return null;
+    const owner = await ctx.db.get(domain.userId);
+    const region = await regionForDomain(ctx, domain);
+    return { domain, owner, region };
+  },
+});
+
+export const recordPendingNoticeSent = internalMutation({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }) => {
+    const domain = await ctx.db.get(domainId);
+    if (!domain) return;
+    await ctx.db.patch(domainId, {
+      pendingNoticeSentAt: Date.now(),
+      pendingNoticeCount: (domain.pendingNoticeCount ?? 0) + 1,
+    });
+  },
+});
+
+// The mailbox support mail is composed from. This is always the
+// SUPPORT_FROM_EMAIL address (support@mailmark.dev unless overridden), owned
+// by the admin. There is deliberately no fallback to another mailbox: sending
+// a support notice from whatever other address happened to exist would be
+// worse than not sending it, so a missing mailbox surfaces as an error the
+// admin can act on. Admin only.
+export const supportMailbox = query({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await requireAdminUser(ctx);
+
+    const supportAddress = (
+      process.env.SUPPORT_FROM_EMAIL ?? "support@mailmark.dev"
+    ).toLowerCase();
+
+    const mailbox = await ctx.db
+      .query("mailboxes")
+      .withIndex("by_full_address", (q) => q.eq("fullAddress", supportAddress))
+      .unique();
+
+    if (!mailbox) {
+      return { supportAddress, mailboxId: null, reason: "missing" as const };
+    }
+    if (mailbox.userId !== admin._id) {
+      return { supportAddress, mailboxId: null, reason: "not-owned" as const };
+    }
+
+    return { supportAddress, mailboxId: mailbox._id, reason: null };
   },
 });

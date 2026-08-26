@@ -525,6 +525,84 @@ export const adminReverifyPendingDomains = action({
   },
 });
 
+// Superseded by the compose handoff: the admin panel now opens this notice
+// in the normal mailbox composer with the recipient, subject and body already
+// filled in, so a person reads and sends it from a real mailbox rather than
+// the server firing it off. The generated copy still lives in
+// convex/lib/domainNotice.ts and is served by domains.pendingNoticePreview.
+// Keeping the send path here would be a second, unreviewed way for mail to
+// leave the platform.
+//
+// // Support notices go out from the platform's own verified identity, never
+// // from the customer's own domain (which by definition is not verified yet).
+// const SUPPORT_FROM_ADDRESS = process.env.SUPPORT_FROM_EMAIL ?? "support@mailmark.dev";
+// const SUPPORT_FROM_NAME = "Mailmark Support";
+//
+// // Email a domain owner about what is still outstanding on their setup.
+// // Triggered per domain by an admin, never in bulk and never automatically:
+// // this reaches a real customer's inbox, so a person decides each send.
+// export const adminSendPendingNotice = action({
+//   args: { domainId: v.id("domains"), note: v.optional(v.string()) },
+//   handler: async (
+//     ctx,
+//     { domainId, note }
+//   ): Promise<{ recipient: string; subject: string; kind: string }> => {
+//     await requireAdminUser(ctx);
+//
+//     const context = await ctx.runQuery(internal.domains.getOwnerForDomain, {
+//       domainId,
+//     });
+//     if (!context) throw new Error("Domain not found");
+//
+//     const { domain, owner, region } = context;
+//     if (!owner?.email) throw new Error("Domain owner has no email address");
+//     if (domain.verified) {
+//       throw new Error(
+//         "This domain is already verified, there is nothing pending to report"
+//       );
+//     }
+//
+//     // The body is built here rather than accepted from the caller. The admin
+//     // contributes the optional note and nothing else, so no client can post
+//     // arbitrary HTML out through our support address.
+//     const notice = buildDomainPendingNotice(
+//       noticeInputFromDomain(domain, region),
+//       {
+//         note,
+//         domainUrl: `${process.env.APP_URL ?? "https://www.mailmark.dev"}/domains/${domainId}`,
+//       }
+//     );
+//
+//     const clients = getPlatformAwsClients();
+//     await clients.sesv2.send(
+//       new SendEmailCommand({
+//         FromEmailAddress: `${SUPPORT_FROM_NAME} <${SUPPORT_FROM_ADDRESS}>`,
+//         Destination: { ToAddresses: [owner.email] },
+//         ReplyToAddresses: [SUPPORT_FROM_ADDRESS],
+//         Content: {
+//           Simple: {
+//             Subject: { Data: notice.subject, Charset: "UTF-8" },
+//             Body: {
+//               Html: { Data: notice.html, Charset: "UTF-8" },
+//               Text: { Data: notice.text, Charset: "UTF-8" },
+//             },
+//           },
+//         },
+//       })
+//     );
+//
+//     await ctx.runMutation(internal.domains.recordPendingNoticeSent, {
+//       domainId,
+//     });
+//
+//     return {
+//       recipient: owner.email,
+//       subject: notice.subject,
+//       kind: notice.kind,
+//     };
+//   },
+// });
+
 export const remove = action({
   args: { domainId: v.id("domains") },
   handler: async (ctx, { domainId }): Promise<void> => {
