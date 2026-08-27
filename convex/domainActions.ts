@@ -298,7 +298,7 @@ export const verifyDomainInternal = internalAction({
     let sesDkimStatus: string | undefined;
     let sesMailFromStatus: string | undefined;
     let sesVerified = false;
-    let sesMailFromVerified = false;
+    // let sesMailFromVerified = false;
     let dkimVerified = false;
     let verificationError: string | undefined;
 
@@ -336,7 +336,7 @@ export const verifyDomainInternal = internalAction({
       // VerifiedForSendingStatus is the authoritative "can this domain send email" flag from SES.
       // It is more stable than DkimAttributes.Status which can transiently flap.
       sesVerified = result.VerifiedForSendingStatus === true;
-      sesMailFromVerified = sesMailFromStatus === "SUCCESS";
+      // sesMailFromVerified = sesMailFromStatus === "SUCCESS";
     } catch (error: unknown) {
       // Record the failure instead of throwing. The DNS results gathered above
       // are still worth persisting, and an action that throws here would leave
@@ -355,9 +355,21 @@ export const verifyDomainInternal = internalAction({
 
     const status = {
       domainId,
-      // Require both VerifiedForSendingStatus (DKIM) and MailFromDomainStatus (MAIL FROM)
-      // to be verified before marking the domain as fully verified.
-      verified: sticky(sesVerified && sesMailFromVerified, domain.verified),
+      // Old rule: require both VerifiedForSendingStatus and MailFromDomainStatus.
+      // That held a working domain shut over an optional feature. Custom MAIL
+      // FROM is a deliverability enhancement for SPF alignment, not a
+      // prerequisite for sending: the identity is created with
+      // BehaviorOnMxFailure USE_DEFAULT_VALUE, so if it never verifies SES
+      // falls back to amazonses.com and mail still sends. Meanwhile `verified`
+      // gates mailbox creation, receipt rule creation (inbound mail), and the
+      // unverified-domain cleanup cron, so a domain AWS considered ready could
+      // sit unusable and then be deleted.
+      //
+      // verified: sticky(sesVerified && sesMailFromVerified, domain.verified),
+      //
+      // VerifiedForSendingStatus alone is AWS's authoritative "this domain can
+      // send email" flag. MAIL FROM is reported separately and blocks nothing.
+      verified: sticky(sesVerified, domain.verified),
       mxVerified: sticky(mxVerified, domain.mxVerified),
       spfVerified: sticky(spfVerified, domain.spfVerified),
       dkimVerified: sticky(dkimVerified, domain.dkimVerified),

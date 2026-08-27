@@ -317,6 +317,27 @@ const handleRemoveDomain = async () => {
         </div>
       )}
 
+      {/* Custom MAIL FROM is a deliverability enhancement, not a requirement for
+          sending. The identity is configured to fall back to amazonses.com if it
+          never verifies, so this is reported but never blocks the domain. */}
+      {domain.verified && domain.sesMailFromStatus && domain.sesMailFromStatus !== "SUCCESS" && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/20 md:mb-8">
+          <svg className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+          </svg>
+          <div>
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              Your domain is ready to use. AWS is still confirming one optional record.
+            </p>
+            <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+              The custom MAIL FROM subdomain improves deliverability but is not required.
+              You can create mailboxes and send and receive email now. Until AWS confirms it,
+              messages use the default Amazon sending domain, which changes nothing you will notice.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* DNS Records */}
       <div className="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 md:mb-8">
         <div className="flex items-start justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-700/50 md:px-6 md:py-4">
