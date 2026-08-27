@@ -1771,6 +1771,26 @@ export default function MailboxPage() {
                           </span>
                         )}
                       </p>
+                      {selectedEmail.cc && selectedEmail.cc.length > 0 && (
+                        <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                          Cc:{" "}
+                          {selectedEmail.cc.map((addr) =>
+                            showEmailIds
+                              ? getRawEmail(addr)
+                              : getDisplayName(addr, contactNameMap)
+                          ).join(", ")}
+                        </p>
+                      )}
+                      {selectedEmail.bcc && selectedEmail.bcc.length > 0 && (
+                        <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                          Bcc:{" "}
+                          {selectedEmail.bcc.map((addr) =>
+                            showEmailIds
+                              ? getRawEmail(addr)
+                              : getDisplayName(addr, contactNameMap)
+                          ).join(", ")}
+                        </p>
+                      )}
                       {isBatchDetail && (
                         <div className="mt-1.5 flex items-center gap-1.5">
                           <span className="text-xs text-gray-400 dark:text-gray-500">Delivery:</span>
