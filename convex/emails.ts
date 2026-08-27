@@ -398,6 +398,32 @@ export const insertFromWebhook = internalMutation({
   },
   handler: async (ctx, args) => {
     const { folder, ...rest } = args;
+
+    // The same inbound message can reach /ingestEmail more than once: SES
+    // writes one S3 object per envelope recipient, so a message addressed to
+    // two mailboxes on this domain is stored (and processed by the Lambda)
+    // twice, and each run then ingests every domain recipient it finds in the
+    // headers. A Lambda retry replays the event the same way.
+    //
+    // Two rows for one message is bad on its own, and the two runs also race
+    // over the S3 move that follows the insert: whichever run finishes first
+    // deletes the {domain}/{mailbox}/inbox/ copy, so the loser's row is left
+    // pointing at a key that no longer exists and its body fails to load.
+    //
+    // Convex mutations are serializable, so two concurrent ingests of the same
+    // message cannot both pass this check: the loser re-runs and sees the row
+    // the winner inserted.
+    if (rest.messageId) {
+      const sameMessageId = await ctx.db
+        .query("emails")
+        .withIndex("by_message_id", (q) => q.eq("messageId", rest.messageId))
+        .collect();
+      const alreadyIngested = sameMessageId.some(
+        (e) => e.mailboxId === rest.mailboxId
+      );
+      if (alreadyIngested) return null;
+    }
+
     return await ctx.db.insert("emails", {
       ...rest,
       folder: folder ?? "inbox",
@@ -411,6 +437,114 @@ export const updateS3Key = internalMutation({
   args: { emailId: v.id("emails"), s3Key: v.string() },
   handler: async (ctx, { emailId, s3Key }) => {
     await ctx.db.patch(emailId, { s3Key });
+  },
+});
+
+// Called from moveIncomingEmail once the raw message has been parsed. The
+// Lambda only reports the recipients that live on this domain, merged out of
+// the To and Cc headers, so an inbound email's To line is wrong and its Cc is
+// missing until the real headers are read back from S3.
+export const updateIngestedRecipients = internalMutation({
+  args: {
+    emailId: v.id("emails"),
+    to: v.optional(v.array(v.string())),
+    cc: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, { emailId, to, cc }) => {
+    const email = await ctx.db.get(emailId);
+    if (!email) return;
+    await ctx.db.patch(emailId, {
+      ...(to && to.length > 0 ? { to } : {}),
+      ...(cc && cc.length > 0 ? { cc } : {}),
+    });
+  },
+});
+
+// One-shot cleanup for the duplicate rows written before insertFromWebhook
+// started deduping by messageId. Run it per mailbox from the Convex dashboard:
+//
+//   internal.emails.purgeDuplicateIngests
+//   { "mailboxId": "...", "dryRun": false }
+//
+// dryRun defaults to true, so the first run only reports what it would delete.
+//
+// Within a group of rows sharing a messageId it keeps the one whose s3Key was
+// successfully moved to the mailbox's incoming/ prefix: the duplicate ingests
+// raced over that move, and the row that lost still points at an inbox/ key
+// the winner deleted, which is the copy whose body fails to load. Read and
+// starred flags are carried over from the rows being removed so cleanup never
+// makes a message you already handled pop back up as unread.
+export const purgeDuplicateIngests = internalMutation({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    folder: v.optional(v.string()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { mailboxId, folder, dryRun }) => {
+    const targetFolder = folder ?? "inbox";
+    const isDryRun = dryRun ?? true;
+
+    const emails = await ctx.db
+      .query("emails")
+      .withIndex("by_mailbox_folder", (q) =>
+        q.eq("mailboxId", mailboxId).eq("folder", targetFolder)
+      )
+      .collect();
+
+    const byMessageId = new Map<string, typeof emails>();
+    for (const email of emails) {
+      if (!email.messageId) continue;
+      const group = byMessageId.get(email.messageId);
+      if (group) group.push(email);
+      else byMessageId.set(email.messageId, [email]);
+    }
+
+    const removed: Array<{ messageId: string; subject: string; s3Key: string }> = [];
+    let duplicateGroups = 0;
+
+    for (const [messageId, group] of byMessageId) {
+      if (group.length < 2) continue;
+      duplicateGroups++;
+
+      const ranked = [...group].sort((a, b) => {
+        // The Lambda stages every copy under .../inbox/, and moveIncomingEmail
+        // rewrites the key to .../incoming/ once the move succeeds. A row still
+        // pointing at the staging key is the one whose move lost the race, and
+        // the object it names was deleted by the winner. Prefer a moved row,
+        // then the oldest of the remaining rows.
+        const aStaged = a.s3Key.includes("/inbox/") ? 1 : 0;
+        const bStaged = b.s3Key.includes("/inbox/") ? 1 : 0;
+        if (aStaged !== bStaged) return aStaged - bStaged;
+        return a._creationTime - b._creationTime;
+      });
+
+      const [keep, ...duplicates] = ranked;
+      const read = keep.read || duplicates.some((e) => e.read);
+      const starred = keep.starred || duplicates.some((e) => e.starred);
+
+      for (const duplicate of duplicates) {
+        removed.push({
+          messageId,
+          subject: duplicate.subject,
+          s3Key: duplicate.s3Key,
+        });
+        if (!isDryRun) await ctx.db.delete(duplicate._id);
+      }
+
+      if (!isDryRun && (read !== keep.read || starred !== keep.starred)) {
+        await ctx.db.patch(keep._id, { read, starred });
+      }
+    }
+
+    return {
+      dryRun: isDryRun,
+      folder: targetFolder,
+      scanned: emails.length,
+      duplicateGroups,
+      deleted: isDryRun ? 0 : removed.length,
+      wouldDelete: isDryRun ? removed.length : 0,
+      rows: removed,
+    };
   },
 });
 

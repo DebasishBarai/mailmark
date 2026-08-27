@@ -94,6 +94,19 @@ http.route({
       ...(inReplyTo ? { inReplyTo } : {}),
     });
 
+    // Null means this message was already ingested for this mailbox. Stop here
+    // rather than re-running the side effects below: moveIncomingEmail would
+    // delete the S3 object the existing row points at.
+    if (emailId === null) {
+      console.log(
+        `Duplicate ingest ignored for ${recipientAddress}: ${messageId}`
+      );
+      return new Response(
+        JSON.stringify({ success: true, duplicate: true }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     // If warmup email, update placement to inbox (it arrived via SES, so it was delivered)
     if (isWarmupEmail && messageId) {
       const warmupMatch = await ctx.runQuery(

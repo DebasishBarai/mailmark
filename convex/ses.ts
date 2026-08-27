@@ -16,12 +16,14 @@ import { Id } from "./_generated/dataModel";
 import { SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { simpleParser } from "mailparser";
+import type { AddressObject } from "mailparser";
 import {
   getPlatformAwsClients,
   getAwsClientsForAccount,
   type AwsClientBundle,
 } from "./lib/awsClients";
 import type { Doc } from "./_generated/dataModel";
+import type { ActionCtx } from "./_generated/server";
 
 // Resolve the client bundle for a mailbox — platform by default, BYO when
 // the mailbox's domain has an awsAccount attached (and verified).
@@ -804,6 +806,58 @@ export const sendEmailViaApi = internalAction({
   },
 });
 
+// Collect the addresses out of a parsed From/To/Cc header.
+function parsedAddresses(
+  field: AddressObject | AddressObject[] | undefined
+): string[] {
+  if (!field) return [];
+  const objects = Array.isArray(field) ? field : [field];
+  const addresses: string[] = [];
+  for (const obj of objects) {
+    for (const entry of obj.value ?? []) {
+      if (!entry.address) continue;
+      const address = entry.address.toLowerCase();
+      if (!addresses.includes(address)) addresses.push(address);
+    }
+  }
+  return addresses;
+}
+
+// Correct an ingested email's recipients from the raw message in S3.
+//
+// The Lambda reports `to` as the recipients that live on this domain, merged
+// out of the To and Cc headers, so an inbound message shows the wrong To line
+// (Cc'd colleagues appear as To, off-domain recipients disappear) and never
+// has a Cc at all. The raw message is the authority, so read the headers back
+// from it. Best effort: a failure here must not stop the S3 move below.
+async function syncIngestedRecipients(
+  ctx: ActionCtx,
+  aws: AwsClientBundle,
+  s3Key: string,
+  emailId: Id<"emails">
+): Promise<void> {
+  try {
+    const response = await aws.s3.send(
+      new GetObjectCommand({ Bucket: aws.s3Bucket, Key: s3Key })
+    );
+    const rawEmail = await response.Body?.transformToString("utf-8");
+    if (!rawEmail) return;
+
+    const parsed = await simpleParser(rawEmail);
+    const to = parsedAddresses(parsed.to);
+    const cc = parsedAddresses(parsed.cc);
+    if (to.length === 0 && cc.length === 0) return;
+
+    await ctx.runMutation(internal.emails.updateIngestedRecipients, {
+      emailId,
+      ...(to.length > 0 ? { to } : {}),
+      ...(cc.length > 0 ? { cc } : {}),
+    });
+  } catch (error) {
+    console.error("Failed to read recipients from raw email:", error);
+  }
+}
+
 // Move incoming email from domain/incoming/ to domain/mailbox/incoming/
 export const moveIncomingEmail = internalAction({
   args: {
@@ -815,13 +869,16 @@ export const moveIncomingEmail = internalAction({
     const [localPart, domain] = recipientAddress.toLowerCase().split("@");
     if (!localPart || !domain) return;
 
+    const aws = await clientsForS3Key(ctx, oldS3Key);
+    const bucket = aws.s3Bucket;
+
+    // Read the real To/Cc off the message while it is still at oldS3Key.
+    await syncIngestedRecipients(ctx, aws, oldS3Key, emailId);
+
     const filename = oldS3Key.split("/").pop() || oldS3Key;
     const newS3Key = `${domain}/${localPart}/incoming/${filename}`;
 
     if (oldS3Key === newS3Key) return;
-
-    const aws = await clientsForS3Key(ctx, oldS3Key);
-    const bucket = aws.s3Bucket;
 
     try {
       await aws.s3.send(
