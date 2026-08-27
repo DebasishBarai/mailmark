@@ -112,9 +112,14 @@ export function buildDomainPendingNotice(
     .filter((r) => !r.verified)
     .map(({ purpose, type, name, value }) => ({ purpose, type, name, value }));
 
-  const sesFailed =
-    input.sesDkimStatus?.toUpperCase() === "FAILED" ||
-    input.sesMailFromStatus?.toUpperCase() === "FAILED";
+  // Only a DKIM failure means the identity has to be reissued. A failed MAIL
+  // FROM check is not a reissue situation: it is optional, it falls back to the
+  // default Amazon sending domain, and it never blocks the domain.
+  //
+  // const sesFailed =
+  //   input.sesDkimStatus?.toUpperCase() === "FAILED" ||
+  //   input.sesMailFromStatus?.toUpperCase() === "FAILED";
+  const sesFailed = input.sesDkimStatus?.toUpperCase() === "FAILED";
 
   const kind: NoticeKind =
     missingRecords.length > 0 ? "dns" : sesFailed ? "failed" : "waiting";
