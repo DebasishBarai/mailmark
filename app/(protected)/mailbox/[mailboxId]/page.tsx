@@ -1376,20 +1376,39 @@ export default function MailboxPage() {
 
   const handleReplyAll = () => {
     if (!selectedEmail || !emailBody || !mailbox) return;
-    const myAddress = mailbox.fullAddress;
-    const recipients = [
-      getRawEmail(selectedEmail.from),
-      ...selectedEmail.to.map(getRawEmail).filter((addr) => addr !== myAddress),
-    ];
+    const myAddress = mailbox.fullAddress.toLowerCase();
+    // const recipients = [
+    //   getRawEmail(selectedEmail.from),
+    //   ...selectedEmail.to.map(getRawEmail).filter((addr) => addr !== myAddress),
+    // ];
+    // Reply All keeps the original Cc list. Addresses are matched
+    // case-insensitively and deduped across To and Cc so nobody is added
+    // twice, and this mailbox is never added back as a recipient.
+    const seen = new Set<string>([myAddress]);
+    const collectRecipients = (addresses: string[]) => {
+      const collected: string[] = [];
+      for (const addr of addresses) {
+        const raw = getRawEmail(addr);
+        const key = raw.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        collected.push(raw);
+      }
+      return collected;
+    };
+    const recipients = collectRecipients([selectedEmail.from, ...selectedEmail.to]);
+    const ccRecipients = collectRecipients(selectedEmail.cc ?? []);
     setComposeMode("replyAll");
     setComposeTo(recipients);
     setComposeGroupIds([]);
     setComposeToInput("");
-    setComposeCc([]);
+    // setComposeCc([]);
+    setComposeCc(ccRecipients);
     setComposeCcInput("");
     setComposeBcc([]);
     setComposeBccInput("");
-    setShowCc(false);
+    // setShowCc(false);
+    setShowCc(ccRecipients.length > 0);
     setShowBcc(false);
     setComposeSubject(
       selectedEmail.subject.startsWith("Re:")
@@ -1771,6 +1790,26 @@ export default function MailboxPage() {
                           </span>
                         )}
                       </p>
+                      {selectedEmail.cc && selectedEmail.cc.length > 0 && (
+                        <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                          Cc:{" "}
+                          {selectedEmail.cc.map((addr) =>
+                            showEmailIds
+                              ? getRawEmail(addr)
+                              : getDisplayName(addr, contactNameMap)
+                          ).join(", ")}
+                        </p>
+                      )}
+                      {selectedEmail.bcc && selectedEmail.bcc.length > 0 && (
+                        <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                          Bcc:{" "}
+                          {selectedEmail.bcc.map((addr) =>
+                            showEmailIds
+                              ? getRawEmail(addr)
+                              : getDisplayName(addr, contactNameMap)
+                          ).join(", ")}
+                        </p>
+                      )}
                       {isBatchDetail && (
                         <div className="mt-1.5 flex items-center gap-1.5">
                           <span className="text-xs text-gray-400 dark:text-gray-500">Delivery:</span>
