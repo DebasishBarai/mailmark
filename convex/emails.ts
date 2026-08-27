@@ -398,6 +398,32 @@ export const insertFromWebhook = internalMutation({
   },
   handler: async (ctx, args) => {
     const { folder, ...rest } = args;
+
+    // The same inbound message can reach /ingestEmail more than once: SES
+    // writes one S3 object per envelope recipient, so a message addressed to
+    // two mailboxes on this domain is stored (and processed by the Lambda)
+    // twice, and each run then ingests every domain recipient it finds in the
+    // headers. A Lambda retry replays the event the same way.
+    //
+    // Two rows for one message is bad on its own, and the two runs also race
+    // over the S3 move that follows the insert: whichever run finishes first
+    // deletes the {domain}/{mailbox}/inbox/ copy, so the loser's row is left
+    // pointing at a key that no longer exists and its body fails to load.
+    //
+    // Convex mutations are serializable, so two concurrent ingests of the same
+    // message cannot both pass this check: the loser re-runs and sees the row
+    // the winner inserted.
+    if (rest.messageId) {
+      const sameMessageId = await ctx.db
+        .query("emails")
+        .withIndex("by_message_id", (q) => q.eq("messageId", rest.messageId))
+        .collect();
+      const alreadyIngested = sameMessageId.some(
+        (e) => e.mailboxId === rest.mailboxId
+      );
+      if (alreadyIngested) return null;
+    }
+
     return await ctx.db.insert("emails", {
       ...rest,
       folder: folder ?? "inbox",
