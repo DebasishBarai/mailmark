@@ -94,13 +94,32 @@ http.route({
       ...(inReplyTo ? { inReplyTo } : {}),
     });
 
-    // Null means this message was already ingested for this mailbox. Stop here
-    // rather than re-running the side effects below: moveIncomingEmail would
-    // delete the S3 object the existing row points at.
+    // Null means this message was already ingested for this mailbox. Skip the
+    // side effects below, which have all run once already.
+    //
+    // One exception: if the existing row still names the drop this delivery is
+    // handing us, its move never completed and the message has no mailbox copy
+    // yet. A redelivery is the last chance to finish that, while the drop is
+    // still there, so run the move for the row that exists.
     if (emailId === null) {
-      console.log(
-        `Duplicate ingest ignored for ${recipientAddress}: ${messageId}`
+      const existing = await ctx.runQuery(
+        internal.emails.getByMailboxAndMessageId,
+        { mailboxId: mailbox._id, messageId }
       );
+      if (existing && existing.s3Key === s3Key) {
+        console.log(
+          `Redelivery of ${messageId} for ${recipientAddress}: finishing the stalled move`
+        );
+        await ctx.runAction(internal.ses.moveIncomingEmail, {
+          emailId: existing._id,
+          oldS3Key: s3Key,
+          recipientAddress: recipientAddress.toLowerCase(),
+        });
+      } else {
+        console.log(
+          `Duplicate ingest ignored for ${recipientAddress}: ${messageId}`
+        );
+      }
       return new Response(
         JSON.stringify({ success: true, duplicate: true }),
         { status: 200, headers: { "Content-Type": "application/json" } }
