@@ -668,10 +668,16 @@ export const getRecentOutboundForEngagement = internalQuery({
 export const listByDomainInternal = internalQuery({
   args: { domainId: v.id("domains") },
   handler: async (ctx, { domainId }) => {
-    const warmupMailboxes = await ctx.db
+    // const warmupMailboxes = await ctx.db
+    //   .query("warmupMailboxes")
+    //   .collect();
+    // const filtered = warmupMailboxes.filter((w) => w.domainId === domainId);
+    // Reading every warming mailbox on the platform to answer a question about
+    // one domain. by_domain_id reads only that domain's.
+    const filtered = await ctx.db
       .query("warmupMailboxes")
+      .withIndex("by_domain_id", (q) => q.eq("domainId", domainId))
       .collect();
-    const filtered = warmupMailboxes.filter((w) => w.domainId === domainId);
 
     const results = await Promise.all(
       filtered.map(async (w) => {

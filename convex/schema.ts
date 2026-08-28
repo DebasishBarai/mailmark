@@ -396,6 +396,7 @@ export default defineSchema({
   })
     .index("by_user_id", ["userId"])
     .index("by_mailbox_id", ["mailboxId"])
+    .index("by_domain_id", ["domainId"])
     .index("by_status", ["status"]),
 
   warmupEmails: defineTable({

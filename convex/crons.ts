@@ -38,18 +38,26 @@ crons.interval(
   {}
 );
 
-// Every 30 minutes: send warmup emails (mailbox <-> platform Gmail accounts)
-crons.interval(
+// Every 30 minutes: send warmup emails (mailbox <-> platform Gmail accounts).
+//
+// These two were interval crons, which anchor to deploy time and take no
+// offset, so the 15 minute gap the engagement comment claimed did not exist:
+// both could land on the same tick and check placement for a message Gmail had
+// not finished delivering. Fixed times give the offset the design wanted.
+// crons.interval("warmup exchange", { minutes: 30 }, ...)
+crons.cron(
   "warmup exchange",
-  { minutes: 30 },
+  "0,30 * * * *",
   internal.warmupEngine.runWarmupRound,
   {}
 );
 
-// Every 30 minutes (offset 15 min): Gmail engagement on received warmup emails
-crons.interval(
+// 15 minutes after each exchange round: Gmail engagement on delivered warmup
+// emails, by which point Gmail has had time to file them.
+// crons.interval("warmup engagement", { minutes: 30 }, ...)
+crons.cron(
   "warmup engagement",
-  { minutes: 30 },
+  "15,45 * * * *",
   internal.warmupEngagement.runEngagementRound,
   {}
 );
