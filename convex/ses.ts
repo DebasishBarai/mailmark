@@ -1163,14 +1163,24 @@ export const moveIncomingEmail = internalAction({
     const aws = await clientsForS3Key(ctx, oldS3Key);
     const bucket = aws.s3Bucket;
 
-    // Read the real To/Cc off the message while it is still at oldS3Key.
-    await syncIngestedRecipients(ctx, aws, oldS3Key, emailId);
-
     const filename = oldS3Key.split("/").pop() || oldS3Key;
     const newS3Key = `${domain}/${localPart}/incoming/${filename}`;
 
-    if (oldS3Key === newS3Key) return;
+    if (oldS3Key === newS3Key) {
+      await syncIngestedRecipients(ctx, aws, oldS3Key, emailId);
+      return;
+    }
 
+    // Take our own copy before doing anything else with the message.
+    //
+    // oldS3Key is the drop the sender's pipeline owns, and it deletes that
+    // object once it has handed the message over. Everything we do before the
+    // copy is time in which that delete can land first, and then the copy
+    // fails, the row is left naming the deleted drop, and the message is gone
+    // for good: no mailbox copy was ever made. So the copy goes first, the row
+    // is pointed at it second, and the slow work (downloading and parsing the
+    // message to read its real recipients) happens afterwards against our own
+    // key, which nothing else can remove.
     try {
       await aws.s3.send(
         new CopyObjectCommand({
@@ -1179,17 +1189,34 @@ export const moveIncomingEmail = internalAction({
           Key: newS3Key,
         })
       );
-      // Point the row at the new key before removing the old one. Deleting
-      // first leaves a window where the row names an object that is already
-      // gone, and anything that ends the action in between (an error, the
-      // time limit) makes that permanent: the message then renders as
-      // "Failed to load email body". Updating first means a run cut short
-      // leaves the row on a key that still exists, at worst leaking the
-      // staging copy.
-      await ctx.runMutation(internal.emails.updateS3Key, {
-        emailId,
-        s3Key: newS3Key,
-      });
+    } catch (error) {
+      // The source may be gone because an earlier run already copied it. If
+      // the destination is there, adopt it rather than stranding the row.
+      if (await s3ObjectExists(aws, newS3Key)) {
+        console.error(
+          `Copy from ${oldS3Key} failed but ${newS3Key} exists; adopting it:`,
+          error
+        );
+        await ctx.runMutation(internal.emails.updateS3Key, {
+          emailId,
+          s3Key: newS3Key,
+        });
+      } else {
+        console.error(`Failed to copy ${oldS3Key} to ${newS3Key}:`, error);
+      }
+      return;
+    }
+
+    // Point the row at our copy before removing the source, so a run cut
+    // short leaves the row naming an object that exists.
+    await ctx.runMutation(internal.emails.updateS3Key, {
+      emailId,
+      s3Key: newS3Key,
+    });
+
+    await syncIngestedRecipients(ctx, aws, newS3Key, emailId);
+
+    try {
       await aws.s3.send(
         new DeleteObjectCommand({
           Bucket: bucket,
@@ -1197,7 +1224,7 @@ export const moveIncomingEmail = internalAction({
         })
       );
     } catch (error) {
-      console.error("Failed to move S3 object:", error);
+      console.error(`Failed to delete ${oldS3Key} after copying:`, error);
     }
   },
 });
