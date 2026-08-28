@@ -381,7 +381,11 @@ export default defineSchema({
     userId: v.id("users"),
     mailboxId: v.id("mailboxes"),
     domainId: v.id("domains"),
-    status: v.union(v.literal("active"), v.literal("paused")),
+    status: v.union(
+      v.literal("active"),
+      v.literal("paused"),
+      v.literal("completed")
+    ),
     speed: v.union(v.literal("slow"), v.literal("normal"), v.literal("fast")),
     dailyLimit: v.number(),
     sentToday: v.number(),
@@ -393,6 +397,10 @@ export default defineSchema({
     lastActivityAt: v.optional(v.number()),
     // Why warmup stopped, when it stopped on its own rather than by request.
     pausedReason: v.optional(v.string()),
+    // Set when the ramp finished its full run. Warmup used to have no end: the
+    // day counter climbed forever at a flat 20/day, so a mailbox stayed
+    // enrolled until somebody noticed and paused it.
+    completedAt: v.optional(v.number()),
   })
     .index("by_user_id", ["userId"])
     .index("by_mailbox_id", ["mailboxId"])

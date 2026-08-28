@@ -7,6 +7,10 @@ import { applyAccountFailure } from "./platformWarmupAccounts";
 // waiting to happen once more than a handful of mailboxes are warming.
 const ENGAGEMENT_BATCH_SIZE = 150;
 
+// Length of a full warmup run. Roughly what the tools in this space use for
+// the ramp itself: about four weeks to reach full volume.
+const WARMUP_TOTAL_DAYS = 30;
+
 // Placements a mailbox needs before its health score means anything.
 const MIN_PLACEMENT_SAMPLE = 3;
 
@@ -78,6 +82,27 @@ export const startWarmup = mutation({
 
     const dailyLimit = getDailyLimit(args.speed, 1);
 
+    // Starting a mailbox that has warmed before restarts its existing run
+    // rather than inserting a second row for the same mailbox. Every read here
+    // takes the first row by mailbox id, so a duplicate would leave the older
+    // one to answer queries while the newer one did the sending.
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        status: "active",
+        speed: args.speed,
+        dailyLimit,
+        sentToday: 0,
+        receivedToday: 0,
+        currentDay: 1,
+        healthScore: 100,
+        inboxRate: 100,
+        startedAt: Date.now(),
+        pausedReason: undefined,
+        completedAt: undefined,
+      });
+      return existing._id;
+    }
+
     return await ctx.db.insert("warmupMailboxes", {
       userId: user._id,
       mailboxId: args.mailboxId,
@@ -109,6 +134,9 @@ export const pauseWarmup = mutation({
 
     const entry = await ctx.db.get(args.warmupMailboxId);
     if (!entry || entry.userId !== user._id) throw new Error("Warmup entry not found");
+    if (entry.status === "completed") {
+      throw new Error("This warmup run has already finished");
+    }
 
     await ctx.db.patch(args.warmupMailboxId, { status: "paused" });
   },
@@ -128,6 +156,9 @@ export const resumeWarmup = mutation({
 
     const entry = await ctx.db.get(args.warmupMailboxId);
     if (!entry || entry.userId !== user._id) throw new Error("Warmup entry not found");
+    if (entry.status === "completed") {
+      throw new Error("This warmup run has already finished. Start it again to run another.");
+    }
 
     // await ctx.db.patch(args.warmupMailboxId, { status: "active" });
     // Clear any auto-pause explanation along with the pause it explains.
@@ -155,6 +186,9 @@ export const updateSpeed = mutation({
 
     const entry = await ctx.db.get(args.warmupMailboxId);
     if (!entry || entry.userId !== user._id) throw new Error("Warmup entry not found");
+    if (entry.status === "completed") {
+      throw new Error("This warmup run has already finished");
+    }
 
     const dailyLimit = getDailyLimit(args.speed, entry.currentDay);
     await ctx.db.patch(args.warmupMailboxId, {
@@ -328,6 +362,20 @@ export const advanceDay = internalMutation({
     if (!entry) return;
 
     const newDay = entry.currentDay + 1;
+
+    // The run is over. The day counter used to climb past the end of the ramp
+    // forever, holding the mailbox at a flat 20/day with nothing to stop it.
+    if (newDay > WARMUP_TOTAL_DAYS) {
+      await ctx.db.patch(args.warmupMailboxId, {
+        status: "completed",
+        completedAt: Date.now(),
+        currentDay: WARMUP_TOTAL_DAYS,
+        sentToday: 0,
+        receivedToday: 0,
+      });
+      return;
+    }
+
     const dailyLimit = getDailyLimit(entry.speed, newDay);
 
     await ctx.db.patch(args.warmupMailboxId, {

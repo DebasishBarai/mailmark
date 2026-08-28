@@ -13,6 +13,11 @@ import type { Id } from "../../../convex/_generated/dataModel";
 //   { days: "22-28", limit: 250 },
 // ];
 
+// Mirrors WARMUP_TOTAL_DAYS in convex/warmupPool.ts, where the run actually
+// ends. Kept as a literal here rather than imported, so this client component
+// does not pull in a Convex server module.
+const WARMUP_TOTAL_DAYS = 30;
+
 function HealthBadge({ score }: { score: number }) {
   const color =
     score >= 80
@@ -246,18 +251,39 @@ export default function WarmingPage() {
                         className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
                           wmb.status === "active"
                             ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                            : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                            : wmb.status === "completed"
+                              ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
+                              : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
                         }`}
                       >
                         <span
                           className={`h-1.5 w-1.5 rounded-full ${
-                            wmb.status === "active" ? "bg-emerald-500" : "bg-amber-500"
+                            wmb.status === "active"
+                              ? "bg-emerald-500"
+                              : wmb.status === "completed"
+                                ? "bg-violet-500"
+                                : "bg-amber-500"
                           }`}
                         />
                         {wmb.status.charAt(0).toUpperCase() + wmb.status.slice(1)}
                       </span>
                     </div>
                   </div>
+
+                  {/* A finished run, and what to do next with it. */}
+                  {wmb.status === "completed" && (
+                    <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-3 dark:border-violet-800 dark:bg-violet-900/20">
+                      <p className="text-xs text-violet-800 dark:text-violet-300">
+                        Warmup finished its {WARMUP_TOTAL_DAYS} day run
+                        {wmb.completedAt
+                          ? ` on ${new Date(wmb.completedAt).toLocaleDateString()}`
+                          : ""}
+                        . This mailbox is no longer sending warmup email. Reputation
+                        fades if a mailbox goes quiet, so keep sending real mail from
+                        it, and start warmup again if it sits idle for a while.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Why warmup stopped, when it stopped on its own. Without
                       this an auto-pause looks identical to one the user made. */}
@@ -274,7 +300,7 @@ export default function WarmingPage() {
                     <div>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Day</p>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {wmb.currentDay}
+                        {wmb.currentDay} / {WARMUP_TOTAL_DAYS}
                       </p>
                     </div>
                     <div>
@@ -305,7 +331,7 @@ export default function WarmingPage() {
 
                   {/* Actions */}
                   <div className="mt-4 flex flex-wrap items-center gap-3">
-                    {wmb.status === "active" ? (
+                    {wmb.status === "completed" ? null : wmb.status === "active" ? (
                       <button
                         onClick={() => pauseWarmup({ warmupMailboxId: wmb._id })}
                         className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -321,20 +347,22 @@ export default function WarmingPage() {
                       </button>
                     )}
 
-                    <select
-                      value={wmb.speed}
-                      onChange={(e) =>
-                        updateSpeed({
-                          warmupMailboxId: wmb._id,
-                          speed: e.target.value as "slow" | "normal" | "fast",
-                        })
-                      }
-                      className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-                    >
-                      <option value="slow">Slow</option>
-                      <option value="normal">Normal</option>
-                      <option value="fast">Fast</option>
-                    </select>
+                    {wmb.status !== "completed" && (
+                      <select
+                        value={wmb.speed}
+                        onChange={(e) =>
+                          updateSpeed({
+                            warmupMailboxId: wmb._id,
+                            speed: e.target.value as "slow" | "normal" | "fast",
+                          })
+                        }
+                        className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                      >
+                        <option value="slow">Slow</option>
+                        <option value="normal">Normal</option>
+                        <option value="fast">Fast</option>
+                      </select>
+                    )}
 
                     <button
                       onClick={() => setExpandedId(expandedId === wmb._id ? null : wmb._id)}
