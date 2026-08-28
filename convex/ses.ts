@@ -893,6 +893,88 @@ function candidateS3Keys(s3Key: string, fullAddress: string): string[] {
   return candidates.filter((key, i) => key !== s3Key && candidates.indexOf(key) === i);
 }
 
+// Read-only diagnostic for "Failed to load email body". Reports, for the most
+// recent rows in a folder, which key the row names, whether that object is in
+// S3, where else the message can be found, and the error the mailbox would hit
+// when opening it. Writes nothing. Run it per mailbox from the dashboard:
+//
+//   internal.ses.inspectEmailS3
+//   { "mailboxId": "...", "limit": 5 }
+export const inspectEmailS3 = internalAction({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    folder: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { mailboxId, folder, limit }) => {
+    const targetFolder = folder ?? "inbox";
+
+    const mailbox = await ctx.runQuery(internal.emails.getMailboxById, {
+      mailboxId,
+    });
+    if (!mailbox) throw new Error("Mailbox not found");
+
+    const all = await ctx.runQuery(internal.emails.listForRepairInternal, {
+      mailboxId,
+      folder: targetFolder,
+    });
+    if (all.length === 0) return { mailbox: mailbox.fullAddress, rows: [] };
+
+    const recent = [...all]
+      .sort((a, b) => b._creationTime - a._creationTime)
+      .slice(0, limit ?? 5);
+
+    const aws = await clientsForS3Key(ctx, all[0].s3Key);
+
+    const rows: Array<{
+      subject: string;
+      receivedAt: string;
+      s3Key: string;
+      messageId: string;
+      rowsWithSameMessageId: number;
+      keyExists: boolean;
+      alsoFoundAt: string[];
+      bodyError: string | null;
+    }> = [];
+    for (const email of recent) {
+      const keyExists = await s3ObjectExists(aws, email.s3Key);
+
+      const alsoFoundAt: string[] = [];
+      for (const candidate of candidateS3Keys(email.s3Key, mailbox.fullAddress)) {
+        if (await s3ObjectExists(aws, candidate)) alsoFoundAt.push(candidate);
+      }
+
+      // Reproduce what the mailbox does when you open the message, so a row
+      // whose object is present but still fails to render is distinguishable
+      // from one whose object is gone.
+      let bodyError: string | null = null;
+      try {
+        const response = await aws.s3.send(
+          new GetObjectCommand({ Bucket: aws.s3Bucket, Key: email.s3Key })
+        );
+        const rawEmail = await response.Body?.transformToString("utf-8");
+        if (!rawEmail) bodyError = "empty object";
+        else await simpleParser(rawEmail);
+      } catch (error) {
+        bodyError = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      }
+
+      rows.push({
+        subject: email.subject,
+        receivedAt: new Date(email.date).toISOString(),
+        s3Key: email.s3Key,
+        messageId: email.messageId,
+        rowsWithSameMessageId: all.filter((e) => e.messageId === email.messageId).length,
+        keyExists,
+        alsoFoundAt,
+        bodyError,
+      });
+    }
+
+    return { mailbox: mailbox.fullAddress, folder: targetFolder, bucket: aws.s3Bucket, rows };
+  },
+});
+
 // Point rows at the copy of their message that actually exists in S3.
 //
 // The duplicate ingests raced over moveIncomingEmail: both runs copy the raw
