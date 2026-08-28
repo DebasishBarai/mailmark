@@ -410,11 +410,52 @@ export const recordSendFailure = internalMutation({
   },
 });
 
+// Called when a round finds no usable platform account. Every warming mailbox
+// on the platform is stalled at that point, through no fault of the customer,
+// so this explains it on their dashboard without counting towards the
+// auto-pause that genuine send failures trigger: pausing every customer over
+// an outage they cannot fix would only add manual work to the recovery.
+export const recordPoolOutage = internalMutation({
+  args: { reason: v.string() },
+  handler: async (ctx, args) => {
+    const active = await ctx.db
+      .query("warmupMailboxes")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .collect();
+
+    for (const entry of active) {
+      await ctx.db.patch(entry._id, {
+        lastSendError: args.reason.slice(0, 300),
+        lastSendErrorAt: Date.now(),
+      });
+    }
+
+    return active.length;
+  },
+});
+
 export const advanceDay = internalMutation({
   args: { warmupMailboxId: v.id("warmupMailboxes") },
   handler: async (ctx, args) => {
     const entry = await ctx.db.get(args.warmupMailboxId);
     if (!entry) return;
+
+    // A day where nothing went out is not a day of warming, and burning one
+    // costs the customer a day of the 30 they are paying for. The likeliest
+    // cause is an outage on our side (no usable platform account), which they
+    // can neither see nor fix, so hold the run where it is and reset the
+    // counters. Pacing guarantees a working mailbox sends something every day,
+    // so this cannot stall a healthy run.
+    if (entry.sentToday === 0 && entry.receivedToday === 0) {
+      await ctx.db.patch(args.warmupMailboxId, {
+        sentToday: 0,
+        receivedToday: 0,
+      });
+      console.error(
+        `Warmup mailbox ${args.warmupMailboxId} sent nothing on day ${entry.currentDay}, holding the day rather than spending it`
+      );
+      return;
+    }
 
     const newDay = entry.currentDay + 1;
 

@@ -248,10 +248,15 @@ export const runWarmupRound = internalAction({
 
     if (availableAccounts.length === 0) {
       // Every warming mailbox on the platform is stalled when this happens, so
-      // it belongs in the error log rather than among the routine chatter.
+      // it belongs in the error log rather than among the routine chatter, and
+      // on the customer's dashboard rather than only in our logs.
       console.error(
         `Warmup round: no platform accounts available, ${activeMailboxes.length} mailbox(es) idle`
       );
+      await ctx.runMutation(internal.warmupPool.recordPoolOutage, {
+        reason:
+          "Warmup is paused on our side: no warmup partner account is currently available. Your schedule is held where it is and resumes automatically, without spending days of your run.",
+      });
       return;
     }
 

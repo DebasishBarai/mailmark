@@ -114,6 +114,47 @@ export const listAllAccounts = query({
   },
 });
 
+// Admin view of whether the pool can actually carry what is enrolled.
+export const getPoolCapacity = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || !identity.subject) return null;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!user || user.category !== "admin") return null;
+
+    const accounts = await ctx.db.query("platformWarmupAccounts").collect();
+    const activeAccounts = accounts.filter((a) => a.status === "active").length;
+
+    const warming = await ctx.db
+      .query("warmupMailboxes")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .collect();
+
+    // A mailbox at full ramp needs 20 emails a day from the pool, plus the
+    // replies engagement generates on roughly a fifth of what it sends.
+    const perMailboxPerDay = 20 * (1 + 0.85 * 0.25);
+    const neededSends = Math.ceil(warming.length * perMailboxPerDay);
+    const capacity = activeAccounts * DAILY_SEND_LIMIT;
+
+    return {
+      activeAccounts,
+      totalAccounts: accounts.length,
+      warmingMailboxes: warming.length,
+      neededSendsAtFullRamp: neededSends,
+      capacity,
+      // One account is enough volume for about 18 mailboxes, but it is also a
+      // single point of failure: if it is paused, every warming mailbox on the
+      // platform stops at once.
+      hasRedundancy: activeAccounts >= 2,
+      overCapacity: neededSends > capacity,
+    };
+  },
+});
+
 export const getAvailableAccounts = internalQuery({
   args: {},
   handler: async (ctx) => {

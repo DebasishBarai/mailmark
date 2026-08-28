@@ -7,6 +7,7 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 
 export default function AdminWarmupAccountsPage() {
   const accounts = useQuery(api.platformWarmupAccounts.listAllAccounts);
+  const capacity = useQuery(api.platformWarmupAccounts.getPoolCapacity);
   const addAccount = useMutation(api.platformWarmupAccounts.addAccount);
   const pauseAccount = useMutation(api.platformWarmupAccounts.pauseAccount);
   const activateAccount = useMutation(api.platformWarmupAccounts.activateAccount);
@@ -92,6 +93,30 @@ export default function AdminWarmupAccountsPage() {
           <p className="text-2xl font-bold text-gray-900 dark:text-white">{accounts.length}</p>
         </div>
       </div>
+
+      {/* The pool is a shared dependency: when it cannot serve what is
+          enrolled, or when it has no spare account, every warming mailbox on
+          the platform is affected at once. */}
+      {capacity && (capacity.overCapacity || !capacity.hasRedundancy) && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
+          <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+            {capacity.overCapacity
+              ? "Not enough warmup accounts for the mailboxes enrolled"
+              : "No spare warmup account"}
+          </h3>
+          <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
+            {capacity.warmingMailboxes} mailbox
+            {capacity.warmingMailboxes === 1 ? " is" : "es are"} warming, needing about{" "}
+            {capacity.neededSendsAtFullRamp.toLocaleString()} sends a day at full ramp
+            against a capacity of {capacity.capacity.toLocaleString()} across{" "}
+            {capacity.activeAccounts} active account
+            {capacity.activeAccounts === 1 ? "" : "s"}.
+            {capacity.overCapacity
+              ? " Add accounts, or mailboxes will not reach their daily volume."
+              : " Volume is fine, but a single account is a single point of failure: if it is paused, every warming mailbox stops at once. Add a second."}
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">

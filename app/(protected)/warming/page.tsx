@@ -298,27 +298,34 @@ export default function WarmingPage() {
                     </div>
                   )}
 
-                  {/* Sends are failing but the run has not given up yet. A
-                      mailbox in this state looks healthy on every other number
-                      on the card, so say it outright. */}
+                  {/* Warmup is not getting mail out. Driven by the timestamp
+                      rather than the failure count, so an outage on our side
+                      (which deliberately does not count towards auto-pause)
+                      shows up here too. A mailbox in this state looks healthy
+                      on every other number on the card. */}
                   {wmb.status === "active" &&
-                    !!wmb.consecutiveSendFailures &&
-                    wmb.consecutiveSendFailures > 0 && (
+                    !!wmb.lastSendErrorAt &&
+                    Date.now() - wmb.lastSendErrorAt < 3 * 60 * 60 * 1000 && (
                       <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
                         <p className="text-xs font-semibold text-red-800 dark:text-red-300">
-                          {wmb.consecutiveSendFailures} warmup send
-                          {wmb.consecutiveSendFailures === 1 ? " has" : "s have"} failed in a row
+                          {wmb.consecutiveSendFailures
+                            ? `${wmb.consecutiveSendFailures} warmup send${
+                                wmb.consecutiveSendFailures === 1 ? " has" : "s have"
+                              } failed in a row`
+                            : "Warmup is not sending right now"}
                         </p>
                         {wmb.lastSendError && (
                           <p className="mt-1 text-xs text-red-700 dark:text-red-400">
                             {wmb.lastSendError}
                           </p>
                         )}
-                        <p className="mt-1 text-xs text-red-700 dark:text-red-400">
-                          Warmup cannot build reputation while sends are failing. A
-                          common cause is the AWS account still being in the SES
-                          sandbox.
-                        </p>
+                        {!!wmb.consecutiveSendFailures && (
+                          <p className="mt-1 text-xs text-red-700 dark:text-red-400">
+                            Warmup cannot build reputation while sends are failing. A
+                            common cause is the AWS account still being in the SES
+                            sandbox.
+                          </p>
+                        )}
                       </div>
                     )}
 
