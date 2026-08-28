@@ -1,5 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
+import type { DatabaseWriter } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 // import { internal } from "./_generated/api";
 
 // const ADMIN_CLERK_ID = "user_2xo2LyEVBp4BWRHM0RdeaZTPJAb";
@@ -165,6 +167,38 @@ export const resetAllDailyCounts = internalMutation({
 // account fails. Credential failures are fatal on the first occurrence: a
 // revoked app password does not come back on its own, and retrying it every 30
 // minutes only risks Google flagging the account further.
+// Shared with warmupPool, which reaches the same conclusion from the other
+// direction: a warmup send that hard bounced means this Gmail address is gone.
+// A mutation cannot call another mutation, so the logic lives here as a plain
+// helper over the database writer.
+export async function applyAccountFailure(
+  db: DatabaseWriter,
+  accountId: Id<"platformWarmupAccounts">,
+  reason: string,
+  fatal?: boolean
+) {
+  const account = await db.get(accountId);
+  if (!account) return;
+
+  const failures = (account.consecutiveFailures ?? 0) + 1;
+  const shouldPause =
+    account.status === "active" &&
+    (fatal === true || failures >= MAX_CONSECUTIVE_FAILURES);
+
+  await db.patch(accountId, {
+    consecutiveFailures: failures,
+    lastFailureAt: Date.now(),
+    lastFailureReason: reason.slice(0, 300),
+    ...(shouldPause ? { status: "paused" as const, autoPausedAt: Date.now() } : {}),
+  });
+
+  if (shouldPause) {
+    console.error(
+      `Warmup account ${account.email} auto-paused after ${failures} consecutive failure(s): ${reason}`
+    );
+  }
+}
+
 export const recordAccountFailure = internalMutation({
   args: {
     accountId: v.id("platformWarmupAccounts"),
@@ -172,26 +206,7 @@ export const recordAccountFailure = internalMutation({
     fatal: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const account = await ctx.db.get(args.accountId);
-    if (!account) return;
-
-    const failures = (account.consecutiveFailures ?? 0) + 1;
-    const shouldPause =
-      account.status === "active" &&
-      (args.fatal === true || failures >= MAX_CONSECUTIVE_FAILURES);
-
-    await ctx.db.patch(args.accountId, {
-      consecutiveFailures: failures,
-      lastFailureAt: Date.now(),
-      lastFailureReason: args.reason.slice(0, 300),
-      ...(shouldPause ? { status: "paused" as const, autoPausedAt: Date.now() } : {}),
-    });
-
-    if (shouldPause) {
-      console.error(
-        `Warmup account ${account.email} auto-paused after ${failures} consecutive failure(s): ${args.reason}`
-      );
-    }
+    await applyAccountFailure(ctx.db, args.accountId, args.reason, args.fatal);
   },
 });
 

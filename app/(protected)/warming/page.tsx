@@ -259,6 +259,16 @@ export default function WarmingPage() {
                     </div>
                   </div>
 
+                  {/* Why warmup stopped, when it stopped on its own. Without
+                      this an auto-pause looks identical to one the user made. */}
+                  {wmb.status === "paused" && wmb.pausedReason && (
+                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
+                      <p className="text-xs text-amber-800 dark:text-amber-300">
+                        {wmb.pausedReason}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Stats row */}
                   <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-5">
                     <div>

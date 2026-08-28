@@ -20,6 +20,7 @@ import {
   PutEmailIdentityMailFromAttributesCommand,
   CreateConfigurationSetCommand,
   CreateConfigurationSetEventDestinationCommand,
+  UpdateConfigurationSetEventDestinationCommand,
 } from "@aws-sdk/client-sesv2";
 import {
   CreateReceiptRuleSetCommand,
@@ -716,8 +717,8 @@ async function ensureSnsTopicForDomain(
 }
 
 // Creates (idempotent) an SES v2 Configuration Set with an SNS event
-// destination for Delivery and Bounce notifications. All emails sent with
-// ConfigurationSetName="devmail-sending" will trigger these events.
+// destination for Delivery, Bounce and Complaint notifications. All emails sent
+// with ConfigurationSetName="devmail-sending" will trigger these events.
 export async function ensureSendingConfigurationSet(
   clients: AwsClientBundle
 ): Promise<void> {
@@ -772,6 +773,21 @@ export async function ensureSendingConfigurationSet(
   } catch (error: unknown) {
     const err = error as { name?: string };
     if (err.name !== "AlreadyExistsException") throw error;
+
+    // An account provisioned before COMPLAINT joined the list above keeps the
+    // destination it was created with, and the AlreadyExists path would leave
+    // it that way forever. Bring the existing one up to the current set.
+    await sesv2.send(
+      new UpdateConfigurationSetEventDestinationCommand({
+        ConfigurationSetName: configSetName,
+        EventDestinationName: "devmail-sending-sns",
+        EventDestination: {
+          Enabled: true,
+          MatchingEventTypes: ["DELIVERY", "BOUNCE", "COMPLAINT"],
+          SnsDestination: { TopicArn: topicArn },
+        },
+      })
+    );
   }
 }
 

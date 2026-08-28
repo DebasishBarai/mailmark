@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
+import { applyAccountFailure } from "./platformWarmupAccounts";
 
 // Most emails an engagement round will pick up at once. The round opens an
 // IMAP connection per email, so an unbounded batch is a Convex action timeout
@@ -8,6 +9,18 @@ const ENGAGEMENT_BATCH_SIZE = 150;
 
 // Placements a mailbox needs before its health score means anything.
 const MIN_PLACEMENT_SAMPLE = 3;
+
+// Bounce rate over the scoring window that stops warmup on its own, and the
+// sample it needs first. AWS suspends sending above 10%, so a warmup run that
+// gets there is actively spending the customer's SES account. A dead platform
+// Gmail address is paused on its first hard bounce and so cannot push a
+// healthy mailbox anywhere near this on its own.
+const MAX_BOUNCE_RATE = 10;
+const MIN_BOUNCE_SAMPLE = 10;
+
+// A warmup send SES told us did not arrive. Everything here is a placement
+// answer in its own right: the message never reached an inbox to be found in.
+const FAILED_DELIVERY_STATUSES = ["bounced", "failed", "complained"];
 
 function getDailyLimit(speed: "slow" | "normal" | "fast", day: number): number {
   if (speed === "slow") {
@@ -116,7 +129,12 @@ export const resumeWarmup = mutation({
     const entry = await ctx.db.get(args.warmupMailboxId);
     if (!entry || entry.userId !== user._id) throw new Error("Warmup entry not found");
 
-    await ctx.db.patch(args.warmupMailboxId, { status: "active" });
+    // await ctx.db.patch(args.warmupMailboxId, { status: "active" });
+    // Clear any auto-pause explanation along with the pause it explains.
+    await ctx.db.patch(args.warmupMailboxId, {
+      status: "active",
+      pausedReason: undefined,
+    });
   },
 });
 
@@ -381,19 +399,33 @@ export const recalculateHealthScore = internalMutation({
 
     const recentOutbound = recent.filter((e) => e.direction === "outbound");
 
-    // Score only what we actually observed. Too few resolved placements and we
-    // leave the previous score alone rather than swinging it on one data point.
-    const resolved = recentOutbound.filter((e) => e.placement !== "unknown");
-    if (resolved.length < MIN_PLACEMENT_SAMPLE) return;
+    // Score only what we actually observed. Too few answers and we leave the
+    // previous score alone rather than swinging it on one data point.
+    //
+    // A bounced send counts, and counts against us: SES told us it never
+    // arrived, which is a worse outcome than landing in spam, and its
+    // placement stays "unknown" forever precisely because there is no message
+    // in any folder for the IMAP check to find.
+    const bounced = recentOutbound.filter(
+      (e) => e.deliveryStatus && FAILED_DELIVERY_STATUSES.includes(e.deliveryStatus)
+    );
+    const placed = recentOutbound.filter(
+      (e) =>
+        e.placement !== "unknown" &&
+        !(e.deliveryStatus && FAILED_DELIVERY_STATUSES.includes(e.deliveryStatus))
+    );
+
+    const answered = placed.length + bounced.length;
+    if (answered < MIN_PLACEMENT_SAMPLE) return;
 
     // A message Gmail filed as spam landed in spam even though the engagement
     // round then rescued it and rewrote placement to "inbox". rescuedFromSpam
     // is what survives that rewrite, so it is what keeps the score honest.
-    const inboxCount = resolved.filter(
+    const inboxCount = placed.filter(
       (e) => e.placement === "inbox" && !e.rescuedFromSpam
     ).length;
 
-    const inboxRate = (inboxCount / resolved.length) * 100;
+    const inboxRate = (inboxCount / answered) * 100;
 
     await ctx.db.patch(args.warmupMailboxId, {
       healthScore: Math.round(inboxRate),
@@ -411,6 +443,9 @@ export const createWarmupEmailRecord = internalMutation({
     toAddress: v.string(),
     messageId: v.string(),
     subject: v.string(),
+    // Outbound only. Inbound warmup leaves the platform Gmail account over
+    // SMTP, so SES never sees it and never reports on it.
+    sesMessageId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("warmupEmails", {
@@ -423,7 +458,102 @@ export const createWarmupEmailRecord = internalMutation({
       subject: args.subject,
       sentAt: Date.now(),
       placement: "unknown",
+      ...(args.sesMessageId
+        ? { sesMessageId: args.sesMessageId, deliveryStatus: "pending" as const }
+        : {}),
     });
+  },
+});
+
+// SES delivery, bounce and complaint notifications land here by way of
+// /trackDelivery. Before this, warmup sends carried no SES id and no row for a
+// notification to find, so a warmup bounce was dropped on the floor while
+// still counting towards the bounce rate AWS suspends accounts over.
+export const recordWarmupDeliveryStatus = internalMutation({
+  args: {
+    sesMessageId: v.string(),
+    status: v.union(
+      v.literal("delivered"),
+      v.literal("bounced"),
+      v.literal("failed"),
+      v.literal("complained")
+    ),
+    timestamp: v.number(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const email = await ctx.db
+      .query("warmupEmails")
+      .withIndex("by_ses_message_id", (q) => q.eq("sesMessageId", args.sesMessageId))
+      .first();
+
+    // Not a warmup send. Regular mail is handled by emails.updateDeliveryStatus.
+    if (!email) return { matched: false };
+
+    const failed = FAILED_DELIVERY_STATUSES.includes(args.status);
+
+    await ctx.db.patch(email._id, {
+      deliveryStatus: args.status,
+      ...(failed
+        ? { bouncedAt: args.timestamp, bounceReason: args.reason?.slice(0, 300) }
+        : {}),
+    });
+
+    if (!failed) return { matched: true };
+
+    // The recipient here is one of our own Gmail accounts, so a bounce says
+    // more about that account than about the sender. "failed" is SES's
+    // permanent bounce: the address is gone and no retry will fix it, so the
+    // account leaves rotation now rather than after three strikes.
+    await applyAccountFailure(
+      ctx.db,
+      email.platformAccountId,
+      `SES ${args.status} on warmup send: ${args.reason ?? "no reason given"}`,
+      args.status === "failed"
+    );
+
+    // Bounces that keep coming are the sending domain's problem, not one dead
+    // recipient's, and warmup is then burning down the SES account it exists
+    // to protect. Checked on every bounce rather than once a day: a day of
+    // bounces is what we are trying not to send.
+    const warmup = await ctx.db.get(email.warmupMailboxId);
+    if (!warmup || warmup.status !== "active") return { matched: true };
+
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const recent = await ctx.db
+      .query("warmupEmails")
+      .withIndex("by_warmup_mailbox_and_date", (q) =>
+        q.eq("warmupMailboxId", email.warmupMailboxId).gte("sentAt", sevenDaysAgo)
+      )
+      .collect();
+
+    // Only sends SES has reported on. Ones still pending say nothing yet and
+    // would only dilute the rate.
+    const answered = recent.filter(
+      (e) =>
+        e.direction === "outbound" &&
+        e.deliveryStatus !== undefined &&
+        e.deliveryStatus !== "pending"
+    );
+    if (answered.length < MIN_BOUNCE_SAMPLE) return { matched: true };
+
+    const bounces = answered.filter((e) =>
+      FAILED_DELIVERY_STATUSES.includes(e.deliveryStatus as string)
+    ).length;
+    const bounceRate = (bounces / answered.length) * 100;
+
+    if (bounceRate >= MAX_BOUNCE_RATE) {
+      const rounded = Math.round(bounceRate * 10) / 10;
+      await ctx.db.patch(email.warmupMailboxId, {
+        status: "paused",
+        pausedReason: `Warmup paused automatically: ${rounded}% of the last ${answered.length} warmup sends bounced. Sending above 10% risks suspension of the SES account, so check the mailbox and its DNS before resuming.`,
+      });
+      console.error(
+        `Warmup mailbox ${email.warmupMailboxId} auto-paused at ${rounded}% bounce rate over ${answered.length} sends`
+      );
+    }
+
+    return { matched: true };
   },
 });
 
@@ -522,7 +652,13 @@ export const getRecentOutboundForEngagement = internalQuery({
       .filter((q) =>
         q.and(
           q.eq(q.field("direction"), "outbound"),
-          q.eq(q.field("openedAt"), undefined)
+          q.eq(q.field("openedAt"), undefined),
+          // A bounced send is not sitting in an inbox waiting to be found, so
+          // there is nothing for an IMAP session to do but cost us a
+          // connection every round until the window closes.
+          q.neq(q.field("deliveryStatus"), "bounced"),
+          q.neq(q.field("deliveryStatus"), "failed"),
+          q.neq(q.field("deliveryStatus"), "complained")
         )
       )
       .take(args.limit ?? ENGAGEMENT_BATCH_SIZE);

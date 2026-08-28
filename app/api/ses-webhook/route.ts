@@ -61,11 +61,24 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
         const bounceType = message.bounce?.bounceType;
         // Permanent bounces = failed, transient bounces = bounced (temporary)
         const status = bounceType === "Permanent" ? "failed" : "bounced";
-        return await handleDeliveryNotification(message, status);
+        const reason =
+          message.bounce?.bouncedRecipients?.[0]?.diagnosticCode ??
+          [bounceType, message.bounce?.bounceSubType].filter(Boolean).join("/");
+        return await handleDeliveryNotification(message, status, reason);
+      }
+
+      // Complaints were dropped here entirely. They still are for ordinary
+      // mail, which has no "complained" delivery status to record, but warmup
+      // needs them: a complaint against a warmup send is a reputation event on
+      // the customer's own SES account.
+      if (eventType === "Complaint") {
+        const reason =
+          message.complaint?.complaintFeedbackType ?? "complaint";
+        return await handleDeliveryNotification(message, "complained", reason);
       }
 
       if (eventType !== "Received") {
-        // Ignore complaint/other notifications
+        // Ignore other notifications
         console.log("[SNS] ignoring eventType:", eventType);
         return NextResponse.json({ success: true });
       }
@@ -108,7 +121,8 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
 
 async function handleDeliveryNotification(
   message: Record<string, unknown>,
-  status: "delivered" | "failed" | "bounced"
+  status: "delivered" | "failed" | "bounced" | "complained",
+  reason?: string
 ) {
   const mail = message.mail as Record<string, unknown> | undefined;
   console.log("[DELIVERY] status:", status, "| mail present:", !!mail);
@@ -123,6 +137,7 @@ async function handleDeliveryNotification(
   const deliveryTimestamp =
     (message.delivery as Record<string, unknown> | undefined)?.timestamp ??
     (message.bounce as Record<string, unknown> | undefined)?.timestamp ??
+    (message.complaint as Record<string, unknown> | undefined)?.timestamp ??
     new Date().toISOString();
 
   const timestamp =
@@ -139,7 +154,7 @@ async function handleDeliveryNotification(
         "Content-Type": "application/json",
         "x-webhook-secret": process.env.SES_WEBHOOK_SECRET!,
       },
-      body: JSON.stringify({ messageId, status, timestamp }),
+      body: JSON.stringify({ messageId, status, timestamp, reason }),
     }
   );
   console.log("[DELIVERY] /trackDelivery response status:", trackRes.status, await trackRes.text());

@@ -86,7 +86,9 @@ export const runWarmupRound = internalAction({
               content.html + trackingPixel,
             ].join("\r\n");
 
-            await aws.sesv2.send(
+            // Keep the SES-assigned id: bounce and complaint notifications
+            // arrive keyed on it, and nothing else ties one back to this row.
+            const sesResponse = await aws.sesv2.send(
               new SendEmailCommand({
                 FromEmailAddress: fromAddress,
                 Destination: { ToAddresses: [account.email] },
@@ -103,6 +105,7 @@ export const runWarmupRound = internalAction({
               toAddress: account.email,
               messageId: `<${messageId}@${mailbox.domain}>`,
               subject: content.subject,
+              sesMessageId: sesResponse.MessageId,
             });
 
             await ctx.runMutation(internal.warmupPool.incrementSentToday, {

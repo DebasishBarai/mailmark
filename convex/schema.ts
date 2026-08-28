@@ -391,6 +391,8 @@ export default defineSchema({
     inboxRate: v.number(),
     startedAt: v.number(),
     lastActivityAt: v.optional(v.number()),
+    // Why warmup stopped, when it stopped on its own rather than by request.
+    pausedReason: v.optional(v.string()),
   })
     .index("by_user_id", ["userId"])
     .index("by_mailbox_id", ["mailboxId"])
@@ -411,6 +413,22 @@ export default defineSchema({
     placement: v.union(v.literal("inbox"), v.literal("spam"), v.literal("unknown")),
     rescuedFromSpam: v.optional(v.boolean()),
     markedImportant: v.optional(v.boolean()),
+    // SES outcome for outbound warmup sends. Without the SES-assigned id there
+    // is nothing for a bounce or complaint notification to match on, so warmup
+    // bounces used to fall on the floor while still counting against the
+    // sender's SES reputation. Inbound (Gmail SMTP) sends leave these unset.
+    sesMessageId: v.optional(v.string()),
+    deliveryStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("delivered"),
+        v.literal("bounced"),
+        v.literal("failed"),
+        v.literal("complained")
+      )
+    ),
+    bouncedAt: v.optional(v.number()),
+    bounceReason: v.optional(v.string()),
   })
     .index("by_warmup_mailbox", ["warmupMailboxId"])
     // Scoring and history read one mailbox over a date window. Without the
@@ -419,6 +437,7 @@ export default defineSchema({
     .index("by_warmup_mailbox_and_date", ["warmupMailboxId", "sentAt"])
     .index("by_platform_account", ["platformAccountId"])
     .index("by_message_id", ["messageId"])
+    .index("by_ses_message_id", ["sesMessageId"])
     .index("by_sent_date", ["sentAt"]),
 
   warmupContentTemplates: defineTable({
