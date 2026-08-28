@@ -1097,17 +1097,23 @@ export const moveIncomingEmail = internalAction({
           Key: newS3Key,
         })
       );
+      // Point the row at the new key before removing the old one. Deleting
+      // first leaves a window where the row names an object that is already
+      // gone, and anything that ends the action in between (an error, the
+      // time limit) makes that permanent: the message then renders as
+      // "Failed to load email body". Updating first means a run cut short
+      // leaves the row on a key that still exists, at worst leaking the
+      // staging copy.
+      await ctx.runMutation(internal.emails.updateS3Key, {
+        emailId,
+        s3Key: newS3Key,
+      });
       await aws.s3.send(
         new DeleteObjectCommand({
           Bucket: bucket,
           Key: oldS3Key,
         })
       );
-      // Update the email record with the new S3 key
-      await ctx.runMutation(internal.emails.updateS3Key, {
-        emailId,
-        s3Key: newS3Key,
-      });
     } catch (error) {
       console.error("Failed to move S3 object:", error);
     }
