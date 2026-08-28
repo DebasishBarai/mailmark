@@ -1,6 +1,14 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 
+// Most emails an engagement round will pick up at once. The round opens an
+// IMAP connection per email, so an unbounded batch is a Convex action timeout
+// waiting to happen once more than a handful of mailboxes are warming.
+const ENGAGEMENT_BATCH_SIZE = 150;
+
+// Placements a mailbox needs before its health score means anything.
+const MIN_PLACEMENT_SAMPLE = 3;
+
 function getDailyLimit(speed: "slow" | "normal" | "fast", day: number): number {
   if (speed === "slow") {
     if (day <= 7) return 2;
@@ -214,12 +222,18 @@ export const getWarmupHistory = query({
     const lookbackMs = (args.days ?? 14) * 24 * 60 * 60 * 1000;
     const since = Date.now() - lookbackMs;
 
-    const emails = await ctx.db
+    // const emails = await ctx.db
+    //   .query("warmupEmails")
+    //   .withIndex("by_warmup_mailbox", (q) => q.eq("warmupMailboxId", args.warmupMailboxId))
+    //   .collect();
+    //
+    // return emails.filter((e) => e.sentAt >= since);
+    return await ctx.db
       .query("warmupEmails")
-      .withIndex("by_warmup_mailbox", (q) => q.eq("warmupMailboxId", args.warmupMailboxId))
+      .withIndex("by_warmup_mailbox_and_date", (q) =>
+        q.eq("warmupMailboxId", args.warmupMailboxId).gte("sentAt", since)
+      )
       .collect();
-
-    return emails.filter((e) => e.sentAt >= since);
   },
 });
 
@@ -307,35 +321,82 @@ export const advanceDay = internalMutation({
   },
 });
 
+// The score used to be inboxRate * 0.6 + openRate * 0.2 + replyRate * 0.2 over
+// every recent outbound email. Two things were wrong with that:
+//
+//   1. Opens and replies are simulated on the Gmail side at fixed odds (85% and
+//      25% of those, in warmupEngagement). They measure our own dice rolls, not
+//      the mailbox. Baking them in capped a flawless mailbox at roughly 81 and
+//      pushed it under the 80% the UI paints green.
+//   2. Emails still marked "unknown" counted in the denominator as if they had
+//      missed the inbox. An unresolved placement is missing data, not a failed
+//      delivery, and the four hour engagement window leaves some behind.
+//
+// Placement is the only real deliverability signal here, so it is the score.
+//
+// export const recalculateHealthScore = internalMutation({
+//   args: { warmupMailboxId: v.id("warmupMailboxes") },
+//   handler: async (ctx, args) => {
+//     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+//
+//     const emails = await ctx.db
+//       .query("warmupEmails")
+//       .withIndex("by_warmup_mailbox", (q) => q.eq("warmupMailboxId", args.warmupMailboxId))
+//       .collect();
+//
+//     const recentOutbound = emails.filter(
+//       (e) => e.direction === "outbound" && e.sentAt >= sevenDaysAgo
+//     );
+//
+//     if (recentOutbound.length === 0) return;
+//
+//     const total = recentOutbound.length;
+//     const inboxCount = recentOutbound.filter((e) => e.placement === "inbox").length;
+//     const openedCount = recentOutbound.filter((e) => e.openedAt).length;
+//     const repliedCount = recentOutbound.filter((e) => e.repliedAt).length;
+//
+//     const inboxRate = (inboxCount / total) * 100;
+//     const openRate = (openedCount / total) * 100;
+//     const replyRate = (repliedCount / total) * 100;
+//
+//     const healthScore = Math.round(inboxRate * 0.6 + openRate * 0.2 + replyRate * 0.2);
+//
+//     await ctx.db.patch(args.warmupMailboxId, {
+//       healthScore,
+//       inboxRate: Math.round(inboxRate),
+//     });
+//   },
+// });
 export const recalculateHealthScore = internalMutation({
   args: { warmupMailboxId: v.id("warmupMailboxes") },
   handler: async (ctx, args) => {
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
-    const emails = await ctx.db
+    const recent = await ctx.db
       .query("warmupEmails")
-      .withIndex("by_warmup_mailbox", (q) => q.eq("warmupMailboxId", args.warmupMailboxId))
+      .withIndex("by_warmup_mailbox_and_date", (q) =>
+        q.eq("warmupMailboxId", args.warmupMailboxId).gte("sentAt", sevenDaysAgo)
+      )
       .collect();
 
-    const recentOutbound = emails.filter(
-      (e) => e.direction === "outbound" && e.sentAt >= sevenDaysAgo
-    );
+    const recentOutbound = recent.filter((e) => e.direction === "outbound");
 
-    if (recentOutbound.length === 0) return;
+    // Score only what we actually observed. Too few resolved placements and we
+    // leave the previous score alone rather than swinging it on one data point.
+    const resolved = recentOutbound.filter((e) => e.placement !== "unknown");
+    if (resolved.length < MIN_PLACEMENT_SAMPLE) return;
 
-    const total = recentOutbound.length;
-    const inboxCount = recentOutbound.filter((e) => e.placement === "inbox").length;
-    const openedCount = recentOutbound.filter((e) => e.openedAt).length;
-    const repliedCount = recentOutbound.filter((e) => e.repliedAt).length;
+    // A message Gmail filed as spam landed in spam even though the engagement
+    // round then rescued it and rewrote placement to "inbox". rescuedFromSpam
+    // is what survives that rewrite, so it is what keeps the score honest.
+    const inboxCount = resolved.filter(
+      (e) => e.placement === "inbox" && !e.rescuedFromSpam
+    ).length;
 
-    const inboxRate = (inboxCount / total) * 100;
-    const openRate = (openedCount / total) * 100;
-    const replyRate = (repliedCount / total) * 100;
-
-    const healthScore = Math.round(inboxRate * 0.6 + openRate * 0.2 + replyRate * 0.2);
+    const inboxRate = (inboxCount / resolved.length) * 100;
 
     await ctx.db.patch(args.warmupMailboxId, {
-      healthScore,
+      healthScore: Math.round(inboxRate),
       inboxRate: Math.round(inboxRate),
     });
   },
@@ -423,22 +484,48 @@ export const getWarmupEmailByMessageId = internalQuery({
   },
 });
 
+// This used to collect the entire warmupEmails table and filter in memory. That
+// reads every warmup email ever sent by every customer, so it was on course to
+// blow Convex's per-query document read limit and take the whole engagement
+// cron down with it. The by_sent_date index bounds the read to the window we
+// actually care about, and the batch cap bounds the work of one round.
+//
+// export const getRecentOutboundForEngagement = internalQuery({
+//   args: {},
+//   handler: async (ctx) => {
+//     const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
+//     const emails = await ctx.db
+//       .query("warmupEmails")
+//       .withIndex("by_sent_date")
+//       .order("desc")
+//       .collect();
+//
+//     return emails.filter(
+//       (e) =>
+//         e.direction === "outbound" &&
+//         e.sentAt >= fourHoursAgo &&
+//         !e.openedAt
+//     );
+//   },
+// });
 export const getRecentOutboundForEngagement = internalQuery({
-  args: {},
-  handler: async (ctx) => {
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
     const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
-    const emails = await ctx.db
-      .query("warmupEmails")
-      .withIndex("by_sent_date")
-      .order("desc")
-      .collect();
 
-    return emails.filter(
-      (e) =>
-        e.direction === "outbound" &&
-        e.sentAt >= fourHoursAgo &&
-        !e.openedAt
-    );
+    // Oldest first, not newest first: an email only has this four hour window
+    // to get its placement resolved, so the ones about to fall out of it are
+    // the ones a capped batch should spend its budget on.
+    return await ctx.db
+      .query("warmupEmails")
+      .withIndex("by_sent_date", (q) => q.gte("sentAt", fourHoursAgo))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("direction"), "outbound"),
+          q.eq(q.field("openedAt"), undefined)
+        )
+      )
+      .take(args.limit ?? ENGAGEMENT_BATCH_SIZE);
   },
 });
 

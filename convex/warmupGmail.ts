@@ -15,6 +15,23 @@ function createSmtpTransport(email: string, appPassword: string) {
   });
 }
 
+// Classify a Gmail failure. Credentials that Google has revoked or that were
+// never valid will not start working again, so those pause the account on the
+// first occurrence rather than after the usual three strikes.
+function describeFailure(error: unknown): { reason: string; fatal: boolean } {
+  const reason = error instanceof Error ? error.message : String(error);
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String((error as { code: unknown }).code)
+      : "";
+  const fatal =
+    code === "EAUTH" ||
+    /invalid credentials|authenticationfailed|username and password not accepted|application-specific password|\b535\b/i.test(
+      reason
+    );
+  return { reason, fatal };
+}
+
 function createImapClient(email: string, appPassword: string) {
   return new ImapFlow({
     host: "imap.gmail.com",
@@ -63,7 +80,22 @@ export const sendViaGmail = internalAction({
       (mailOptions.headers as Record<string, string>)["X-Warmup-Id"] = args.warmupEmailId;
     }
 
-    await transporter.sendMail(mailOptions);
+    // await transporter.sendMail(mailOptions);
+    try {
+      await transporter.sendMail(mailOptions);
+    } catch (error) {
+      const { reason, fatal } = describeFailure(error);
+      await ctx.runMutation(
+        internal.platformWarmupAccounts.recordAccountFailure,
+        { accountId: args.accountId, reason: `SMTP send: ${reason}`, fatal }
+      );
+      throw error;
+    }
+
+    await ctx.runMutation(
+      internal.platformWarmupAccounts.recordAccountSuccess,
+      { accountId: args.accountId }
+    );
     return messageId;
   },
 });
@@ -93,6 +125,10 @@ export const checkPlacement = internalAction({
       if (inboxResults && inboxResults.length > 0) {
         const msg = await client.fetchOne(inboxResults[0], { flags: true, labels: true });
         await client.logout();
+        await ctx.runMutation(
+          internal.platformWarmupAccounts.recordAccountSuccess,
+          { accountId: args.accountId }
+        );
         const labels = (msg as any).labels || [];
         return {
           placement: "inbox",
@@ -105,6 +141,12 @@ export const checkPlacement = internalAction({
       const spamResults = await client.search({ header: { "Message-ID": escapedId } });
       await client.logout();
 
+      // The session itself worked, whatever the search turned up.
+      await ctx.runMutation(
+        internal.platformWarmupAccounts.recordAccountSuccess,
+        { accountId: args.accountId }
+      );
+
       if (spamResults && spamResults.length > 0) {
         return { placement: "spam", isImportant: false };
       }
@@ -113,6 +155,13 @@ export const checkPlacement = internalAction({
     } catch (error) {
       try { await client.logout(); } catch { /* ignore */ }
       console.error("IMAP checkPlacement failed:", error);
+      // A failure here is why placements silently stopped resolving before:
+      // the error was logged and the account stayed in rotation.
+      const { reason, fatal } = describeFailure(error);
+      await ctx.runMutation(
+        internal.platformWarmupAccounts.recordAccountFailure,
+        { accountId: args.accountId, reason: `IMAP placement check: ${reason}`, fatal }
+      );
       return { placement: "unknown", isImportant: false };
     }
   },
@@ -147,6 +196,11 @@ export const rescueFromSpam = internalAction({
     } catch (error) {
       try { await client.logout(); } catch { /* ignore */ }
       console.error("IMAP rescueFromSpam failed:", error);
+      const { reason, fatal } = describeFailure(error);
+      await ctx.runMutation(
+        internal.platformWarmupAccounts.recordAccountFailure,
+        { accountId: args.accountId, reason: `IMAP spam rescue: ${reason}`, fatal }
+      );
     }
   },
 });
@@ -186,6 +240,11 @@ export const markImportant = internalAction({
     } catch (error) {
       try { await client.logout(); } catch { /* ignore */ }
       console.error("IMAP markImportant failed:", error);
+      const { reason, fatal } = describeFailure(error);
+      await ctx.runMutation(
+        internal.platformWarmupAccounts.recordAccountFailure,
+        { accountId: args.accountId, reason: `IMAP mark important: ${reason}`, fatal }
+      );
     }
   },
 });

@@ -136,11 +136,23 @@ export default function AdminWarmupAccountsPage() {
                     className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                       account.status === "active"
                         ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                        : account.autoPausedAt
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
                     }`}
                   >
-                    {account.status}
+                    {account.autoPausedAt ? "auto-paused" : account.status}
                   </span>
+                  {/* Why the engine pulled this account out of rotation, so a
+                      dead app password is visible instead of buried in logs. */}
+                  {account.lastFailureReason && (
+                    <p
+                      className="mt-1 max-w-xs truncate text-xs text-gray-500 dark:text-gray-400"
+                      title={account.lastFailureReason}
+                    >
+                      {account.lastFailureReason}
+                    </p>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">
                   {account.dailySentCount}

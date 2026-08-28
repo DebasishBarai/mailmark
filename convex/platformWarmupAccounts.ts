@@ -5,6 +5,12 @@ import { mutation, query, internalMutation, internalQuery } from "./_generated/s
 // const ADMIN_CLERK_ID = "user_2xo2LyEVBp4BWRHM0RdeaZTPJAb";
 const DAILY_SEND_LIMIT = 450;
 
+// Consecutive SMTP/IMAP failures before an account is pulled out of rotation.
+// Gmail drops the occasional connection, so one failure is not a verdict, but
+// a third in a row means the account is not usable and every further round is
+// just noise against a dead credential.
+const MAX_CONSECUTIVE_FAILURES = 3;
+
 async function requireAdmin(ctx: { auth: { getUserIdentity: () => Promise<{ subject?: string } | null> }; db: any }) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity || !identity.subject) {
@@ -57,7 +63,14 @@ export const activateAccount = mutation({
   args: { accountId: v.id("platformWarmupAccounts") },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    await ctx.db.patch(args.accountId, { status: "active" });
+    // await ctx.db.patch(args.accountId, { status: "active" });
+    // Clear the failure trail too, otherwise an account that was auto-paused
+    // comes back one failure away from being paused again.
+    await ctx.db.patch(args.accountId, {
+      status: "active",
+      consecutiveFailures: 0,
+      autoPausedAt: undefined,
+    });
   },
 });
 
@@ -79,6 +92,8 @@ export const updateAppPassword = mutation({
     await ctx.db.patch(args.accountId, {
       appPassword: args.appPassword,
       status: "active",
+      consecutiveFailures: 0,
+      autoPausedAt: undefined,
     });
   },
 });
@@ -143,6 +158,52 @@ export const resetAllDailyCounts = internalMutation({
         lastResetAt: Date.now(),
       });
     }
+  },
+});
+
+// Called by the warmup Gmail actions when an SMTP or IMAP call against this
+// account fails. Credential failures are fatal on the first occurrence: a
+// revoked app password does not come back on its own, and retrying it every 30
+// minutes only risks Google flagging the account further.
+export const recordAccountFailure = internalMutation({
+  args: {
+    accountId: v.id("platformWarmupAccounts"),
+    reason: v.string(),
+    fatal: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const account = await ctx.db.get(args.accountId);
+    if (!account) return;
+
+    const failures = (account.consecutiveFailures ?? 0) + 1;
+    const shouldPause =
+      account.status === "active" &&
+      (args.fatal === true || failures >= MAX_CONSECUTIVE_FAILURES);
+
+    await ctx.db.patch(args.accountId, {
+      consecutiveFailures: failures,
+      lastFailureAt: Date.now(),
+      lastFailureReason: args.reason.slice(0, 300),
+      ...(shouldPause ? { status: "paused" as const, autoPausedAt: Date.now() } : {}),
+    });
+
+    if (shouldPause) {
+      console.error(
+        `Warmup account ${account.email} auto-paused after ${failures} consecutive failure(s): ${args.reason}`
+      );
+    }
+  },
+});
+
+// Called after an SMTP send or IMAP session succeeds. Only writes when there is
+// something to clear, so the happy path stays a single read.
+export const recordAccountSuccess = internalMutation({
+  args: { accountId: v.id("platformWarmupAccounts") },
+  handler: async (ctx, args) => {
+    const account = await ctx.db.get(args.accountId);
+    if (!account) return;
+    if (!account.consecutiveFailures) return;
+    await ctx.db.patch(args.accountId, { consecutiveFailures: 0 });
   },
 });
 

@@ -365,6 +365,14 @@ export default defineSchema({
     dailySentCount: v.number(),
     dailyReceivedCount: v.number(),
     lastResetAt: v.number(),
+    // Health of the Gmail credentials themselves. SMTP/IMAP failures used to
+    // be logged and swallowed, so a revoked app password meant silent retries
+    // every 30 minutes forever. These fields let the engine pull a broken
+    // account out of rotation and tell an admin why.
+    consecutiveFailures: v.optional(v.number()),
+    lastFailureAt: v.optional(v.number()),
+    lastFailureReason: v.optional(v.string()),
+    autoPausedAt: v.optional(v.number()),
   })
     .index("by_status", ["status"])
     .index("by_email", ["email"]),
@@ -405,6 +413,10 @@ export default defineSchema({
     markedImportant: v.optional(v.boolean()),
   })
     .index("by_warmup_mailbox", ["warmupMailboxId"])
+    // Scoring and history read one mailbox over a date window. Without the
+    // date in the index they have to collect every warmup email the mailbox
+    // ever sent and filter in memory, which grows without bound.
+    .index("by_warmup_mailbox_and_date", ["warmupMailboxId", "sentAt"])
     .index("by_platform_account", ["platformAccountId"])
     .index("by_message_id", ["messageId"])
     .index("by_sent_date", ["sentAt"]),
