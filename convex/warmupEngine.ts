@@ -127,6 +127,11 @@ async function runRoundForMailbox(
         `Date: ${new Date().toUTCString()}`,
         `Message-ID: <${messageId}@${mailbox.domain}>`,
         `X-Warmup-Id: ${wmb._id}`,
+        // SES overwrites Message-ID on raw sends, so the id above never
+        // reaches Gmail and cannot be searched for. SES leaves custom X-
+        // headers alone, so this one is how the engagement round finds the
+        // message again. See findMessageSequence in warmupGmail.
+        `X-Warmup-Message-Id: ${messageId}`,
         `Content-Type: text/html; charset=UTF-8`,
         "",
         content.html + trackingPixel,
@@ -162,12 +167,24 @@ async function runRoundForMailbox(
         { accountId: account._id }
       );
 
+      await ctx.runMutation(internal.warmupPool.recordSendSuccess, {
+        warmupMailboxId: wmb._id,
+      });
+
       outbound++;
     } catch (error) {
       console.error(
         `Warmup outbound failed for mailbox ${wmb.mailboxId} -> ${account.email}:`,
         error
       );
+      // A mailbox whose sends all fail (SES still in sandbox, sending
+      // disabled, identity unusable) used to look exactly like one warming
+      // perfectly: active, day climbing, health 100, nothing sent. Record it
+      // so the customer and the dashboard can see it.
+      await ctx.runMutation(internal.warmupPool.recordSendFailure, {
+        warmupMailboxId: wmb._id,
+        reason: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

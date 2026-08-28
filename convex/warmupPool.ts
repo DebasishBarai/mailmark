@@ -7,6 +7,11 @@ import { applyAccountFailure } from "./platformWarmupAccounts";
 // waiting to happen once more than a handful of mailboxes are warming.
 const ENGAGEMENT_BATCH_SIZE = 150;
 
+// Consecutive failed sends before a warmup run stops and says why. Rounds
+// attempt 2-3 sends each, so this is a few rounds of everything failing, not a
+// transient SES hiccup.
+const MAX_CONSECUTIVE_SEND_FAILURES = 10;
+
 // Length of a full warmup run. Roughly what the tools in this space use for
 // the ramp itself: about four weeks to reach full volume.
 const WARMUP_TOTAL_DAYS = 30;
@@ -99,6 +104,9 @@ export const startWarmup = mutation({
         startedAt: Date.now(),
         pausedReason: undefined,
         completedAt: undefined,
+        consecutiveSendFailures: 0,
+        lastSendError: undefined,
+        lastSendErrorAt: undefined,
       });
       return existing._id;
     }
@@ -355,6 +363,53 @@ export const incrementReceivedToday = internalMutation({
   },
 });
 
+export const recordSendSuccess = internalMutation({
+  args: { warmupMailboxId: v.id("warmupMailboxes") },
+  handler: async (ctx, args) => {
+    const entry = await ctx.db.get(args.warmupMailboxId);
+    if (!entry) return;
+    await ctx.db.patch(args.warmupMailboxId, {
+      lastSuccessfulSendAt: Date.now(),
+      ...(entry.consecutiveSendFailures
+        ? { consecutiveSendFailures: 0, lastSendError: undefined }
+        : {}),
+    });
+  },
+});
+
+export const recordSendFailure = internalMutation({
+  args: {
+    warmupMailboxId: v.id("warmupMailboxes"),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const entry = await ctx.db.get(args.warmupMailboxId);
+    if (!entry) return;
+
+    const failures = (entry.consecutiveSendFailures ?? 0) + 1;
+    const shouldPause =
+      entry.status === "active" && failures >= MAX_CONSECUTIVE_SEND_FAILURES;
+
+    await ctx.db.patch(args.warmupMailboxId, {
+      consecutiveSendFailures: failures,
+      lastSendError: args.reason.slice(0, 300),
+      lastSendErrorAt: Date.now(),
+      ...(shouldPause
+        ? {
+            status: "paused" as const,
+            pausedReason: `Warmup paused automatically: ${failures} sends in a row failed. Last error: ${args.reason.slice(0, 200)}`,
+          }
+        : {}),
+    });
+
+    if (shouldPause) {
+      console.error(
+        `Warmup mailbox ${args.warmupMailboxId} auto-paused after ${failures} failed sends: ${args.reason}`
+      );
+    }
+  },
+});
+
 export const advanceDay = internalMutation({
   args: { warmupMailboxId: v.id("warmupMailboxes") },
   handler: async (ctx, args) => {
@@ -436,6 +491,9 @@ export const advanceDay = internalMutation({
 export const recalculateHealthScore = internalMutation({
   args: { warmupMailboxId: v.id("warmupMailboxes") },
   handler: async (ctx, args) => {
+    const entry = await ctx.db.get(args.warmupMailboxId);
+    if (!entry) return;
+
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
     const recent = await ctx.db
@@ -464,6 +522,14 @@ export const recalculateHealthScore = internalMutation({
     );
 
     const answered = placed.length + bounced.length;
+
+    // Recorded even when there is not enough to score on, so that a mailbox
+    // sending happily while no placement ever resolves is visibly a mailbox
+    // with no data rather than one with a perfect score.
+    if (answered !== entry.placementSamples) {
+      await ctx.db.patch(args.warmupMailboxId, { placementSamples: answered });
+    }
+
     if (answered < MIN_PLACEMENT_SAMPLE) return;
 
     // A message Gmail filed as spam landed in spam even though the engagement
@@ -506,6 +572,10 @@ export const createWarmupEmailRecord = internalMutation({
       subject: args.subject,
       sentAt: Date.now(),
       placement: "unknown",
+      // Only outbound mail is engaged with from the Gmail side.
+      ...(args.direction === "outbound"
+        ? { engagementState: "pending" as const }
+        : {}),
       ...(args.sesMessageId
         ? { sesMessageId: args.sesMessageId, deliveryStatus: "pending" as const }
         : {}),
@@ -542,8 +612,14 @@ export const recordWarmupDeliveryStatus = internalMutation({
 
     await ctx.db.patch(email._id, {
       deliveryStatus: args.status,
+      // Nothing for an IMAP session to find, so stop offering it to the
+      // engagement round.
       ...(failed
-        ? { bouncedAt: args.timestamp, bounceReason: args.reason?.slice(0, 300) }
+        ? {
+            bouncedAt: args.timestamp,
+            bounceReason: args.reason?.slice(0, 300),
+            engagementState: "done" as const,
+          }
         : {}),
     });
 
@@ -618,7 +694,10 @@ export const updateWarmupEmailPlacement = internalMutation({
 export const markWarmupEmailOpened = internalMutation({
   args: { warmupEmailId: v.id("warmupEmails") },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.warmupEmailId, { openedAt: Date.now() });
+    await ctx.db.patch(args.warmupEmailId, {
+      openedAt: Date.now(),
+      engagementState: "done",
+    });
   },
 });
 
@@ -662,11 +741,12 @@ export const getWarmupEmailByMessageId = internalQuery({
   },
 });
 
-// This used to collect the entire warmupEmails table and filter in memory. That
-// reads every warmup email ever sent by every customer, so it was on course to
-// blow Convex's per-query document read limit and take the whole engagement
-// cron down with it. The by_sent_date index bounds the read to the window we
-// actually care about, and the batch cap bounds the work of one round.
+// Candidates for the engagement round.
+//
+// This used to collect the entire warmupEmails table and filter in memory,
+// reading every warmup email ever sent by every customer, which was on course
+// to blow Convex's per-query document read limit and take the engagement cron
+// down with it platform-wide:
 //
 // export const getRecentOutboundForEngagement = internalQuery({
 //   args: {},
@@ -691,23 +771,18 @@ export const getRecentOutboundForEngagement = internalQuery({
   handler: async (ctx, args) => {
     const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
 
+    // A plain index range over (engagementState, sentAt). No filter predicate
+    // at all, so nothing here depends on how a filter treats a field that was
+    // never set: a message is a candidate because we wrote "pending" on it and
+    // have not written "done" yet.
+    //
     // Oldest first, not newest first: an email only has this four hour window
     // to get its placement resolved, so the ones about to fall out of it are
     // the ones a capped batch should spend its budget on.
     return await ctx.db
       .query("warmupEmails")
-      .withIndex("by_sent_date", (q) => q.gte("sentAt", fourHoursAgo))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("direction"), "outbound"),
-          q.eq(q.field("openedAt"), undefined),
-          // A bounced send is not sitting in an inbox waiting to be found, so
-          // there is nothing for an IMAP session to do but cost us a
-          // connection every round until the window closes.
-          q.neq(q.field("deliveryStatus"), "bounced"),
-          q.neq(q.field("deliveryStatus"), "failed"),
-          q.neq(q.field("deliveryStatus"), "complained")
-        )
+      .withIndex("by_engagement_state", (q) =>
+        q.eq("engagementState", "pending").gte("sentAt", fourHoursAgo)
       )
       .take(args.limit ?? ENGAGEMENT_BATCH_SIZE);
   },

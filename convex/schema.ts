@@ -401,6 +401,17 @@ export default defineSchema({
     // day counter climbed forever at a flat 20/day, so a mailbox stayed
     // enrolled until somebody noticed and paused it.
     completedAt: v.optional(v.number()),
+    // Sending health. A mailbox whose every send fails (SES still in sandbox,
+    // sending disabled, identity not usable) used to look identical to one
+    // warming perfectly: active, day climbing, health 100, and nothing sent.
+    // How many recent sends actually produced a placement answer. A score of
+    // 100 computed from nothing looks identical to a genuinely healthy
+    // mailbox, so the dashboard needs to know which one it is looking at.
+    placementSamples: v.optional(v.number()),
+    consecutiveSendFailures: v.optional(v.number()),
+    lastSendError: v.optional(v.string()),
+    lastSendErrorAt: v.optional(v.number()),
+    lastSuccessfulSendAt: v.optional(v.number()),
   })
     .index("by_user_id", ["userId"])
     .index("by_mailbox_id", ["mailboxId"])
@@ -438,6 +449,14 @@ export default defineSchema({
     ),
     bouncedAt: v.optional(v.number()),
     bounceReason: v.optional(v.string()),
+    // Whether the engagement round still has work to do on this message.
+    // Set explicitly at insert rather than inferred from the absence of
+    // openedAt, so the query that drives engagement is a plain index range on
+    // a value we always write. Outbound only: inbound warmup is not engaged
+    // with from our side.
+    engagementState: v.optional(
+      v.union(v.literal("pending"), v.literal("done"))
+    ),
   })
     .index("by_warmup_mailbox", ["warmupMailboxId"])
     // Scoring and history read one mailbox over a date window. Without the
@@ -447,6 +466,7 @@ export default defineSchema({
     .index("by_platform_account", ["platformAccountId"])
     .index("by_message_id", ["messageId"])
     .index("by_ses_message_id", ["sesMessageId"])
+    .index("by_engagement_state", ["engagementState", "sentAt"])
     .index("by_sent_date", ["sentAt"]),
 
   warmupContentTemplates: defineTable({

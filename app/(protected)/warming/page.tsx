@@ -18,7 +18,20 @@ import type { Id } from "../../../convex/_generated/dataModel";
 // does not pull in a Convex server module.
 const WARMUP_TOTAL_DAYS = 30;
 
-function HealthBadge({ score }: { score: number }) {
+// A score computed from no placement data is not a score. Saying so beats
+// showing a confident 100 that only means nothing has been measured.
+function HealthBadge({ score, samples }: { score: number; samples?: number }) {
+  if (samples === 0 || samples === undefined) {
+    return (
+      <span
+        className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+        title="No warmup email has had its inbox placement confirmed yet. A score appears once placement data arrives."
+      >
+        No data
+      </span>
+    );
+  }
+
   const color =
     score >= 80
       ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
@@ -245,7 +258,7 @@ export default function WarmingPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <HealthBadge score={wmb.healthScore} />
+                      <HealthBadge score={wmb.healthScore} samples={wmb.placementSamples} />
                       <SpeedLabel speed={wmb.speed} />
                       <span
                         className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
@@ -285,6 +298,30 @@ export default function WarmingPage() {
                     </div>
                   )}
 
+                  {/* Sends are failing but the run has not given up yet. A
+                      mailbox in this state looks healthy on every other number
+                      on the card, so say it outright. */}
+                  {wmb.status === "active" &&
+                    !!wmb.consecutiveSendFailures &&
+                    wmb.consecutiveSendFailures > 0 && (
+                      <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+                        <p className="text-xs font-semibold text-red-800 dark:text-red-300">
+                          {wmb.consecutiveSendFailures} warmup send
+                          {wmb.consecutiveSendFailures === 1 ? " has" : "s have"} failed in a row
+                        </p>
+                        {wmb.lastSendError && (
+                          <p className="mt-1 text-xs text-red-700 dark:text-red-400">
+                            {wmb.lastSendError}
+                          </p>
+                        )}
+                        <p className="mt-1 text-xs text-red-700 dark:text-red-400">
+                          Warmup cannot build reputation while sends are failing. A
+                          common cause is the AWS account still being in the SES
+                          sandbox.
+                        </p>
+                      </div>
+                    )}
+
                   {/* Why warmup stopped, when it stopped on its own. Without
                       this an auto-pause looks identical to one the user made. */}
                   {wmb.status === "paused" && wmb.pausedReason && (
@@ -306,7 +343,7 @@ export default function WarmingPage() {
                     <div>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Inbox Rate</p>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {wmb.inboxRate}%
+                        {wmb.placementSamples ? `${wmb.inboxRate}%` : "--"}
                       </p>
                     </div>
                     <div>

@@ -34,10 +34,24 @@ const NO_ENGAGEMENT: EngagementCounts = {
 async function engageWithEmail(ctx: any, email: any): Promise<EngagementCounts> {
   const counts = { ...NO_ENGAGEMENT };
 
+  // The engine writes X-Warmup-Message-Id with this token, which is the part
+  // of our own message id before the domain. SES rewrites Message-ID but
+  // leaves custom headers alone, so this is the key that actually finds the
+  // message in Gmail.
+  const warmupToken = String(email.messageId)
+    .replace(/^</, "")
+    .replace(/@.*$/, "");
+
+  const lookup = {
+    messageId: email.messageId,
+    sesMessageId: email.sesMessageId ?? undefined,
+    warmupToken: warmupToken || undefined,
+  };
+
   // Step 1: Check placement via Gmail API
   const result = await ctx.runAction(internal.warmupGmail.checkPlacement, {
     accountId: email.platformAccountId,
-    messageId: email.messageId,
+    ...lookup,
   });
 
   if (result.placement === "unknown") return counts;
@@ -52,7 +66,7 @@ async function engageWithEmail(ctx: any, email: any): Promise<EngagementCounts> 
   if (result.placement === "spam") {
     await ctx.runAction(internal.warmupGmail.rescueFromSpam, {
       accountId: email.platformAccountId,
-      messageId: email.messageId,
+      ...lookup,
     });
     await ctx.runMutation(internal.warmupPool.markWarmupEmailRescued, {
       warmupEmailId: email._id,
@@ -78,7 +92,7 @@ async function engageWithEmail(ctx: any, email: any): Promise<EngagementCounts> 
   if (Math.random() < 0.45) {
     await ctx.runAction(internal.warmupGmail.markImportant, {
       accountId: email.platformAccountId,
-      messageId: email.messageId,
+      ...lookup,
     });
     await ctx.runMutation(internal.warmupPool.markWarmupEmailImportant, {
       warmupEmailId: email._id,
