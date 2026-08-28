@@ -93,6 +93,12 @@ export default function WarmupDocsPage() {
               several weeks your domain accumulates positive engagement signals that inbox providers use to establish trust.
             </p>
             <p>
+              A warmup run lasts <strong className="text-gray-900 dark:text-white">30 days</strong>. On day 30 the mailbox is
+              marked complete and stops sending warmup email. Reputation is not permanent: it fades when a mailbox goes
+              quiet, so keep sending real mail from it afterwards, and start warmup again if the mailbox sits idle for a
+              while or its deliverability slips.
+            </p>
+            <p>
               Warmup runs fully in the background -- you do not need to do anything once it is started. The Warming page in
               your dashboard shows live progress, health scores, and recent activity.
             </p>
@@ -226,6 +232,7 @@ export default function WarmupDocsPage() {
               <li>
                 <strong className="text-gray-900 dark:text-white">Let it finish naturally.</strong> Pausing and resuming
                 warmup frequently resets momentum. If you need to pause, keep it brief and resume as soon as possible.
+                A run finishes on its own at day 30.
               </li>
               <li>
                 <strong className="text-gray-900 dark:text-white">Monitor the health score weekly.</strong> A declining score

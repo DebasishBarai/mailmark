@@ -224,7 +224,7 @@ http.route({
     }
 
     const body = await request.json();
-    const { messageId, status, timestamp } = body;
+    const { messageId, status, timestamp, reason } = body;
 
     console.log("[trackDelivery] received messageId:", messageId, "status:", status);
 
@@ -236,12 +236,44 @@ http.route({
       });
     }
 
-    await ctx.runMutation(internal.emails.updateDeliveryStatus, {
+    // Both mutations below validate status against a union, so an unexpected
+    // value from SNS would throw and hand the webhook a 500 it would retry
+    // forever. Reject it here instead.
+    const KNOWN_STATUSES = ["delivered", "bounced", "failed", "complained"];
+    if (!KNOWN_STATUSES.includes(status)) {
+      console.log("[trackDelivery] ignoring unknown status:", status);
+      return new Response(JSON.stringify({ success: true, ignored: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const eventTime = typeof timestamp === "number" ? timestamp : Date.now();
+    const eventReason = typeof reason === "string" ? reason : undefined;
+
+    // Warmup sends have no row in the emails table, so this is the only place
+    // their bounces can be recorded. The mutation no-ops when the id belongs to
+    // ordinary mail, and an SES message id only ever belongs to one of the two,
+    // so running both lookups is safe.
+    const warmupResult = await ctx.runMutation(
+      internal.warmupPool.recordWarmupDeliveryStatus,
+      { sesMessageId: messageId, status, timestamp: eventTime, reason: eventReason }
+    );
+
+    // "complained" is warmup-only for now: the emails table has no such
+    // delivery status, and the SNS handler used to drop complaints entirely.
+    if (!warmupResult.matched && status !== "complained") {
+      await ctx.runMutation(internal.emails.updateDeliveryStatus, {
+        messageId,
+        status,
+        timestamp: eventTime,
+      });
+    }
+    console.log(
+      "[trackDelivery] mutation done for messageId:",
       messageId,
-      status,
-      timestamp: timestamp ?? Date.now(),
-    });
-    console.log("[trackDelivery] mutation done for messageId:", messageId);
+      warmupResult.matched ? "(warmup send)" : ""
+    );
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

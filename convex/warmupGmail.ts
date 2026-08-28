@@ -15,6 +15,69 @@ function createSmtpTransport(email: string, appPassword: string) {
   });
 }
 
+// Classify a Gmail failure. Credentials that Google has revoked or that were
+// never valid will not start working again, so those pause the account on the
+// first occurrence rather than after the usual three strikes.
+function describeFailure(error: unknown): { reason: string; fatal: boolean } {
+  const reason = error instanceof Error ? error.message : String(error);
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String((error as { code: unknown }).code)
+      : "";
+  const fatal =
+    code === "EAUTH" ||
+    /invalid credentials|authenticationfailed|username and password not accepted|application-specific password|\b535\b/i.test(
+      reason
+    );
+  return { reason, fatal };
+}
+
+// Amazon SES overwrites the Message-ID header on raw sends: "Amazon SES
+// automatically applies its own Message-ID and Date headers; if you passed
+// these headers when creating the message, they are overwritten by the values
+// that Amazon SES provides" (SendRawEmail API reference). The id the warmup
+// engine writes into the message therefore never reaches Gmail, so searching
+// for it found nothing, every placement came back "unknown", and no open,
+// importance flag, reply or spam rescue ever happened.
+//
+// Two things do survive to Gmail: the SES-assigned id, which SES puts in the
+// Message-ID header it writes, and our own X- header, which SES leaves alone.
+// IMAP HEADER search matches on substring, so the bare SES id matches the
+// full header value. Both are tried, so neither assumption is load bearing on
+// its own.
+async function findMessageSequence(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: any,
+  keys: { messageId: string; sesMessageId?: string; warmupToken?: string }
+): Promise<number | null> {
+  const searches: Record<string, string>[] = [];
+  if (keys.warmupToken) searches.push({ "X-Warmup-Message-Id": keys.warmupToken });
+  if (keys.sesMessageId) searches.push({ "Message-ID": keys.sesMessageId });
+  searches.push({ "Message-ID": keys.messageId });
+
+  for (const header of searches) {
+    const results = await client.search({ header });
+    if (results && results.length > 0) return results[0];
+  }
+  return null;
+}
+
+// Gmail's spam folder is not always at "[Gmail]/Spam". UK accounts use
+// "[Google Mail]/Spam" and non-English accounts localise the name, so a
+// hardcoded path throws on mailboxOpen for those. The IMAP special-use flag
+// names the folder whatever it is called.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function findJunkPath(client: any): Promise<string | null> {
+  try {
+    const boxes = await client.list();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const junk = (boxes ?? []).find((b: any) => b.specialUse === "\\Junk");
+    return junk?.path ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function createImapClient(email: string, appPassword: string) {
   return new ImapFlow({
     host: "imap.gmail.com",
@@ -63,7 +126,22 @@ export const sendViaGmail = internalAction({
       (mailOptions.headers as Record<string, string>)["X-Warmup-Id"] = args.warmupEmailId;
     }
 
-    await transporter.sendMail(mailOptions);
+    // await transporter.sendMail(mailOptions);
+    try {
+      await transporter.sendMail(mailOptions);
+    } catch (error) {
+      const { reason, fatal } = describeFailure(error);
+      await ctx.runMutation(
+        internal.platformWarmupAccounts.recordAccountFailure,
+        { accountId: args.accountId, reason: `SMTP send: ${reason}`, fatal }
+      );
+      throw error;
+    }
+
+    await ctx.runMutation(
+      internal.platformWarmupAccounts.recordAccountSuccess,
+      { accountId: args.accountId }
+    );
     return messageId;
   },
 });
@@ -72,6 +150,8 @@ export const checkPlacement = internalAction({
   args: {
     accountId: v.id("platformWarmupAccounts"),
     messageId: v.string(),
+    sesMessageId: v.optional(v.string()),
+    warmupToken: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{ placement: "inbox" | "spam" | "unknown"; isImportant: boolean }> => {
     const account = await ctx.runQuery(
@@ -81,18 +161,26 @@ export const checkPlacement = internalAction({
     if (!account) return { placement: "unknown", isImportant: false };
 
     const client = createImapClient(account.email, account.appPassword);
+    const keys = {
+      messageId: args.messageId,
+      sesMessageId: args.sesMessageId,
+      warmupToken: args.warmupToken,
+    };
 
     try {
       await client.connect();
 
-      const escapedId = args.messageId.replace(/"/g, '\\"');
-
       // Check INBOX
       await client.mailboxOpen("INBOX");
-      const inboxResults = await client.search({ header: { "Message-ID": escapedId } });
-      if (inboxResults && inboxResults.length > 0) {
-        const msg = await client.fetchOne(inboxResults[0], { flags: true, labels: true });
+      const inboxHit = await findMessageSequence(client, keys);
+      if (inboxHit !== null) {
+        const msg = await client.fetchOne(inboxHit, { flags: true, labels: true });
         await client.logout();
+        await ctx.runMutation(
+          internal.platformWarmupAccounts.recordAccountSuccess,
+          { accountId: args.accountId }
+        );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const labels = (msg as any).labels || [];
         return {
           placement: "inbox",
@@ -100,12 +188,26 @@ export const checkPlacement = internalAction({
         };
       }
 
-      // Check Spam
-      await client.mailboxOpen("[Gmail]/Spam");
-      const spamResults = await client.search({ header: { "Message-ID": escapedId } });
+      // Check Spam, wherever this account keeps it
+      const junkPath = await findJunkPath(client);
+      let spamHit: number | null = null;
+      if (junkPath) {
+        await client.mailboxOpen(junkPath);
+        spamHit = await findMessageSequence(client, keys);
+      } else {
+        console.error(
+          `Warmup account ${account.email}: no \\Junk mailbox found, cannot check spam placement`
+        );
+      }
       await client.logout();
 
-      if (spamResults && spamResults.length > 0) {
+      // The session itself worked, whatever the search turned up.
+      await ctx.runMutation(
+        internal.platformWarmupAccounts.recordAccountSuccess,
+        { accountId: args.accountId }
+      );
+
+      if (spamHit !== null) {
         return { placement: "spam", isImportant: false };
       }
 
@@ -113,6 +215,13 @@ export const checkPlacement = internalAction({
     } catch (error) {
       try { await client.logout(); } catch { /* ignore */ }
       console.error("IMAP checkPlacement failed:", error);
+      // A failure here is why placements silently stopped resolving before:
+      // the error was logged and the account stayed in rotation.
+      const { reason, fatal } = describeFailure(error);
+      await ctx.runMutation(
+        internal.platformWarmupAccounts.recordAccountFailure,
+        { accountId: args.accountId, reason: `IMAP placement check: ${reason}`, fatal }
+      );
       return { placement: "unknown", isImportant: false };
     }
   },
@@ -122,6 +231,8 @@ export const rescueFromSpam = internalAction({
   args: {
     accountId: v.id("platformWarmupAccounts"),
     messageId: v.string(),
+    sesMessageId: v.optional(v.string()),
+    warmupToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const account = await ctx.runQuery(
@@ -134,19 +245,36 @@ export const rescueFromSpam = internalAction({
 
     try {
       await client.connect();
-      await client.mailboxOpen("[Gmail]/Spam");
 
-      const escapedId = args.messageId.replace(/"/g, '\\"');
-      const results = await client.search({ header: { "Message-ID": escapedId } });
+      const junkPath = await findJunkPath(client);
+      if (!junkPath) {
+        await client.logout();
+        console.error(
+          `Warmup account ${account.email}: no \\Junk mailbox found, cannot rescue from spam`
+        );
+        return;
+      }
 
-      if (results && results.length > 0) {
-        await client.messageMove(results[0], "INBOX");
+      await client.mailboxOpen(junkPath);
+      const hit = await findMessageSequence(client, {
+        messageId: args.messageId,
+        sesMessageId: args.sesMessageId,
+        warmupToken: args.warmupToken,
+      });
+
+      if (hit !== null) {
+        await client.messageMove(hit, "INBOX");
       }
 
       await client.logout();
     } catch (error) {
       try { await client.logout(); } catch { /* ignore */ }
       console.error("IMAP rescueFromSpam failed:", error);
+      const { reason, fatal } = describeFailure(error);
+      await ctx.runMutation(
+        internal.platformWarmupAccounts.recordAccountFailure,
+        { accountId: args.accountId, reason: `IMAP spam rescue: ${reason}`, fatal }
+      );
     }
   },
 });
@@ -155,6 +283,8 @@ export const markImportant = internalAction({
   args: {
     accountId: v.id("platformWarmupAccounts"),
     messageId: v.string(),
+    sesMessageId: v.optional(v.string()),
+    warmupToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const account = await ctx.runQuery(
@@ -169,14 +299,18 @@ export const markImportant = internalAction({
       await client.connect();
       await client.mailboxOpen("INBOX");
 
-      const escapedId = args.messageId.replace(/"/g, '\\"');
-      const results = await client.search({ header: { "Message-ID": escapedId } });
+      const hit = await findMessageSequence(client, {
+        messageId: args.messageId,
+        sesMessageId: args.sesMessageId,
+        warmupToken: args.warmupToken,
+      });
 
-      if (results && results.length > 0) {
-        await client.messageFlagsAdd(results[0], ["\\Flagged"]);
+      if (hit !== null) {
+        await client.messageFlagsAdd(hit, ["\\Flagged"]);
         // Gmail maps X-GM-LABELS for importance
         try {
-          await (client as any).messageLabelAdd(results[0], ["\\Important"]);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (client as any).messageLabelAdd(hit, ["\\Important"]);
         } catch {
           // Fallback: flagging is sufficient for engagement signal
         }
@@ -186,6 +320,11 @@ export const markImportant = internalAction({
     } catch (error) {
       try { await client.logout(); } catch { /* ignore */ }
       console.error("IMAP markImportant failed:", error);
+      const { reason, fatal } = describeFailure(error);
+      await ctx.runMutation(
+        internal.platformWarmupAccounts.recordAccountFailure,
+        { accountId: args.accountId, reason: `IMAP mark important: ${reason}`, fatal }
+      );
     }
   },
 });

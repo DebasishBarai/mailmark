@@ -365,6 +365,14 @@ export default defineSchema({
     dailySentCount: v.number(),
     dailyReceivedCount: v.number(),
     lastResetAt: v.number(),
+    // Health of the Gmail credentials themselves. SMTP/IMAP failures used to
+    // be logged and swallowed, so a revoked app password meant silent retries
+    // every 30 minutes forever. These fields let the engine pull a broken
+    // account out of rotation and tell an admin why.
+    consecutiveFailures: v.optional(v.number()),
+    lastFailureAt: v.optional(v.number()),
+    lastFailureReason: v.optional(v.string()),
+    autoPausedAt: v.optional(v.number()),
   })
     .index("by_status", ["status"])
     .index("by_email", ["email"]),
@@ -373,7 +381,11 @@ export default defineSchema({
     userId: v.id("users"),
     mailboxId: v.id("mailboxes"),
     domainId: v.id("domains"),
-    status: v.union(v.literal("active"), v.literal("paused")),
+    status: v.union(
+      v.literal("active"),
+      v.literal("paused"),
+      v.literal("completed")
+    ),
     speed: v.union(v.literal("slow"), v.literal("normal"), v.literal("fast")),
     dailyLimit: v.number(),
     sentToday: v.number(),
@@ -383,9 +395,27 @@ export default defineSchema({
     inboxRate: v.number(),
     startedAt: v.number(),
     lastActivityAt: v.optional(v.number()),
+    // Why warmup stopped, when it stopped on its own rather than by request.
+    pausedReason: v.optional(v.string()),
+    // Set when the ramp finished its full run. Warmup used to have no end: the
+    // day counter climbed forever at a flat 20/day, so a mailbox stayed
+    // enrolled until somebody noticed and paused it.
+    completedAt: v.optional(v.number()),
+    // Sending health. A mailbox whose every send fails (SES still in sandbox,
+    // sending disabled, identity not usable) used to look identical to one
+    // warming perfectly: active, day climbing, health 100, and nothing sent.
+    // How many recent sends actually produced a placement answer. A score of
+    // 100 computed from nothing looks identical to a genuinely healthy
+    // mailbox, so the dashboard needs to know which one it is looking at.
+    placementSamples: v.optional(v.number()),
+    consecutiveSendFailures: v.optional(v.number()),
+    lastSendError: v.optional(v.string()),
+    lastSendErrorAt: v.optional(v.number()),
+    lastSuccessfulSendAt: v.optional(v.number()),
   })
     .index("by_user_id", ["userId"])
     .index("by_mailbox_id", ["mailboxId"])
+    .index("by_domain_id", ["domainId"])
     .index("by_status", ["status"]),
 
   warmupEmails: defineTable({
@@ -403,10 +433,40 @@ export default defineSchema({
     placement: v.union(v.literal("inbox"), v.literal("spam"), v.literal("unknown")),
     rescuedFromSpam: v.optional(v.boolean()),
     markedImportant: v.optional(v.boolean()),
+    // SES outcome for outbound warmup sends. Without the SES-assigned id there
+    // is nothing for a bounce or complaint notification to match on, so warmup
+    // bounces used to fall on the floor while still counting against the
+    // sender's SES reputation. Inbound (Gmail SMTP) sends leave these unset.
+    sesMessageId: v.optional(v.string()),
+    deliveryStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("delivered"),
+        v.literal("bounced"),
+        v.literal("failed"),
+        v.literal("complained")
+      )
+    ),
+    bouncedAt: v.optional(v.number()),
+    bounceReason: v.optional(v.string()),
+    // Whether the engagement round still has work to do on this message.
+    // Set explicitly at insert rather than inferred from the absence of
+    // openedAt, so the query that drives engagement is a plain index range on
+    // a value we always write. Outbound only: inbound warmup is not engaged
+    // with from our side.
+    engagementState: v.optional(
+      v.union(v.literal("pending"), v.literal("done"))
+    ),
   })
     .index("by_warmup_mailbox", ["warmupMailboxId"])
+    // Scoring and history read one mailbox over a date window. Without the
+    // date in the index they have to collect every warmup email the mailbox
+    // ever sent and filter in memory, which grows without bound.
+    .index("by_warmup_mailbox_and_date", ["warmupMailboxId", "sentAt"])
     .index("by_platform_account", ["platformAccountId"])
     .index("by_message_id", ["messageId"])
+    .index("by_ses_message_id", ["sesMessageId"])
+    .index("by_engagement_state", ["engagementState", "sentAt"])
     .index("by_sent_date", ["sentAt"]),
 
   warmupContentTemplates: defineTable({
