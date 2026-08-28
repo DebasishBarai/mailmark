@@ -2,6 +2,8 @@ import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import type { Doc } from "./_generated/dataModel";
+import type { DatabaseReader } from "./_generated/server";
 
 export const getMailboxWithDomain = internalQuery({
   args: { mailboxId: v.id("mailboxes") },
@@ -514,6 +516,47 @@ export const mergeDuplicateFlags = internalMutation({
   },
 });
 
+// ── Looking up the message a tracking event refers to ──
+//
+// messageId is not unique across this table. Inbound rows carry the SES receipt
+// id, and one message delivered to two mailboxes on the same domain (To: one,
+// Cc: the other) produces two rows holding the same value. .unique() throws on
+// that, which would turn an ordinary delivery, open, click or reply
+// notification into a failed mutation.
+//
+// Every caller below is tracking mail we sent, so when a lookup matches more
+// than one row, prefer an outgoing one, and fall back to the oldest match
+// rather than throwing. A single match is returned as-is, exactly as before.
+const OUTGOING_FOLDERS = ["sent", "outbox"];
+
+function preferOutgoing(rows: Doc<"emails">[]): Doc<"emails"> | null {
+  if (rows.length === 0) return null;
+  if (rows.length === 1) return rows[0];
+  const outgoing = rows.filter((e) => OUTGOING_FOLDERS.includes(e.folder));
+  const pool = outgoing.length > 0 ? outgoing : rows;
+  return pool.reduce((oldest, e) =>
+    e._creationTime < oldest._creationTime ? e : oldest
+  );
+}
+
+async function findByMessageId(db: DatabaseReader, messageId: string) {
+  return preferOutgoing(
+    await db
+      .query("emails")
+      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
+      .collect()
+  );
+}
+
+async function findBySesMessageId(db: DatabaseReader, sesMessageId: string) {
+  return preferOutgoing(
+    await db
+      .query("emails")
+      .withIndex("by_ses_message_id", (q) => q.eq("sesMessageId", sesMessageId))
+      .collect()
+  );
+}
+
 // Called when SES delivery notification is received via SNS
 export const updateDeliveryStatus = internalMutation({
   args: {
@@ -524,15 +567,9 @@ export const updateDeliveryStatus = internalMutation({
   handler: async (ctx, { messageId, status, timestamp }) => {
     console.log("[updateDeliveryStatus] looking up sesMessageId:", messageId);
     const email =
-      (await ctx.db
-        .query("emails")
-        .withIndex("by_ses_message_id", (q) => q.eq("sesMessageId", messageId))
-        .unique()) ??
+      (await findBySesMessageId(ctx.db, messageId)) ??
       // Fallback: try the legacy custom messageId index
-      (await ctx.db
-        .query("emails")
-        .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
-        .unique());
+      (await findByMessageId(ctx.db, messageId));
     if (!email) {
       console.log("[updateDeliveryStatus] no email found for messageId:", messageId);
       return;
@@ -553,10 +590,7 @@ export const markScheduledEmailAsSentByMessageId = internalMutation({
     sesMessageId: v.optional(v.string()),
   },
   handler: async (ctx, { messageId, sesMessageId }) => {
-    const email = await ctx.db
-      .query("emails")
-      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
-      .unique();
+    const email = await findByMessageId(ctx.db, messageId);
     if (!email) {
       console.log("[markScheduledEmailAsSentByMessageId] email not found:", messageId);
       return;
@@ -662,10 +696,7 @@ export const cancelScheduledEmail = mutation({
 export const markAsOpened = internalMutation({
   args: { messageId: v.string() },
   handler: async (ctx, { messageId }) => {
-    const email = await ctx.db
-      .query("emails")
-      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
-      .unique();
+    const email = await findByMessageId(ctx.db, messageId);
     if (!email || email.openedAt) return; // Only record first open
     await ctx.db.patch(email._id, {
       openedAt: Date.now(),
@@ -722,10 +753,7 @@ export const markLinkClicked = internalMutation({
     url: v.string(),
   },
   handler: async (ctx, { messageId, url }) => {
-    const email = await ctx.db
-      .query("emails")
-      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
-      .unique();
+    const email = await findByMessageId(ctx.db, messageId);
     if (!email) return;
     const existing = email.clickedLinks ?? [];
     if (existing.some((l) => l.url === url)) return;
@@ -740,10 +768,7 @@ export const markLinkClicked = internalMutation({
 export const markAsReplied = internalMutation({
   args: { messageId: v.string() },
   handler: async (ctx, { messageId }) => {
-    const email = await ctx.db
-      .query("emails")
-      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
-      .unique();
+    const email = await findByMessageId(ctx.db, messageId);
     if (!email || email.repliedAt) return;
     await ctx.db.patch(email._id, { repliedAt: Date.now() });
   },
