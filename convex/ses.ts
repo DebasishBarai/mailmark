@@ -14,7 +14,7 @@ import { internal } from "./_generated/api";
 import { PLAN_LIMITS } from "./quotas";
 import { Id } from "./_generated/dataModel";
 import { SendEmailCommand } from "@aws-sdk/client-sesv2";
-import { PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, GetObjectCommand, HeadObjectCommand, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { simpleParser } from "mailparser";
 import type { AddressObject } from "mailparser";
 import {
@@ -857,6 +857,215 @@ async function syncIngestedRecipients(
     console.error("Failed to read recipients from raw email:", error);
   }
 }
+
+// ── Repairing and de-duplicating ingested mail ──
+
+async function s3ObjectExists(aws: AwsClientBundle, key: string): Promise<boolean> {
+  try {
+    await aws.s3.send(
+      new HeadObjectCommand({ Bucket: aws.s3Bucket, Key: key })
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Every place an ingested message may have come to rest. The Lambda stages its
+// copy under {domain}/{mailbox}/inbox/, moveIncomingEmail rewrites that to
+// {domain}/{mailbox}/incoming/, and the raw SES drop sits at {domain}/incoming/
+// until the Lambda deletes it. A row can name any of them depending on where
+// the move got to, so try them all before calling a message lost.
+function candidateS3Keys(s3Key: string, fullAddress: string): string[] {
+  const [localPart, domain] = fullAddress.toLowerCase().split("@");
+  if (!localPart || !domain) return [];
+
+  const filename = s3Key.split("/").pop() || s3Key;
+  const withoutExtension = filename.replace(/\.eml$/, "");
+
+  const candidates = [
+    `${domain}/${localPart}/incoming/${filename}`,
+    `${domain}/${localPart}/inbox/${filename}`,
+    `${domain}/incoming/${filename}`,
+    `${domain}/incoming/${withoutExtension}`,
+  ];
+
+  return candidates.filter((key, i) => key !== s3Key && candidates.indexOf(key) === i);
+}
+
+// Point rows at the copy of their message that actually exists in S3.
+//
+// The duplicate ingests raced over moveIncomingEmail: both runs copy the raw
+// mail to the same key and then delete it, so whichever run lost is left
+// naming an object the winner removed, and the mailbox renders it as "Failed
+// to load email body". The message itself survives under one of the other
+// prefixes, so look it up and rewrite the key.
+export const repairEmailS3Keys = internalAction({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    folder: v.optional(v.string()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { mailboxId, folder, dryRun }) => {
+    const targetFolder = folder ?? "inbox";
+    const isDryRun = dryRun ?? false;
+
+    const mailbox = await ctx.runQuery(internal.emails.getMailboxById, {
+      mailboxId,
+    });
+    if (!mailbox) throw new Error("Mailbox not found");
+
+    const emails = await ctx.runQuery(internal.emails.listForRepairInternal, {
+      mailboxId,
+      folder: targetFolder,
+    });
+    if (emails.length === 0) {
+      return { folder: targetFolder, scanned: 0, intact: 0, repaired: [], missing: [] };
+    }
+
+    const aws = await clientsForS3Key(ctx, emails[0].s3Key);
+
+    let intact = 0;
+    const repaired: Array<{ subject: string; from: string; to: string }> = [];
+    const missing: Array<{ subject: string; s3Key: string }> = [];
+
+    for (const email of emails) {
+      if (await s3ObjectExists(aws, email.s3Key)) {
+        intact++;
+        continue;
+      }
+
+      let found: string | null = null;
+      for (const candidate of candidateS3Keys(email.s3Key, mailbox.fullAddress)) {
+        if (await s3ObjectExists(aws, candidate)) {
+          found = candidate;
+          break;
+        }
+      }
+
+      if (!found) {
+        missing.push({ subject: email.subject, s3Key: email.s3Key });
+        continue;
+      }
+
+      repaired.push({ subject: email.subject, from: email.s3Key, to: found });
+      if (!isDryRun) {
+        await ctx.runMutation(internal.emails.updateS3Key, {
+          emailId: email._id,
+          s3Key: found,
+        });
+      }
+    }
+
+    return {
+      dryRun: isDryRun,
+      folder: targetFolder,
+      scanned: emails.length,
+      intact,
+      repaired,
+      missing,
+    };
+  },
+});
+
+// Remove the duplicate rows written before insertFromWebhook started deduping
+// by messageId. Run repairEmailS3Keys first, then, per mailbox:
+//
+//   internal.ses.purgeDuplicateIngests
+//   { "mailboxId": "...", "dryRun": false }
+//
+// dryRun defaults to true, so the first run only reports what it would delete.
+//
+// Which row to keep is decided by asking S3, never by the shape of the s3Key:
+// within a group sharing a messageId it keeps the oldest row whose object is
+// actually readable. A group where no row's object can be found is left alone
+// and reported, so a message is never reduced to a copy that cannot be opened.
+export const purgeDuplicateIngests = internalAction({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    folder: v.optional(v.string()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { mailboxId, folder, dryRun }) => {
+    const targetFolder = folder ?? "inbox";
+    const isDryRun = dryRun ?? true;
+
+    const emails = await ctx.runQuery(internal.emails.listForRepairInternal, {
+      mailboxId,
+      folder: targetFolder,
+    });
+    if (emails.length === 0) {
+      return { folder: targetFolder, scanned: 0, duplicateGroups: 0, deleted: [], skipped: [] };
+    }
+
+    const aws = await clientsForS3Key(ctx, emails[0].s3Key);
+
+    const byMessageId = new Map<string, typeof emails>();
+    for (const email of emails) {
+      if (!email.messageId) continue;
+      const group = byMessageId.get(email.messageId);
+      if (group) group.push(email);
+      else byMessageId.set(email.messageId, [email]);
+    }
+
+    const deleted: Array<{ subject: string; s3Key: string }> = [];
+    const skipped: Array<{ messageId: string; subject: string; reason: string }> = [];
+    let duplicateGroups = 0;
+
+    for (const [messageId, group] of byMessageId) {
+      if (group.length < 2) continue;
+      duplicateGroups++;
+
+      const readable: typeof emails = [];
+      for (const email of group) {
+        if (await s3ObjectExists(aws, email.s3Key)) readable.push(email);
+      }
+
+      if (readable.length === 0) {
+        skipped.push({
+          messageId,
+          subject: group[0].subject,
+          reason: "no copy of this message could be read from S3",
+        });
+        continue;
+      }
+
+      readable.sort((a, b) => a._creationTime - b._creationTime);
+      const keep = readable[0];
+      const duplicates = group.filter((e) => e._id !== keep._id);
+
+      const read = keep.read || duplicates.some((e) => e.read);
+      const starred = keep.starred || duplicates.some((e) => e.starred);
+
+      for (const duplicate of duplicates) {
+        deleted.push({ subject: duplicate.subject, s3Key: duplicate.s3Key });
+        if (!isDryRun) {
+          await ctx.runMutation(internal.emails.deleteInternal, {
+            emailId: duplicate._id,
+          });
+        }
+      }
+
+      if (!isDryRun) {
+        await ctx.runMutation(internal.emails.mergeDuplicateFlags, {
+          emailId: keep._id,
+          read,
+          starred,
+        });
+      }
+    }
+
+    return {
+      dryRun: isDryRun,
+      folder: targetFolder,
+      scanned: emails.length,
+      duplicateGroups,
+      deleted: isDryRun ? [] : deleted,
+      wouldDelete: isDryRun ? deleted : [],
+      skipped,
+    };
+  },
+});
 
 // Move incoming email from domain/incoming/ to domain/mailbox/incoming/
 export const moveIncomingEmail = internalAction({
