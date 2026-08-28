@@ -460,91 +460,41 @@ export const updateIngestedRecipients = internalMutation({
   },
 });
 
-// One-shot cleanup for the duplicate rows written before insertFromWebhook
-// started deduping by messageId. Run it per mailbox from the Convex dashboard:
-//
-//   internal.emails.purgeDuplicateIngests
-//   { "mailboxId": "...", "dryRun": false }
-//
-// dryRun defaults to true, so the first run only reports what it would delete.
-//
-// Within a group of rows sharing a messageId it keeps the one whose s3Key was
-// successfully moved to the mailbox's incoming/ prefix: the duplicate ingests
-// raced over that move, and the row that lost still points at an inbox/ key
-// the winner deleted, which is the copy whose body fails to load. Read and
-// starred flags are carried over from the rows being removed so cleanup never
-// makes a message you already handled pop back up as unread.
-export const purgeDuplicateIngests = internalMutation({
+// The duplicate cleanup lives in ses.ts as internal.ses.purgeDuplicateIngests,
+// not here. Deciding which of two rows to keep means knowing which one's S3
+// object still exists, and only a Node action can ask S3. An earlier version of
+// this file guessed from the shape of the s3Key and deleted the wrong rows.
+
+// Every row in a folder, for the repair and purge actions. Unlike
+// listByMailboxAndFolderInternal this is not capped at 50 rows.
+export const listForRepairInternal = internalQuery({
   args: {
     mailboxId: v.id("mailboxes"),
-    folder: v.optional(v.string()),
-    dryRun: v.optional(v.boolean()),
+    folder: v.string(),
   },
-  handler: async (ctx, { mailboxId, folder, dryRun }) => {
-    const targetFolder = folder ?? "inbox";
-    const isDryRun = dryRun ?? true;
-
-    const emails = await ctx.db
+  handler: async (ctx, { mailboxId, folder }) => {
+    return await ctx.db
       .query("emails")
       .withIndex("by_mailbox_folder", (q) =>
-        q.eq("mailboxId", mailboxId).eq("folder", targetFolder)
+        q.eq("mailboxId", mailboxId).eq("folder", folder)
       )
       .collect();
+  },
+});
 
-    const byMessageId = new Map<string, typeof emails>();
-    for (const email of emails) {
-      if (!email.messageId) continue;
-      const group = byMessageId.get(email.messageId);
-      if (group) group.push(email);
-      else byMessageId.set(email.messageId, [email]);
-    }
-
-    const removed: Array<{ messageId: string; subject: string; s3Key: string }> = [];
-    let duplicateGroups = 0;
-
-    for (const [messageId, group] of byMessageId) {
-      if (group.length < 2) continue;
-      duplicateGroups++;
-
-      const ranked = [...group].sort((a, b) => {
-        // The Lambda stages every copy under .../inbox/, and moveIncomingEmail
-        // rewrites the key to .../incoming/ once the move succeeds. A row still
-        // pointing at the staging key is the one whose move lost the race, and
-        // the object it names was deleted by the winner. Prefer a moved row,
-        // then the oldest of the remaining rows.
-        const aStaged = a.s3Key.includes("/inbox/") ? 1 : 0;
-        const bStaged = b.s3Key.includes("/inbox/") ? 1 : 0;
-        if (aStaged !== bStaged) return aStaged - bStaged;
-        return a._creationTime - b._creationTime;
-      });
-
-      const [keep, ...duplicates] = ranked;
-      const read = keep.read || duplicates.some((e) => e.read);
-      const starred = keep.starred || duplicates.some((e) => e.starred);
-
-      for (const duplicate of duplicates) {
-        removed.push({
-          messageId,
-          subject: duplicate.subject,
-          s3Key: duplicate.s3Key,
-        });
-        if (!isDryRun) await ctx.db.delete(duplicate._id);
-      }
-
-      if (!isDryRun && (read !== keep.read || starred !== keep.starred)) {
-        await ctx.db.patch(keep._id, { read, starred });
-      }
-    }
-
-    return {
-      dryRun: isDryRun,
-      folder: targetFolder,
-      scanned: emails.length,
-      duplicateGroups,
-      deleted: isDryRun ? 0 : removed.length,
-      wouldDelete: isDryRun ? removed.length : 0,
-      rows: removed,
-    };
+// Fold the read/starred flags of removed duplicates into the row being kept, so
+// cleanup never makes a message you already handled pop back up as unread.
+export const mergeDuplicateFlags = internalMutation({
+  args: {
+    emailId: v.id("emails"),
+    read: v.boolean(),
+    starred: v.boolean(),
+  },
+  handler: async (ctx, { emailId, read, starred }) => {
+    const email = await ctx.db.get(emailId);
+    if (!email) return;
+    if (email.read === read && email.starred === starred) return;
+    await ctx.db.patch(emailId, { read, starred });
   },
 });
 
