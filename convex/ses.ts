@@ -1149,6 +1149,19 @@ export const purgeDuplicateIngests = internalAction({
   },
 });
 
+// Scheduled right after an inbound message is stored, so the ingest request
+// itself never waits on a download and a MIME parse.
+export const syncRecipientsFromS3 = internalAction({
+  args: {
+    emailId: v.id("emails"),
+    s3Key: v.string(),
+  },
+  handler: async (ctx, { emailId, s3Key }) => {
+    const aws = await clientsForS3Key(ctx, s3Key);
+    await syncIngestedRecipients(ctx, aws, s3Key, emailId);
+  },
+});
+
 // Move incoming email from domain/incoming/ to domain/mailbox/incoming/
 export const moveIncomingEmail = internalAction({
   args: {
@@ -1167,7 +1180,10 @@ export const moveIncomingEmail = internalAction({
     const newS3Key = `${domain}/${localPart}/incoming/${filename}`;
 
     if (oldS3Key === newS3Key) {
-      await syncIngestedRecipients(ctx, aws, oldS3Key, emailId);
+      await ctx.scheduler.runAfter(0, internal.ses.syncRecipientsFromS3, {
+        emailId,
+        s3Key: oldS3Key,
+      });
       return;
     }
 
@@ -1181,29 +1197,42 @@ export const moveIncomingEmail = internalAction({
     // is pointed at it second, and the slow work (downloading and parsing the
     // message to read its real recipients) happens afterwards against our own
     // key, which nothing else can remove.
-    try {
-      await aws.s3.send(
-        new CopyObjectCommand({
-          Bucket: bucket,
-          CopySource: encodeURI(`${bucket}/${oldS3Key}`),
-          Key: newS3Key,
-        })
-      );
-    } catch (error) {
-      // The source may be gone because an earlier run already copied it. If
-      // the destination is there, adopt it rather than stranding the row.
-      if (await s3ObjectExists(aws, newS3Key)) {
-        console.error(
-          `Copy from ${oldS3Key} failed but ${newS3Key} exists; adopting it:`,
-          error
+    //
+    // A failed copy costs the message, so it is retried: a transient S3 error
+    // here is the difference between a delivered mail and one that no longer
+    // exists anywhere.
+    let copied = false;
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 3 && !copied; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 400));
+      try {
+        await aws.s3.send(
+          new CopyObjectCommand({
+            Bucket: bucket,
+            CopySource: encodeURI(`${bucket}/${oldS3Key}`),
+            Key: newS3Key,
+          })
         );
-        await ctx.runMutation(internal.emails.updateS3Key, {
-          emailId,
-          s3Key: newS3Key,
-        });
-      } else {
-        console.error(`Failed to copy ${oldS3Key} to ${newS3Key}:`, error);
+        copied = true;
+      } catch (error) {
+        lastError = error;
+        // The source may be gone because an earlier run already copied it. If
+        // the destination is there, adopt it rather than stranding the row.
+        if (await s3ObjectExists(aws, newS3Key)) {
+          console.error(
+            `Copy from ${oldS3Key} failed but ${newS3Key} exists; adopting it:`,
+            error
+          );
+          copied = true;
+        }
       }
+    }
+
+    if (!copied) {
+      console.error(
+        `Failed to copy ${oldS3Key} to ${newS3Key} after 3 attempts; the row still points at the drop and the message may be lost:`,
+        lastError
+      );
       return;
     }
 
@@ -1214,7 +1243,14 @@ export const moveIncomingEmail = internalAction({
       s3Key: newS3Key,
     });
 
-    await syncIngestedRecipients(ctx, aws, newS3Key, emailId);
+    // Reading the recipients means downloading and parsing the whole message,
+    // which is the slowest thing this pipeline does. It runs on its own after
+    // the response goes back, so a slow or failing parse cannot hold up the
+    // delivery or make the sender's pipeline time out and retry.
+    await ctx.scheduler.runAfter(0, internal.ses.syncRecipientsFromS3, {
+      emailId,
+      s3Key: newS3Key,
+    });
 
     try {
       await aws.s3.send(

@@ -465,6 +465,22 @@ export const updateIngestedRecipients = internalMutation({
 // object still exists, and only a Node action can ask S3. An earlier version of
 // this file guessed from the shape of the s3Key and deleted the wrong rows.
 
+// One mailbox's copy of a message, for the redelivery-heals-a-stalled-move
+// path in /ingestEmail.
+export const getByMailboxAndMessageId = internalQuery({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    messageId: v.string(),
+  },
+  handler: async (ctx, { mailboxId, messageId }) => {
+    const rows = await ctx.db
+      .query("emails")
+      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
+      .collect();
+    return rows.find((e) => e.mailboxId === mailboxId) ?? null;
+  },
+});
+
 // Every row in a folder, for the repair and purge actions. Unlike
 // listByMailboxAndFolderInternal this is not capped at 50 rows.
 export const listForRepairInternal = internalQuery({
