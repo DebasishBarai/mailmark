@@ -57,6 +57,22 @@ export default function AdminDashboardPage() {
       ? Math.round((stats.emails.opened / stats.emails.sent) * 100)
       : 0;
 
+  // "Total Stored" counts every row in the emails table, so the folders that
+  // have no card of their own (warmup, outbox, drafts, trash) are the gap
+  // between it and sent + received. Spell them out so the total reconciles.
+  const FOLDER_LABELS: Record<string, string> = {
+    _warmup: "warmup",
+    outbox: "outbox",
+    drafts: "drafts",
+    trash: "trash",
+  };
+
+  const otherFolderSummary =
+    stats.emails.byFolder
+      .filter(({ folder }) => folder !== "sent" && folder !== "inbox")
+      .map(({ folder, count }) => `${count.toLocaleString()} ${FOLDER_LABELS[folder] ?? folder}`)
+      .join(", ") || undefined;
+
   const bounceRate =
     stats.emails.sent > 0
       ? Math.round((stats.emails.bounced / stats.emails.sent) * 100)
@@ -87,7 +103,13 @@ export default function AdminDashboardPage() {
       <div className="mb-8">
         <SectionHeader title="Emails" />
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          <StatCard label="Total Stored" value={stats.emails.total} color="violet" />
+          <StatCard
+            label="Total Stored"
+            value={stats.emails.total}
+            color="violet"
+            sub={otherFolderSummary}
+          />
+          {/* <StatCard label="Total Stored" value={stats.emails.total} color="violet" /> */}
           <StatCard label="Sent" value={stats.emails.sent} color="blue" />
           <StatCard label="Received" value={stats.emails.inbox} color="green" />
           <StatCard label="Delivered" value={stats.emails.delivered} color="green" sub={`${stats.emails.sent > 0 ? Math.round((stats.emails.delivered / stats.emails.sent) * 100) : 0}% of sent`} />

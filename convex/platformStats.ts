@@ -64,12 +64,36 @@ export const getAdminStats = query({
     const normalUsers = users.filter((u) => u.category === "normal").length;
 
     // Emails breakdown
-    const sentEmails = emails.filter((e) => e.folder === "sent").length;
+    //
+    // Delivery and open counts are the numerators of rates whose denominator is
+    // the sent count, so they have to come from the same set of rows. Scoping
+    // them to the sent folder keeps that true: a sent row the user later trashed
+    // would otherwise stay in the numerator after leaving the denominator, and
+    // the rate would drift above what was actually sent.
+    const sent = emails.filter((e) => e.folder === "sent");
+    const sentEmails = sent.length;
     const inboxEmails = emails.filter((e) => e.folder === "inbox").length;
-    const deliveredEmails = emails.filter((e) => e.deliveryStatus === "delivered").length;
-    const bouncedEmails = emails.filter((e) => e.deliveryStatus === "bounced").length;
-    const failedEmails = emails.filter((e) => e.deliveryStatus === "failed").length;
-    const openedEmails = emails.filter((e) => e.openedAt != null).length;
+    const deliveredEmails = sent.filter((e) => e.deliveryStatus === "delivered").length;
+    const bouncedEmails = sent.filter((e) => e.deliveryStatus === "bounced").length;
+    const failedEmails = sent.filter((e) => e.deliveryStatus === "failed").length;
+    const openedEmails = sent.filter((e) => e.openedAt != null).length;
+    // const deliveredEmails = emails.filter((e) => e.deliveryStatus === "delivered").length;
+    // const bouncedEmails = emails.filter((e) => e.deliveryStatus === "bounced").length;
+    // const failedEmails = emails.filter((e) => e.deliveryStatus === "failed").length;
+    // const openedEmails = emails.filter((e) => e.openedAt != null).length;
+
+    // Every folder present in the table, so "Total Stored" reconciles against
+    // sent + received. The rest is mostly inbound warmup mail, which the ingest
+    // webhook parks in "_warmup" instead of the inbox, plus outbox and trash.
+    // "drafts" is counted here too whenever a row carries it, though nothing
+    // writes that folder today: the mailbox Drafts tab is UI only.
+    const folderCounts = new Map<string, number>();
+    for (const email of emails) {
+      folderCounts.set(email.folder, (folderCounts.get(email.folder) ?? 0) + 1);
+    }
+    const emailsByFolder = [...folderCounts.entries()]
+      .map(([folder, count]) => ({ folder, count }))
+      .sort((a, b) => b.count - a.count);
 
     // Domains breakdown
     const verifiedDomains = domains.filter((d) => d.verified).length;
@@ -120,6 +144,7 @@ export const getAdminStats = query({
         total: emails.length,
         sent: sentEmails,
         inbox: inboxEmails,
+        byFolder: emailsByFolder,
         delivered: deliveredEmails,
         bounced: bouncedEmails,
         failed: failedEmails,
