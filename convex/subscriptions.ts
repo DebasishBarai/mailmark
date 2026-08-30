@@ -148,6 +148,29 @@ export const handlePolarSubscriptionEvent = internalMutation({
       .first();
 
     if (existing) {
+      // A plan change in Polar cancels the old subscription and creates a new
+      // one, so a "canceled" / "past_due" event can arrive for a subscription
+      // the user has already moved off. Applying it would flip a live row to
+      // canceled and drop a paying customer to free tier limits. Deactivations
+      // are therefore only honoured when they are about the subscription this
+      // row currently tracks. Activations still always apply, which is what
+      // lets an upgrade take ownership of the row with its new subscription id.
+      const isDeactivation = args.status === "canceled" || args.status === "past_due";
+      // Rows created before polarSubscriptionId was recorded have nothing to
+      // compare against, so they must stay cancellable.
+      const isForCurrentSubscription =
+        existing.polarSubscriptionId === undefined ||
+        existing.polarSubscriptionId === args.polarSubscriptionId;
+
+      if (isDeactivation && !isForCurrentSubscription) {
+        console.warn(
+          `[subscriptions] Ignoring "${args.status}" event for stale subscription ${args.polarSubscriptionId}; row tracks ${existing.polarSubscriptionId}`
+        );
+        return;
+      }
+
+      // Old: every event patched the row unconditionally, so a late cancel for
+      // a superseded subscription overwrote the current plan and status.
       await ctx.db.patch(existing._id, {
         plan: args.plan,
         status: args.status,
