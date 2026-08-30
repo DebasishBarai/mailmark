@@ -5,9 +5,13 @@ import { Id } from "./_generated/dataModel";
 import type { Doc } from "./_generated/dataModel";
 import type { DatabaseReader } from "./_generated/server";
 import {
+  applyEmailToTally,
+  applyMailboxDelta,
   deleteEmailCounted,
+  emptyMailboxTally,
   insertEmailCounted,
   patchEmailCounted,
+  readMailboxStats,
 } from "./lib/counters";
 
 export const getMailboxWithDomain = internalQuery({
@@ -40,35 +44,41 @@ export const getMailboxById = internalQuery({
   },
 });
 
-export const listByFolder = query({
-  args: {
-    mailboxId: v.id("mailboxes"),
-    folder: v.string(),
-  },
-  handler: async (ctx, { mailboxId, folder }) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
-
-    // Verify ownership
-    const mailbox = await ctx.db.get(mailboxId);
-    if (!mailbox) return [];
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || mailbox.userId !== user._id) return [];
-
-    return await ctx.db
-      .query("emails")
-      .withIndex("by_mailbox_folder", (q) =>
-        q.eq("mailboxId", mailboxId).eq("folder", folder)
-      )
-      .order("desc")
-      .collect();
-  },
-});
+// Retired. This collected an entire folder with no limit and shipped it to the
+// browser. Its only caller was the mailbox page, which used it solely to count
+// unread messages (inboxEmails.filter(e => !e.read).length) and now calls
+// countUnreadByMailbox instead. listByFolderPaginated below is what actually
+// renders the message list.
+//
+// export const listByFolder = query({
+//   args: {
+//     mailboxId: v.id("mailboxes"),
+//     folder: v.string(),
+//   },
+//   handler: async (ctx, { mailboxId, folder }) => {
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) return [];
+//
+//     // Verify ownership
+//     const mailbox = await ctx.db.get(mailboxId);
+//     if (!mailbox) return [];
+//
+//     const user = await ctx.db
+//       .query("users")
+//       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+//       .unique();
+//
+//     if (!user || mailbox.userId !== user._id) return [];
+//
+//     return await ctx.db
+//       .query("emails")
+//       .withIndex("by_mailbox_folder", (q) =>
+//         q.eq("mailboxId", mailboxId).eq("folder", folder)
+//       )
+//       .order("desc")
+//       .collect();
+//   },
+// });
 
 export const listByFolderPaginated = query({
   args: {
@@ -119,14 +129,19 @@ export const countByFolder = query({
 
     if (!user || mailbox.userId !== user._id) return 0;
 
-    const results = await ctx.db
-      .query("emails")
-      .withIndex("by_mailbox_folder", (q) =>
-        q.eq("mailboxId", mailboxId).eq("folder", folder)
-      )
-      .collect();
+    // Old: collect the whole folder and call .length, which reads every
+    // message in it to produce one integer.
+    //
+    // const results = await ctx.db
+    //   .query("emails")
+    //   .withIndex("by_mailbox_folder", (q) =>
+    //     q.eq("mailboxId", mailboxId).eq("folder", folder)
+    //   )
+    //   .collect();
+    // return results.length;
 
-    return results.length;
+    const stats = await readMailboxStats(ctx, mailboxId);
+    return stats.byFolder[folder] ?? 0;
   },
 });
 
@@ -148,14 +163,20 @@ export const countUnreadByMailbox = query({
 
     if (!user || mailbox.userId !== user._id) return 0;
 
-    const results = await ctx.db
-      .query("emails")
-      .withIndex("by_mailbox_folder", (q) =>
-        q.eq("mailboxId", mailboxId).eq("folder", "inbox")
-      )
-      .collect();
+    // Old: collect the entire inbox and count unread in memory. This runs from
+    // the protected layout for every mailbox in the sidebar, so it fired on
+    // every page load of the app.
+    //
+    // const results = await ctx.db
+    //   .query("emails")
+    //   .withIndex("by_mailbox_folder", (q) =>
+    //     q.eq("mailboxId", mailboxId).eq("folder", "inbox")
+    //   )
+    //   .collect();
+    // return results.filter((e) => !e.read).length;
 
-    return results.filter((e) => !e.read).length;
+    const stats = await readMailboxStats(ctx, mailboxId);
+    return stats.unread;
   },
 });
 
@@ -204,7 +225,8 @@ export const markAsRead = mutation({
       throw new Error("Not authorized");
     }
 
-    await ctx.db.patch(emailId, { read: true });
+    // await ctx.db.patch(emailId, { read: true });
+    await patchEmailCounted(ctx, emailId, { read: true });
   },
 });
 
@@ -233,11 +255,19 @@ export const markAllAsRead = mutation({
       )
       .collect();
 
+    // Old: a bare patch per row, which left mailboxStats.unread stale.
+    // Going through patchEmailCounted here would add a stats write per email,
+    // so instead the unread delta is tallied in memory and written once, the
+    // same shape as the cascade deletes in lib/counters.ts.
+    const tally = emptyMailboxTally();
     for (const email of emails) {
       if (!email.read) {
+        applyEmailToTally(tally, email, -1);
         await ctx.db.patch(email._id, { read: true });
+        applyEmailToTally(tally, { ...email, read: true }, 1);
       }
     }
+    await applyMailboxDelta(ctx, mailboxId, tally);
   },
 });
 
@@ -316,7 +346,8 @@ export const markAsUnread = mutation({
       throw new Error("Not authorized");
     }
 
-    await ctx.db.patch(emailId, { read: false });
+    // await ctx.db.patch(emailId, { read: false });
+    await patchEmailCounted(ctx, emailId, { read: false });
   },
 });
 
@@ -522,7 +553,8 @@ export const mergeDuplicateFlags = internalMutation({
     const email = await ctx.db.get(emailId);
     if (!email) return;
     if (email.read === read && email.starred === starred) return;
-    await ctx.db.patch(emailId, { read, starred });
+    // await ctx.db.patch(emailId, { read, starred });
+    await patchEmailCounted(ctx, emailId, { read, starred });
   },
 });
 
@@ -816,15 +848,24 @@ export const getBounceStatsForDomain = internalQuery({
     let replied = 0;
 
     for (const mb of mailboxes) {
+      // Old: collect every sent message the mailbox ever had, then skip the
+      // ones before sinceMs in the loop below. Same rows match either way, but
+      // the range read stops scanning at the window boundary.
+      //
+      // const sentEmails = await ctx.db
+      //   .query("emails")
+      //   .withIndex("by_mailbox_folder", (q) =>
+      //     q.eq("mailboxId", mb._id).eq("folder", "sent")
+      //   )
+      //   .collect();
       const sentEmails = await ctx.db
         .query("emails")
-        .withIndex("by_mailbox_folder", (q) =>
-          q.eq("mailboxId", mb._id).eq("folder", "sent")
+        .withIndex("by_mailbox_folder_date", (q) =>
+          q.eq("mailboxId", mb._id).eq("folder", "sent").gte("date", sinceMs)
         )
         .collect();
 
       for (const email of sentEmails) {
-        if (email.date < sinceMs) continue;
         totalSent++;
         if (email.deliveryStatus === "delivered") delivered++;
         else if (email.deliveryStatus === "bounced") bounced++;

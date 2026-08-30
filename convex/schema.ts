@@ -153,6 +153,12 @@ export default defineSchema({
     scheduledJobId: v.optional(v.string()),
   })
     .index("by_mailbox_folder", ["mailboxId", "folder"])
+    // Every stats reader wanted "this mailbox's sent mail since <date>" but
+    // by_mailbox_folder stops at the folder, so they collected the whole
+    // folder and threw away everything outside the window in memory. That is
+    // unbounded work for a bounded answer, and it is what put these queries on
+    // course for the 32,000 document scan cap.
+    .index("by_mailbox_folder_date", ["mailboxId", "folder", "date"])
     .index("by_message_id", ["messageId"])
     .index("by_ses_message_id", ["sesMessageId"]),
 
@@ -264,7 +270,10 @@ export default defineSchema({
   })
     .index("by_domain_email", ["domainId", "email"])
     .index("by_token", ["token"])
-    .index("by_domain_id", ["domainId"]),
+    .index("by_domain_id", ["domainId"])
+    // Lets the 7 and 30 day figures on the unsubscribes page be range reads
+    // rather than a collect of every unsubscribe the domain has ever had.
+    .index("by_domain_date", ["domainId", "unsubscribedAt"]),
 
   emailVerifications: defineTable({
     email: v.string(),
@@ -334,7 +343,12 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_user_id", ["userId"])
-    .index("by_domain_id", ["domainId"]),
+    .index("by_domain_id", ["domainId"])
+    // markRepliedByEmail runs on every inbound reply and used .filter() on
+    // mailboxId, which scans the whole table. Sequence rows carry full HTML
+    // email bodies inline in steps[], so that scan was reading megabytes on a
+    // hot path to find at most a handful of rows.
+    .index("by_mailbox_id", ["mailboxId"]),
 
   sequenceEnrollments: defineTable({
     sequenceId: v.id("sequences"),
@@ -480,6 +494,53 @@ export default defineSchema({
     bodies: v.array(v.string()),
     replyBodies: v.array(v.string()),
   }),
+
+  // Per-mailbox denormalized counts.
+  //
+  // The platformCounters table below holds one row per platform-wide counter.
+  // These are the same idea scoped to a mailbox, and they get their own table
+  // rather than dynamic keys in platformCounters because there is one row per
+  // mailbox: a single row read answers every count a mailbox page needs, and
+  // the nightly rebuild can recompute one mailbox at a time instead of holding
+  // a per-mailbox tally for the whole platform in one document.
+  //
+  // All figures are all-time, matching what emailStats.getForCurrentUser
+  // produced when it read every email the user owned.
+  mailboxStats: defineTable({
+    mailboxId: v.id("mailboxes"),
+    // An array of {folder, count} rather than a {[folder]: count} map.
+    // Convex field names may only contain alphanumerics and underscores, and
+    // folder is a free-form string that moveToFolder accepts straight from the
+    // client, so using folder names as object keys would let a caller write a
+    // document Convex rejects. Storing them as values keeps any folder name
+    // legal.
+    byFolder: v.array(v.object({ folder: v.string(), count: v.number() })),
+    // Inbox messages with read === false.
+    unread: v.number(),
+    // The next five are over folder === "sent" only, which is the scope
+    // emailStats has always reported them in. pending means a sent message
+    // whose deliveryStatus is none of delivered/failed/bounced, including one
+    // that has no deliveryStatus at all.
+    delivered: v.number(),
+    failed: v.number(),
+    bounced: v.number(),
+    pending: v.number(),
+    opened: v.number(),
+  }).index("by_mailbox", ["mailboxId"]),
+
+  // Per-domain denormalized counts. Currently only unsubscribes, whose totals
+  // are all-time and so cannot be answered by the by_domain_date range read.
+  domainStats: defineTable({
+    domainId: v.id("domains"),
+    unsubscribesTotal: v.number(),
+    // Values, not keys, for the same reason as byFolder above, and here it is
+    // not hypothetical: "one-click" contains a hyphen, which is not a legal
+    // Convex field name, so a map keyed by source would throw on every
+    // one-click unsubscribe.
+    unsubscribesBySource: v.array(
+      v.object({ source: v.string(), count: v.number() })
+    ),
+  }).index("by_domain", ["domainId"]),
 
   // Denormalized platform-wide counters.
   //

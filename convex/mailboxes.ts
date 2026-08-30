@@ -12,6 +12,7 @@ import {
   countCreated,
   countRemoved,
   deleteEmailsCounted,
+  deleteMailboxStats,
   mailboxBuckets,
 } from "./lib/counters";
 
@@ -239,6 +240,7 @@ export const removeRecords = internalMutation({
 
     await ctx.db.delete(mailboxId);
     await countRemoved(ctx, mailboxBuckets());
+    await deleteMailboxStats(ctx, mailboxId);
     return s3Keys;
   },
 });
@@ -365,6 +367,7 @@ export const deleteRecordsInternal = internalMutation({
     const mailboxDoc = await ctx.db.get(mailboxId);
     await ctx.db.delete(mailboxId);
     if (mailboxDoc) await countRemoved(ctx, mailboxBuckets());
+    await deleteMailboxStats(ctx, mailboxId);
     return s3Keys;
   },
 });

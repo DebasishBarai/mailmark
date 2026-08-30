@@ -5,6 +5,13 @@ import type { Doc } from "./_generated/dataModel";
 import {
   ALL_KEYS,
   K,
+  type MailboxTally,
+  applyEmailToTally,
+  emptyMailboxTally,
+  folderRows,
+  sourceRows,
+  readDomainStats,
+  readMailboxStats,
   apiKeyBuckets,
   contactBuckets,
   domainBuckets,
@@ -407,5 +414,244 @@ export const counterReconcileStatus = internalQuery({
         (state.finishedAt ? "done" : "finishing"),
       lastError: state.lastError,
     };
+  },
+});
+
+
+// ── Per-entity stats rebuild ──
+//
+// The same job as startCounterReconcile, for the mailboxStats and domainStats
+// rows. It is both the initial backfill (rows written before these counters
+// existed were never counted) and the nightly drift repair.
+//
+// The walk is per entity rather than one pass over the whole emails table:
+// each mailbox's rebuild is self-contained, so the accumulator stays a handful
+// of integers instead of a per-mailbox map for the entire platform, and a
+// single mailbox can be repaired on its own when something looks wrong.
+
+const MAILBOX_PAGE = 200;
+const MAILBOX_EMAIL_PAGE = 500;
+const DOMAIN_PAGE = 200;
+const DOMAIN_UNSUB_PAGE = 500;
+
+/** Kick off a rebuild of every mailboxStats and domainStats row. */
+export const startEntityStatsRebuild = internalMutation({
+  args: { cursor: v.optional(v.string()) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db
+      .query("mailboxes")
+      .paginate({ cursor: cursor ?? null, numItems: MAILBOX_PAGE });
+
+    for (const mailbox of page.page) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.platformStats.rebuildMailboxStats,
+        { mailboxId: mailbox._id }
+      );
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.platformStats.startEntityStatsRebuild,
+        { cursor: page.continueCursor }
+      );
+    } else {
+      // Mailboxes are done being scheduled; move on to the domain rows.
+      await ctx.scheduler.runAfter(
+        0,
+        internal.platformStats.startDomainStatsRebuild,
+        {}
+      );
+    }
+  },
+});
+
+export const rebuildMailboxStats = internalMutation({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    t0: v.optional(v.number()),
+    cursor: v.optional(v.string()),
+    tally: v.optional(v.any()),
+    snapshot: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    const mailbox = await ctx.db.get(args.mailboxId);
+    // Mailbox deleted mid-rebuild: its stats row went with it.
+    if (!mailbox) return;
+
+    // First step of this mailbox's walk: fix the cutoff and remember where the
+    // counters stood, so live writes during the walk can be added back at the
+    // end rather than lost. Same scheme as finishReconcile above.
+    const t0 = args.t0 ?? Date.now();
+    const snapshot: MailboxTally =
+      args.snapshot ?? (await readMailboxStats(ctx, args.mailboxId));
+    const tally: MailboxTally = args.tally ?? emptyMailboxTally();
+
+    const page = await ctx.db
+      .query("emails")
+      .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", args.mailboxId))
+      .paginate({ cursor: args.cursor ?? null, numItems: MAILBOX_EMAIL_PAGE });
+
+    for (const email of page.page) {
+      // Rows created at or after the cutoff are the live hooks' to count.
+      if (email._creationTime >= t0) continue;
+      applyEmailToTally(tally, email, 1);
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.platformStats.rebuildMailboxStats,
+        {
+          mailboxId: args.mailboxId,
+          t0,
+          cursor: page.continueCursor,
+          tally,
+          snapshot,
+        }
+      );
+      return;
+    }
+
+    const current = await readMailboxStats(ctx, args.mailboxId);
+
+    const folders = new Set([
+      ...Object.keys(tally.byFolder),
+      ...Object.keys(current.byFolder),
+      ...Object.keys(snapshot.byFolder),
+    ]);
+    const byFolder: Record<string, number> = {};
+    for (const folder of folders) {
+      const live =
+        (current.byFolder[folder] ?? 0) - (snapshot.byFolder[folder] ?? 0);
+      const value = (tally.byFolder[folder] ?? 0) + live;
+      if (value > 0) byFolder[folder] = value;
+    }
+
+    const merge = (key: Exclude<keyof MailboxTally, "byFolder">) =>
+      Math.max(0, tally[key] + (current[key] - snapshot[key]));
+
+    const row = await ctx.db
+      .query("mailboxStats")
+      .withIndex("by_mailbox", (q) => q.eq("mailboxId", args.mailboxId))
+      .first();
+
+    const values = {
+      mailboxId: args.mailboxId,
+      byFolder: folderRows(byFolder),
+      unread: merge("unread"),
+      delivered: merge("delivered"),
+      failed: merge("failed"),
+      bounced: merge("bounced"),
+      pending: merge("pending"),
+      opened: merge("opened"),
+    };
+
+    if (row) await ctx.db.patch(row._id, values);
+    else await ctx.db.insert("mailboxStats", values);
+  },
+});
+
+export const startDomainStatsRebuild = internalMutation({
+  args: { cursor: v.optional(v.string()) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db
+      .query("domains")
+      .paginate({ cursor: cursor ?? null, numItems: DOMAIN_PAGE });
+
+    for (const domain of page.page) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.platformStats.rebuildDomainStats,
+        { domainId: domain._id }
+      );
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.platformStats.startDomainStatsRebuild,
+        { cursor: page.continueCursor }
+      );
+    }
+  },
+});
+
+export const rebuildDomainStats = internalMutation({
+  args: {
+    domainId: v.id("domains"),
+    t0: v.optional(v.number()),
+    cursor: v.optional(v.string()),
+    total: v.optional(v.number()),
+    bySource: v.optional(v.any()),
+    snapshot: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    const domain = await ctx.db.get(args.domainId);
+    if (!domain) return;
+
+    const t0 = args.t0 ?? Date.now();
+    const snapshot: { total: number; bySource: Record<string, number> } =
+      args.snapshot ?? (await readDomainStats(ctx, args.domainId));
+
+    let total = args.total ?? 0;
+    const bySource: Record<string, number> = { ...(args.bySource ?? {}) };
+
+    const page = await ctx.db
+      .query("unsubscribes")
+      .withIndex("by_domain_id", (q) => q.eq("domainId", args.domainId))
+      .paginate({ cursor: args.cursor ?? null, numItems: DOMAIN_UNSUB_PAGE });
+
+    for (const unsub of page.page) {
+      if (unsub._creationTime >= t0) continue;
+      total++;
+      bySource[unsub.source] = (bySource[unsub.source] ?? 0) + 1;
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.platformStats.rebuildDomainStats,
+        {
+          domainId: args.domainId,
+          t0,
+          cursor: page.continueCursor,
+          total,
+          bySource,
+          snapshot,
+        }
+      );
+      return;
+    }
+
+    const current = await readDomainStats(ctx, args.domainId);
+
+    const sources = new Set([
+      ...Object.keys(bySource),
+      ...Object.keys(current.bySource),
+      ...Object.keys(snapshot.bySource),
+    ]);
+    const mergedBySource: Record<string, number> = {};
+    for (const source of sources) {
+      const live =
+        (current.bySource[source] ?? 0) - (snapshot.bySource[source] ?? 0);
+      const value = (bySource[source] ?? 0) + live;
+      if (value > 0) mergedBySource[source] = value;
+    }
+
+    const row = await ctx.db
+      .query("domainStats")
+      .withIndex("by_domain", (q) => q.eq("domainId", args.domainId))
+      .first();
+
+    const values = {
+      domainId: args.domainId,
+      unsubscribesTotal: Math.max(0, total + (current.total - snapshot.total)),
+      unsubscribesBySource: sourceRows(mergedBySource),
+    };
+
+    if (row) await ctx.db.patch(row._id, values);
+    else await ctx.db.insert("domainStats", values);
   },
 });

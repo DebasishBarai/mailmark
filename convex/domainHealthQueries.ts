@@ -116,12 +116,20 @@ export const getEmailStatsForMailboxes = internalQuery({
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
     for (const mailboxId of mailboxIds) {
-      const emails = await ctx.db
+      // Old: collect every sent message, then keep the last 30 days in memory.
+      //
+      // const emails = await ctx.db
+      //   .query("emails")
+      //   .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mailboxId).eq("folder", "sent"))
+      //   .collect();
+      // const recent = emails.filter((e) => e.date >= thirtyDaysAgo);
+      const recent = await ctx.db
         .query("emails")
-        .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mailboxId).eq("folder", "sent"))
+        .withIndex("by_mailbox_folder_date", (q) =>
+          q.eq("mailboxId", mailboxId).eq("folder", "sent").gte("date", thirtyDaysAgo)
+        )
         .collect();
 
-      const recent = emails.filter((e) => e.date >= thirtyDaysAgo);
       totalSent += recent.length;
       bounced += recent.filter((e) => e.deliveryStatus === "bounced").length;
       complained += recent.filter((e) => e.deliveryStatus === "failed").length;
