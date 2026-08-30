@@ -8,6 +8,8 @@ import {
   type MailboxTally,
   applyEmailToTally,
   emptyMailboxTally,
+  folderRows,
+  sourceRows,
   readDomainStats,
   readMailboxStats,
   apiKeyBuckets,
@@ -533,11 +535,11 @@ export const rebuildMailboxStats = internalMutation({
     const row = await ctx.db
       .query("mailboxStats")
       .withIndex("by_mailbox", (q) => q.eq("mailboxId", args.mailboxId))
-      .unique();
+      .first();
 
     const values = {
       mailboxId: args.mailboxId,
-      byFolder,
+      byFolder: folderRows(byFolder),
       unread: merge("unread"),
       delivered: merge("delivered"),
       failed: merge("failed"),
@@ -641,12 +643,12 @@ export const rebuildDomainStats = internalMutation({
     const row = await ctx.db
       .query("domainStats")
       .withIndex("by_domain", (q) => q.eq("domainId", args.domainId))
-      .unique();
+      .first();
 
     const values = {
       domainId: args.domainId,
       unsubscribesTotal: Math.max(0, total + (current.total - snapshot.total)),
-      unsubscribesBySource: mergedBySource,
+      unsubscribesBySource: sourceRows(mergedBySource),
     };
 
     if (row) await ctx.db.patch(row._id, values);

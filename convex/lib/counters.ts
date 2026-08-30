@@ -187,7 +187,7 @@ export async function bumpCounters(
     const row = await ctx.db
       .query("platformCounters")
       .withIndex("by_key", (q) => q.eq("key", key))
-      .unique();
+      .first();
     if (row) {
       await ctx.db.patch(row._id, { value: row.value + delta });
     } else {
@@ -217,7 +217,7 @@ export async function setCounters(
     const row = await ctx.db
       .query("platformCounters")
       .withIndex("by_key", (q) => q.eq("key", key))
-      .unique();
+      .first();
     if (row) {
       if (row.value !== value) await ctx.db.patch(row._id, { value });
     } else {
@@ -243,7 +243,7 @@ export async function readCounters(
       ctx.db
         .query("platformCounters")
         .withIndex("by_key", (q) => q.eq("key", key))
-        .unique()
+        .first()
     )
   );
   const out: Record<string, number> = {};
@@ -269,6 +269,42 @@ export type MailboxTally = {
   pending: number;
   opened: number;
 };
+
+/**
+ * Stored shape of the folder and source breakdowns.
+ *
+ * These are arrays of {name, count} rather than {[name]: count} maps because
+ * Convex field names may only contain alphanumeric ASCII and underscores.
+ * Folder names come straight from the client via emails.moveToFolder, and the
+ * unsubscribe source "one-click" contains a hyphen, so either as an object key
+ * would produce a document Convex rejects. The tallies stay plain objects in
+ * memory, where no such rule applies, and are converted at the boundary.
+ */
+const foldersToRecord = (
+  rows: { folder: string; count: number }[]
+): Record<string, number> => {
+  const out: Record<string, number> = {};
+  for (const row of rows) out[row.folder] = row.count;
+  return out;
+};
+
+const sourcesToRecord = (
+  rows: { source: string; count: number }[]
+): Record<string, number> => {
+  const out: Record<string, number> = {};
+  for (const row of rows) out[row.source] = row.count;
+  return out;
+};
+
+export const folderRows = (rec: Record<string, number>) =>
+  Object.entries(rec)
+    .filter(([, count]) => count > 0)
+    .map(([folder, count]) => ({ folder, count }));
+
+export const sourceRows = (rec: Record<string, number>) =>
+  Object.entries(rec)
+    .filter(([, count]) => count > 0)
+    .map(([source, count]) => ({ source, count }));
 
 export const emptyMailboxTally = (): MailboxTally => ({
   byFolder: {},
@@ -328,17 +364,22 @@ export async function applyMailboxDelta(
     return;
   }
 
+  // .first() rather than .unique() throughout: Convex's serializable
+  // transactions make a duplicate row essentially impossible, but if one ever
+  // appeared, .unique() would throw and take down whatever mutation was
+  // running, including inbound mail ingestion. A slightly wrong count is a far
+  // better failure mode for a statistic than a thrown write.
   const row = await ctx.db
     .query("mailboxStats")
     .withIndex("by_mailbox", (q) => q.eq("mailboxId", mailboxId))
-    .unique();
+    .first();
 
   if (!row) {
     const byFolder: Record<string, number> = {};
     for (const [folder, n] of nonZeroFolders) byFolder[folder] = Math.max(0, n);
     await ctx.db.insert("mailboxStats", {
       mailboxId,
-      byFolder,
+      byFolder: folderRows(byFolder),
       unread: Math.max(0, delta.unread),
       delivered: Math.max(0, delta.delivered),
       failed: Math.max(0, delta.failed),
@@ -349,13 +390,13 @@ export async function applyMailboxDelta(
     return;
   }
 
-  const byFolder = { ...row.byFolder };
+  const byFolder = foldersToRecord(row.byFolder);
   for (const [folder, n] of nonZeroFolders) {
     byFolder[folder] = Math.max(0, (byFolder[folder] ?? 0) + n);
   }
 
   await ctx.db.patch(row._id, {
-    byFolder,
+    byFolder: folderRows(byFolder),
     unread: Math.max(0, row.unread + delta.unread),
     delivered: Math.max(0, row.delivered + delta.delivered),
     failed: Math.max(0, row.failed + delta.failed),
@@ -373,10 +414,10 @@ export async function readMailboxStats(
   const row = await ctx.db
     .query("mailboxStats")
     .withIndex("by_mailbox", (q) => q.eq("mailboxId", mailboxId))
-    .unique();
+    .first();
   if (!row) return emptyMailboxTally();
   return {
-    byFolder: { ...row.byFolder },
+    byFolder: foldersToRecord(row.byFolder),
     unread: row.unread,
     delivered: row.delivered,
     failed: row.failed,
@@ -397,23 +438,23 @@ export async function applyUnsubscribeDelta(
   const row = await ctx.db
     .query("domainStats")
     .withIndex("by_domain", (q) => q.eq("domainId", domainId))
-    .unique();
+    .first();
 
   if (!row) {
     await ctx.db.insert("domainStats", {
       domainId,
       unsubscribesTotal: Math.max(0, sign),
-      unsubscribesBySource: sign > 0 ? { [source]: 1 } : {},
+      unsubscribesBySource: sign > 0 ? [{ source, count: 1 }] : [],
     });
     return;
   }
 
-  const bySource = { ...row.unsubscribesBySource };
+  const bySource = sourcesToRecord(row.unsubscribesBySource);
   bySource[source] = Math.max(0, (bySource[source] ?? 0) + sign);
 
   await ctx.db.patch(row._id, {
     unsubscribesTotal: Math.max(0, row.unsubscribesTotal + sign),
-    unsubscribesBySource: bySource,
+    unsubscribesBySource: sourceRows(bySource),
   });
 }
 
@@ -424,10 +465,10 @@ export async function readDomainStats(
   const row = await ctx.db
     .query("domainStats")
     .withIndex("by_domain", (q) => q.eq("domainId", domainId))
-    .unique();
+    .first();
   return {
     total: row?.unsubscribesTotal ?? 0,
-    bySource: { ...(row?.unsubscribesBySource ?? {}) },
+    bySource: row ? sourcesToRecord(row.unsubscribesBySource) : {},
   };
 }
 
@@ -541,7 +582,7 @@ export async function deleteMailboxStats(
   const row = await ctx.db
     .query("mailboxStats")
     .withIndex("by_mailbox", (q) => q.eq("mailboxId", mailboxId))
-    .unique();
+    .first();
   if (row) await ctx.db.delete(row._id);
 }
 
@@ -553,6 +594,6 @@ export async function deleteDomainStats(
   const row = await ctx.db
     .query("domainStats")
     .withIndex("by_domain", (q) => q.eq("domainId", domainId))
-    .unique();
+    .first();
   if (row) await ctx.db.delete(row._id);
 }

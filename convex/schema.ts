@@ -508,10 +508,13 @@ export default defineSchema({
   // produced when it read every email the user owned.
   mailboxStats: defineTable({
     mailboxId: v.id("mailboxes"),
-    // { [folder]: count }. A map rather than named fields because folder is a
-    // free-form string (inbox, sent, outbox, trash, _warmup, ...) and new ones
-    // should not need a schema change.
-    byFolder: v.record(v.string(), v.number()),
+    // An array of {folder, count} rather than a {[folder]: count} map.
+    // Convex field names may only contain alphanumerics and underscores, and
+    // folder is a free-form string that moveToFolder accepts straight from the
+    // client, so using folder names as object keys would let a caller write a
+    // document Convex rejects. Storing them as values keeps any folder name
+    // legal.
+    byFolder: v.array(v.object({ folder: v.string(), count: v.number() })),
     // Inbox messages with read === false.
     unread: v.number(),
     // The next five are over folder === "sent" only, which is the scope
@@ -530,8 +533,13 @@ export default defineSchema({
   domainStats: defineTable({
     domainId: v.id("domains"),
     unsubscribesTotal: v.number(),
-    // { "one-click" | "link" | "manual": count }
-    unsubscribesBySource: v.record(v.string(), v.number()),
+    // Values, not keys, for the same reason as byFolder above, and here it is
+    // not hypothetical: "one-click" contains a hyphen, which is not a legal
+    // Convex field name, so a map keyed by source would throw on every
+    // one-click unsubscribe.
+    unsubscribesBySource: v.array(
+      v.object({ source: v.string(), count: v.number() })
+    ),
   }).index("by_domain", ["domainId"]),
 
   // Denormalized platform-wide counters.
