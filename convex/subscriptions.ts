@@ -1,6 +1,7 @@
 import { action, internalMutation, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
+import { countChanged, countCreated, subscriptionBuckets } from "./lib/counters";
 
 // const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const TRIAL_DURATION_MS = 0; // 0 days – upgrade required immediately
@@ -178,8 +179,18 @@ export const handlePolarSubscriptionEvent = internalMutation({
         priceMonthly: PLANS[args.plan].priceMonthly,
         canceledAt: args.status === "canceled" ? Date.now() : existing.canceledAt,
       });
+      // Both status and plan can move here, so the row can leave one plan
+      // counter and join another in a single write.
+      const after = await ctx.db.get(existing._id);
+      if (after) {
+        await countChanged(
+          ctx,
+          subscriptionBuckets(existing),
+          subscriptionBuckets(after)
+        );
+      }
     } else {
-      await ctx.db.insert("subscriptions", {
+      const subscriptionId = await ctx.db.insert("subscriptions", {
         userId: user._id,
         plan: args.plan,
         status: args.status,
@@ -187,6 +198,8 @@ export const handlePolarSubscriptionEvent = internalMutation({
         priceMonthly: PLANS[args.plan].priceMonthly,
         startedAt: Date.now(),
       });
+      const created = await ctx.db.get(subscriptionId);
+      if (created) await countCreated(ctx, subscriptionBuckets(created));
     }
   },
 });
@@ -217,6 +230,14 @@ export const cancel = mutation({
       status: "canceled",
       canceledAt: Date.now(),
     });
+    const canceled = await ctx.db.get(subscription._id);
+    if (canceled) {
+      await countChanged(
+        ctx,
+        subscriptionBuckets(subscription),
+        subscriptionBuckets(canceled)
+      );
+    }
   },
 });
 

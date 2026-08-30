@@ -8,6 +8,12 @@ import {
   getAwsClientsForAccount,
   type AwsClientBundle,
 } from "./lib/awsClients";
+import {
+  countCreated,
+  countRemoved,
+  deleteEmailsCounted,
+  mailboxBuckets,
+} from "./lib/counters";
 
 // Resolve AWS clients for a mailbox's deletion: uses the mailbox's domain
 // to find the BYO awsAccount row (if any), falling back to platform creds.
@@ -134,13 +140,15 @@ export const create = mutation({
 
     if (existing) throw new Error("Mailbox already exists");
 
-    return await ctx.db.insert("mailboxes", {
+    const mailboxId = await ctx.db.insert("mailboxes", {
       domainId,
       userId: user._id,
       address: localPart,
       fullAddress,
       displayName,
     });
+    await countCreated(ctx, mailboxBuckets());
+    return mailboxId;
   },
 });
 
@@ -224,11 +232,13 @@ export const removeRecords = internalMutation({
 
     const s3Keys = emails.map((e) => e.s3Key);
 
-    for (const email of emails) {
-      await ctx.db.delete(email._id);
-    }
+    // for (const email of emails) {
+    //   await ctx.db.delete(email._id);
+    // }
+    await deleteEmailsCounted(ctx, emails);
 
     await ctx.db.delete(mailboxId);
+    await countRemoved(ctx, mailboxBuckets());
     return s3Keys;
   },
 });
@@ -316,13 +326,15 @@ export const createInternal = internalMutation({
       .withIndex("by_full_address", (q) => q.eq("fullAddress", args.fullAddress))
       .unique();
     if (existing) throw new Error("Mailbox already exists");
-    return await ctx.db.insert("mailboxes", {
+    const mailboxId = await ctx.db.insert("mailboxes", {
       domainId: args.domainId,
       userId: args.userId,
       address: args.address,
       fullAddress: args.fullAddress,
       displayName: args.displayName,
     });
+    await countCreated(ctx, mailboxBuckets());
+    return mailboxId;
   },
 });
 
@@ -334,7 +346,8 @@ export const deleteRecordsInternal = internalMutation({
       .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mailboxId))
       .collect();
     const s3Keys = emails.map((e) => e.s3Key);
-    for (const email of emails) await ctx.db.delete(email._id);
+    // for (const email of emails) await ctx.db.delete(email._id);
+    await deleteEmailsCounted(ctx, emails);
 
     // Remove this mailbox from any sender groups
     const groups = await ctx.db.query("senderGroups").collect();
@@ -349,7 +362,9 @@ export const deleteRecordsInternal = internalMutation({
       }
     }
 
+    const mailboxDoc = await ctx.db.get(mailboxId);
     await ctx.db.delete(mailboxId);
+    if (mailboxDoc) await countRemoved(ctx, mailboxBuckets());
     return s3Keys;
   },
 });

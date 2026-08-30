@@ -481,6 +481,52 @@ export default defineSchema({
     replyBodies: v.array(v.string()),
   }),
 
+  // Denormalized platform-wide counters.
+  //
+  // platformStats.getStats and getAdminStats used to derive every number by
+  // .collect()ing whole tables and calling .length on the result, which reads
+  // every document in full just to count it. That crosses Convex's per
+  // transaction caps (32,000 documents scanned, 16 MiB read) as the platform
+  // grows, and a crossed cap makes the query throw rather than degrade.
+  //
+  // One row per counter key rather than a single wide row: independent
+  // counters then never contend on the same document, and because Convex
+  // tracks read dependencies per index range, a query reading only
+  // "emails.total" is not invalidated when "sequences.active" is written.
+  //
+  // Values are maintained incrementally by convex/lib/counters.ts, called from
+  // every mutation that creates, deletes, or changes a counted field, and
+  // recomputed from scratch nightly by platformStats.startCounterReconcile.
+  platformCounters: defineTable({
+    key: v.string(),
+    value: v.number(),
+  }).index("by_key", ["key"]),
+
+  // Walk state for the paginated counter reconcile. A full recount cannot
+  // .collect() the tables it is counting (that is the limit being worked
+  // around), so it pages through them across many transactions and keeps its
+  // cursor here. Singleton: one row, name = "reconcile".
+  platformCounterState: defineTable({
+    name: v.string(),
+    // Identifies one reconcile run. A step whose runId no longer matches the
+    // stored one has been superseded by a newer run and stops, so a cron
+    // firing on top of a manual recount cannot double count.
+    runId: v.string(),
+    // Rows created at or after this instant are left to the live counter
+    // hooks, so the walk and the hooks cannot both count the same row.
+    t0: v.number(),
+    tableIndex: v.number(),
+    cursor: v.optional(v.string()),
+    // Running total for this walk, and the counter values as they stood when
+    // the walk began. Both are flat {key: number} maps of ~30 entries.
+    tally: v.any(),
+    snapshot: v.any(),
+    pages: v.number(),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+  }).index("by_name", ["name"]),
+
   api_keys: defineTable({
     userId: v.id("users"),
     domainId: v.optional(v.id("domains")),

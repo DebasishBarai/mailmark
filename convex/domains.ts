@@ -4,6 +4,15 @@ import {
   noticeInputFromDomain,
 } from "./lib/domainNotice";
 import {
+  K,
+  bumpCounters,
+  countChanged,
+  countCreated,
+  countRemoved,
+  deleteEmailsCounted,
+  domainBuckets,
+} from "./lib/counters";
+import {
   query,
   internalMutation,
   internalQuery,
@@ -74,7 +83,7 @@ export const insertDomain = internalMutation({
     awsAccountId: v.optional(v.id("awsAccounts")),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("domains", {
+    const domainId = await ctx.db.insert("domains", {
       userId: args.userId,
       domain: args.domain,
       verified: false,
@@ -86,6 +95,9 @@ export const insertDomain = internalMutation({
       sesDkimTokens: args.sesDkimTokens,
       awsAccountId: args.awsAccountId,
     });
+    const inserted = await ctx.db.get(domainId);
+    if (inserted) await countCreated(ctx, domainBuckets(inserted));
+    return domainId;
   },
 });
 
@@ -137,7 +149,13 @@ export const updateVerification = internalMutation({
     lastVerificationError: v.optional(v.string()),
   },
   handler: async (ctx, { domainId, ...status }) => {
+    // `verified` flips here, which moves the domain in and out of the
+    // domains.verified counter that the public landing page reads.
+    const before = await ctx.db.get(domainId);
+    if (!before) return;
     await ctx.db.patch(domainId, status);
+    const after = await ctx.db.get(domainId);
+    if (after) await countChanged(ctx, domainBuckets(before), domainBuckets(after));
   },
 });
 
@@ -190,14 +208,25 @@ export const deleteDomainCascade = internalMutation({
         .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mb._id))
         .collect();
 
-      for (const email of emails) {
-        await ctx.db.delete(email._id);
-      }
+      // Old: one ctx.db.delete per email. Same rows are removed, but the
+      // counters are tallied in memory and written once for the whole batch,
+      // so a mailbox with thousands of emails does not add thousands of
+      // counter writes to a mutation that is already reading every one of
+      // those rows into a single transaction.
+      // for (const email of emails) {
+      //   await ctx.db.delete(email._id);
+      // }
+      await deleteEmailsCounted(ctx, emails);
 
       await ctx.db.delete(mb._id);
     }
+    // One counter write for the whole set, for the same reason the emails
+    // above are tallied rather than counted one at a time.
+    await bumpCounters(ctx, { [K.mailboxesTotal]: -mailboxes.length });
 
+    const domainDoc = await ctx.db.get(domainId);
     await ctx.db.delete(domainId);
+    if (domainDoc) await countRemoved(ctx, domainBuckets(domainDoc));
   },
 });
 

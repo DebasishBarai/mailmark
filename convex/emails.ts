@@ -4,6 +4,11 @@ import { query, mutation, internalMutation, internalQuery } from "./_generated/s
 import { Id } from "./_generated/dataModel";
 import type { Doc } from "./_generated/dataModel";
 import type { DatabaseReader } from "./_generated/server";
+import {
+  deleteEmailCounted,
+  insertEmailCounted,
+  patchEmailCounted,
+} from "./lib/counters";
 
 export const getMailboxWithDomain = internalQuery({
   args: { mailboxId: v.id("mailboxes") },
@@ -285,7 +290,8 @@ export const moveToFolder = mutation({
       throw new Error("Not authorized");
     }
 
-    await ctx.db.patch(emailId, { folder });
+    // await ctx.db.patch(emailId, { folder });
+    await patchEmailCounted(ctx, emailId, { folder });
   },
 });
 
@@ -335,7 +341,8 @@ export const deleteEmail = mutation({
       throw new Error("Not authorized");
     }
 
-    await ctx.db.delete(emailId);
+    // await ctx.db.delete(emailId);
+    await deleteEmailCounted(ctx, emailId);
   },
 });
 
@@ -372,14 +379,16 @@ export const getByIdInternal = internalQuery({
 export const deleteInternal = internalMutation({
   args: { emailId: v.id("emails") },
   handler: async (ctx, { emailId }) => {
-    await ctx.db.delete(emailId);
+    // await ctx.db.delete(emailId);
+    await deleteEmailCounted(ctx, emailId);
   },
 });
 
 export const moveToFolderInternal = internalMutation({
   args: { emailId: v.id("emails"), folder: v.string() },
   handler: async (ctx, { emailId, folder }) => {
-    await ctx.db.patch(emailId, { folder });
+    // await ctx.db.patch(emailId, { folder });
+    await patchEmailCounted(ctx, emailId, { folder });
   },
 });
 
@@ -426,7 +435,8 @@ export const insertFromWebhook = internalMutation({
       if (alreadyIngested) return null;
     }
 
-    return await ctx.db.insert("emails", {
+    // return await ctx.db.insert("emails", { ... });
+    return await insertEmailCounted(ctx, {
       ...rest,
       folder: folder ?? "inbox",
       read: false,
@@ -575,7 +585,8 @@ export const updateDeliveryStatus = internalMutation({
       return;
     }
     console.log("[updateDeliveryStatus] found email id:", email._id, "current status:", email.deliveryStatus, "→ updating to:", status);
-    await ctx.db.patch(email._id, {
+    // await ctx.db.patch(email._id, { ... });
+    await patchEmailCounted(ctx, email._id, {
       deliveryStatus: status,
       deliveredAt: status === "delivered" ? timestamp : undefined,
     });
@@ -595,7 +606,8 @@ export const markScheduledEmailAsSentByMessageId = internalMutation({
       console.log("[markScheduledEmailAsSentByMessageId] email not found:", messageId);
       return;
     }
-    await ctx.db.patch(email._id, {
+    // await ctx.db.patch(email._id, { ... });
+    await patchEmailCounted(ctx, email._id, {
       folder: "sent",
       sesMessageId,
       deliveryStatus: "pending",
@@ -625,7 +637,8 @@ export const insertScheduled = internalMutation({
     batchId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("emails", {
+    // return await ctx.db.insert("emails", { ... });
+    return await insertEmailCounted(ctx, {
       ...args,
       folder: "outbox",
       read: true,
@@ -649,7 +662,8 @@ export const markScheduledAsSent = internalMutation({
     sesMessageId: v.optional(v.string()),
   },
   handler: async (ctx, { emailId, sesMessageId }) => {
-    await ctx.db.patch(emailId, {
+    // await ctx.db.patch(emailId, { ... });
+    await patchEmailCounted(ctx, emailId, {
       folder: "sent",
       sesMessageId,
       deliveryStatus: "pending",
@@ -688,7 +702,8 @@ export const cancelScheduledEmail = mutation({
       }
     }
 
-    await ctx.db.delete(emailId);
+    // await ctx.db.delete(emailId);
+    await deleteEmailCounted(ctx, emailId);
   },
 });
 
@@ -698,7 +713,11 @@ export const markAsOpened = internalMutation({
   handler: async (ctx, { messageId }) => {
     const email = await findByMessageId(ctx.db, messageId);
     if (!email || email.openedAt) return; // Only record first open
-    await ctx.db.patch(email._id, {
+    // Two counted fields can move in this one patch (opened, and pending ->
+    // delivered), which is why the counter hook diffs whole bucket sets rather
+    // than adjusting one counter per field.
+    // await ctx.db.patch(email._id, { ... });
+    await patchEmailCounted(ctx, email._id, {
       openedAt: Date.now(),
       // If delivery status is still pending, upgrade to delivered since
       // the recipient opening the email implies it was delivered.
@@ -729,7 +748,8 @@ export const insertSent = internalMutation({
   },
   handler: async (ctx, { hasAttachments, folder, batchId, ...rest }) => {
     const emailFolder = folder ?? "sent";
-    return await ctx.db.insert("emails", {
+    // return await ctx.db.insert("emails", { ... });
+    return await insertEmailCounted(ctx, {
       ...rest,
       folder: emailFolder,
       read: true,

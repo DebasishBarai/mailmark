@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, internalMutation, internalQuery } from "./_generated/server";
+import { contactBuckets, countCreated, countRemoved } from "./lib/counters";
 
 export const listByUserInternal = internalQuery({
   args: { userId: v.id("users") },
@@ -15,6 +16,7 @@ export const deleteInternal = internalMutation({
   args: { contactId: v.id("contacts") },
   handler: async (ctx, { contactId }) => {
     await ctx.db.delete(contactId);
+    await countRemoved(ctx, contactBuckets());
   },
 });
 
@@ -47,6 +49,7 @@ export const upsert = internalMutation({
       }
     } else {
       await ctx.db.insert("contacts", { userId, email, name });
+      await countCreated(ctx, contactBuckets());
     }
   },
 });
