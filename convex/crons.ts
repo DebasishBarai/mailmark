@@ -89,4 +89,15 @@ crons.daily(
   {}
 );
 
+// Daily at 3:52 AM UTC: rebuild the per-mailbox and per-domain stat rows.
+//
+// Fifteen minutes after the platform counter reconcile so the two walks do not
+// compete, and off the quarter hours the warmup crons occupy.
+crons.daily(
+  "rebuild entity stats",
+  { hourUTC: 3, minuteUTC: 52 },
+  internal.platformStats.startEntityStatsRebuild,
+  {}
+);
+
 export default crons;

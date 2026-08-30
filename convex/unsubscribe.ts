@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import { applyUnsubscribeDelta, readDomainStats } from "./lib/counters";
 
 // ── Queries ──
 
@@ -85,18 +86,41 @@ export const getStats = query({
     const now = Date.now();
     const bySource: Record<string, number> = { "one-click": 0, link: 0, manual: 0 };
 
+    // Old: collect every unsubscribe the domain has ever had, then derive all
+    // four figures from it in memory. Unsubscribes only ever accumulate, so
+    // that read grows without bound for an active sending domain.
+    //
+    // for (const domain of domains) {
+    //   const unsubs = await ctx.db
+    //     .query("unsubscribes")
+    //     .withIndex("by_domain_id", (q) => q.eq("domainId", domain._id))
+    //     .collect();
+    //   for (const unsub of unsubs) { ...total, bySource, last7Days, last30Days... }
+    // }
+    //
+    // total and bySource are all-time, so they come from the per-domain
+    // counters. The two windows are bounded by definition and come from a
+    // range read on by_domain_date, which only touches the last 30 days.
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+
     for (const domain of domains) {
-      const unsubs = await ctx.db
+      const stats = await readDomainStats(ctx, domain._id);
+      total += stats.total;
+      for (const [source, count] of Object.entries(stats.bySource)) {
+        bySource[source] = (bySource[source] ?? 0) + count;
+      }
+
+      const recent = await ctx.db
         .query("unsubscribes")
-        .withIndex("by_domain_id", (q) => q.eq("domainId", domain._id))
+        .withIndex("by_domain_date", (q) =>
+          q.eq("domainId", domain._id).gte("unsubscribedAt", thirtyDaysAgo)
+        )
         .collect();
 
-      for (const unsub of unsubs) {
-        total++;
-        bySource[unsub.source] = (bySource[unsub.source] ?? 0) + 1;
-        const age = now - unsub.unsubscribedAt;
-        if (age <= 7 * 24 * 60 * 60 * 1000) last7Days++;
-        if (age <= 30 * 24 * 60 * 60 * 1000) last30Days++;
+      for (const unsub of recent) {
+        last30Days++;
+        if (unsub.unsubscribedAt >= sevenDaysAgo) last7Days++;
       }
     }
 
@@ -143,6 +167,7 @@ export const addManual = mutation({
       unsubscribedAt: Date.now(),
       source: "manual",
     });
+    await applyUnsubscribeDelta(ctx, domainId, "manual", 1);
   },
 });
 
@@ -165,6 +190,7 @@ export const remove = mutation({
     if (!domain || domain.userId !== user._id) throw new Error("Not authorized");
 
     await ctx.db.delete(unsubscribeId);
+    await applyUnsubscribeDelta(ctx, unsub.domainId, unsub.source, -1);
   },
 });
 
@@ -230,7 +256,7 @@ export const processUnsubscribe = internalMutation({
     if (existing) return existing._id;
 
     const token = generateToken();
-    return await ctx.db.insert("unsubscribes", {
+    const unsubscribeId = await ctx.db.insert("unsubscribes", {
       domainId,
       email: normalized,
       token,
@@ -238,6 +264,8 @@ export const processUnsubscribe = internalMutation({
       source,
       mailboxAddress,
     });
+    await applyUnsubscribeDelta(ctx, domainId, source, 1);
+    return unsubscribeId;
   },
 });
 

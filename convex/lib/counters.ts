@@ -253,6 +253,184 @@ export async function readCounters(
   return out;
 }
 
+// ── Per-mailbox stats ──
+//
+// Same denormalization as the platform counters, scoped to one mailbox and
+// kept in its own row so a mailbox page answers every count it needs from a
+// single document read. Maintained through the same email wrappers below, so
+// there are no extra call sites to keep in sync.
+
+export type MailboxTally = {
+  byFolder: Record<string, number>;
+  unread: number;
+  delivered: number;
+  failed: number;
+  bounced: number;
+  pending: number;
+  opened: number;
+};
+
+export const emptyMailboxTally = (): MailboxTally => ({
+  byFolder: {},
+  unread: 0,
+  delivered: 0,
+  failed: 0,
+  bounced: 0,
+  pending: 0,
+  opened: 0,
+});
+
+/**
+ * Fold one email into a tally, with sign +1 to add and -1 to remove.
+ *
+ * The delivery breakdown deliberately only counts messages in the sent folder,
+ * and treats "no deliveryStatus at all" as pending. That is what
+ * emailStats.getForCurrentUser did when it computed these by reading every
+ * email, and these counters exist to give the same answers more cheaply.
+ */
+export function applyEmailToTally(
+  tally: MailboxTally,
+  email: Doc<"emails">,
+  sign: 1 | -1
+): void {
+  tally.byFolder[email.folder] = (tally.byFolder[email.folder] ?? 0) + sign;
+
+  if (email.folder === "inbox" && !email.read) tally.unread += sign;
+
+  if (email.folder === "sent") {
+    if (email.deliveryStatus === "delivered") tally.delivered += sign;
+    else if (email.deliveryStatus === "failed") tally.failed += sign;
+    else if (email.deliveryStatus === "bounced") tally.bounced += sign;
+    else tally.pending += sign;
+
+    if (email.openedAt) tally.opened += sign;
+  }
+}
+
+/** Apply a tally of deltas to a mailbox's stats row, creating it if needed. */
+export async function applyMailboxDelta(
+  ctx: WriteCtx,
+  mailboxId: Id<"mailboxes">,
+  delta: MailboxTally
+): Promise<void> {
+  const nonZeroFolders = Object.entries(delta.byFolder).filter(
+    ([, n]) => n !== 0
+  );
+  if (
+    nonZeroFolders.length === 0 &&
+    delta.unread === 0 &&
+    delta.delivered === 0 &&
+    delta.failed === 0 &&
+    delta.bounced === 0 &&
+    delta.pending === 0 &&
+    delta.opened === 0
+  ) {
+    return;
+  }
+
+  const row = await ctx.db
+    .query("mailboxStats")
+    .withIndex("by_mailbox", (q) => q.eq("mailboxId", mailboxId))
+    .unique();
+
+  if (!row) {
+    const byFolder: Record<string, number> = {};
+    for (const [folder, n] of nonZeroFolders) byFolder[folder] = Math.max(0, n);
+    await ctx.db.insert("mailboxStats", {
+      mailboxId,
+      byFolder,
+      unread: Math.max(0, delta.unread),
+      delivered: Math.max(0, delta.delivered),
+      failed: Math.max(0, delta.failed),
+      bounced: Math.max(0, delta.bounced),
+      pending: Math.max(0, delta.pending),
+      opened: Math.max(0, delta.opened),
+    });
+    return;
+  }
+
+  const byFolder = { ...row.byFolder };
+  for (const [folder, n] of nonZeroFolders) {
+    byFolder[folder] = Math.max(0, (byFolder[folder] ?? 0) + n);
+  }
+
+  await ctx.db.patch(row._id, {
+    byFolder,
+    unread: Math.max(0, row.unread + delta.unread),
+    delivered: Math.max(0, row.delivered + delta.delivered),
+    failed: Math.max(0, row.failed + delta.failed),
+    bounced: Math.max(0, row.bounced + delta.bounced),
+    pending: Math.max(0, row.pending + delta.pending),
+    opened: Math.max(0, row.opened + delta.opened),
+  });
+}
+
+/** Read a mailbox's stats row, or zeros if it has none yet. */
+export async function readMailboxStats(
+  ctx: ReadCtx,
+  mailboxId: Id<"mailboxes">
+): Promise<MailboxTally> {
+  const row = await ctx.db
+    .query("mailboxStats")
+    .withIndex("by_mailbox", (q) => q.eq("mailboxId", mailboxId))
+    .unique();
+  if (!row) return emptyMailboxTally();
+  return {
+    byFolder: { ...row.byFolder },
+    unread: row.unread,
+    delivered: row.delivered,
+    failed: row.failed,
+    bounced: row.bounced,
+    pending: row.pending,
+    opened: row.opened,
+  };
+}
+
+// ── Per-domain stats ──
+
+export async function applyUnsubscribeDelta(
+  ctx: WriteCtx,
+  domainId: Id<"domains">,
+  source: string,
+  sign: 1 | -1
+): Promise<void> {
+  const row = await ctx.db
+    .query("domainStats")
+    .withIndex("by_domain", (q) => q.eq("domainId", domainId))
+    .unique();
+
+  if (!row) {
+    await ctx.db.insert("domainStats", {
+      domainId,
+      unsubscribesTotal: Math.max(0, sign),
+      unsubscribesBySource: sign > 0 ? { [source]: 1 } : {},
+    });
+    return;
+  }
+
+  const bySource = { ...row.unsubscribesBySource };
+  bySource[source] = Math.max(0, (bySource[source] ?? 0) + sign);
+
+  await ctx.db.patch(row._id, {
+    unsubscribesTotal: Math.max(0, row.unsubscribesTotal + sign),
+    unsubscribesBySource: bySource,
+  });
+}
+
+export async function readDomainStats(
+  ctx: ReadCtx,
+  domainId: Id<"domains">
+): Promise<{ total: number; bySource: Record<string, number> }> {
+  const row = await ctx.db
+    .query("domainStats")
+    .withIndex("by_domain", (q) => q.eq("domainId", domainId))
+    .unique();
+  return {
+    total: row?.unsubscribesTotal ?? 0,
+    bySource: { ...(row?.unsubscribesBySource ?? {}) },
+  };
+}
+
 // ── emails: insert/patch/delete wrappers ──
 //
 // The emails table is written from a dozen places across emails.ts, so rather
@@ -265,7 +443,12 @@ export async function insertEmailCounted(
 ): Promise<Id<"emails">> {
   const id = await ctx.db.insert("emails", fields);
   const doc = await ctx.db.get(id);
-  if (doc) await countCreated(ctx, emailBuckets(doc));
+  if (doc) {
+    await countCreated(ctx, emailBuckets(doc));
+    const tally = emptyMailboxTally();
+    applyEmailToTally(tally, doc, 1);
+    await applyMailboxDelta(ctx, doc.mailboxId, tally);
+  }
   return id;
 }
 
@@ -278,7 +461,27 @@ export async function patchEmailCounted(
   if (!before) return;
   await ctx.db.patch(id, patch);
   const after = await ctx.db.get(id);
-  if (after) await countChanged(ctx, emailBuckets(before), emailBuckets(after));
+  if (!after) return;
+
+  await countChanged(ctx, emailBuckets(before), emailBuckets(after));
+
+  // A patch can move a message between mailboxes in principle, so remove it
+  // from the old mailbox's tally and add it to the new one rather than
+  // assuming they are the same row.
+  if (before.mailboxId === after.mailboxId) {
+    const tally = emptyMailboxTally();
+    applyEmailToTally(tally, before, -1);
+    applyEmailToTally(tally, after, 1);
+    await applyMailboxDelta(ctx, after.mailboxId, tally);
+  } else {
+    const removed = emptyMailboxTally();
+    applyEmailToTally(removed, before, -1);
+    await applyMailboxDelta(ctx, before.mailboxId, removed);
+
+    const added = emptyMailboxTally();
+    applyEmailToTally(added, after, 1);
+    await applyMailboxDelta(ctx, after.mailboxId, added);
+  }
 }
 
 export async function deleteEmailCounted(
@@ -287,7 +490,12 @@ export async function deleteEmailCounted(
 ): Promise<void> {
   const before = await ctx.db.get(id);
   await ctx.db.delete(id);
-  if (before) await countRemoved(ctx, emailBuckets(before));
+  if (before) {
+    await countRemoved(ctx, emailBuckets(before));
+    const tally = emptyMailboxTally();
+    applyEmailToTally(tally, before, -1);
+    await applyMailboxDelta(ctx, before.mailboxId, tally);
+  }
 }
 
 /**
@@ -304,9 +512,47 @@ export async function deleteEmailsCounted(
   emails: Doc<"emails">[]
 ): Promise<void> {
   const deltas: Record<string, number> = {};
+  const byMailbox = new Map<Id<"mailboxes">, MailboxTally>();
+
   for (const email of emails) {
     for (const key of emailBuckets(email)) deltas[key] = (deltas[key] ?? 0) - 1;
+
+    let tally = byMailbox.get(email.mailboxId);
+    if (!tally) {
+      tally = emptyMailboxTally();
+      byMailbox.set(email.mailboxId, tally);
+    }
+    applyEmailToTally(tally, email, -1);
+
     await ctx.db.delete(email._id);
   }
+
   await bumpCounters(ctx, deltas);
+  for (const [mailboxId, tally] of byMailbox) {
+    await applyMailboxDelta(ctx, mailboxId, tally);
+  }
+}
+
+/** Remove a mailbox's stats row. Called when the mailbox itself is deleted. */
+export async function deleteMailboxStats(
+  ctx: WriteCtx,
+  mailboxId: Id<"mailboxes">
+): Promise<void> {
+  const row = await ctx.db
+    .query("mailboxStats")
+    .withIndex("by_mailbox", (q) => q.eq("mailboxId", mailboxId))
+    .unique();
+  if (row) await ctx.db.delete(row._id);
+}
+
+/** Remove a domain's stats row. Called when the domain itself is deleted. */
+export async function deleteDomainStats(
+  ctx: WriteCtx,
+  domainId: Id<"domains">
+): Promise<void> {
+  const row = await ctx.db
+    .query("domainStats")
+    .withIndex("by_domain", (q) => q.eq("domainId", domainId))
+    .unique();
+  if (row) await ctx.db.delete(row._id);
 }

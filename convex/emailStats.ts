@@ -1,4 +1,5 @@
 import { query } from "./_generated/server";
+import { readMailboxStats } from "./lib/counters";
 
 export const getForCurrentUser = query({
   args: {},
@@ -26,46 +27,75 @@ export const getForCurrentUser = query({
     let opened = 0;
     const dailyCounts: Record<string, { sent: number; received: number }> = {};
 
+    // The totals below are all-time, which is what this query has always
+    // reported. Producing them used to mean collecting every sent and every
+    // inbox message across all of the user's mailboxes on each dashboard load
+    // (unbounded, and heading for the 32,000 document scan cap). They now come
+    // from the per-mailbox counters in mailboxStats: one document per mailbox.
+    //
+    // for (const mailbox of mailboxes) {
+    //   const sentEmails = await ctx.db
+    //     .query("emails")
+    //     .withIndex("by_mailbox_folder", (q) =>
+    //       q.eq("mailboxId", mailbox._id).eq("folder", "sent")
+    //     )
+    //     .collect();
+    //   totalSent += sentEmails.length;
+    //   for (const email of sentEmails) { ...tally delivery status and opens... }
+    //   const inboxEmails = await ctx.db
+    //     .query("emails")
+    //     .withIndex("by_mailbox_folder", (q) =>
+    //       q.eq("mailboxId", mailbox._id).eq("folder", "inbox")
+    //     )
+    //     .collect();
+    //   totalInbox += inboxEmails.length;
+    //   for (const email of inboxEmails) { ...bucket by day... }
+    // }
+
     for (const mailbox of mailboxes) {
-      const sentEmails = await ctx.db
-        .query("emails")
-        .withIndex("by_mailbox_folder", (q) =>
-          q.eq("mailboxId", mailbox._id).eq("folder", "sent")
-        )
-        .collect();
+      const stats = await readMailboxStats(ctx, mailbox._id);
+      totalSent += stats.byFolder["sent"] ?? 0;
+      totalInbox += stats.byFolder["inbox"] ?? 0;
+      delivered += stats.delivered;
+      failed += stats.failed;
+      bounced += stats.bounced;
+      pending += stats.pending;
+      opened += stats.opened;
+    }
 
-      totalSent += sentEmails.length;
+    // The chart only ever showed the last 30 days, but the old code built its
+    // daily buckets from every message it had collected and then rendered 30 of
+    // them. This reads exactly the window it draws, using the date component of
+    // by_mailbox_folder_date.
+    const now = new Date();
+    const windowStart = new Date(now);
+    windowStart.setDate(windowStart.getDate() - 29);
+    windowStart.setHours(0, 0, 0, 0);
+    const windowStartMs = windowStart.getTime();
 
-      for (const email of sentEmails) {
-        if (email.deliveryStatus === "delivered") delivered++;
-        else if (email.deliveryStatus === "failed") failed++;
-        else if (email.deliveryStatus === "bounced") bounced++;
-        else pending++;
+    for (const mailbox of mailboxes) {
+      for (const folder of ["sent", "inbox"] as const) {
+        const recent = await ctx.db
+          .query("emails")
+          .withIndex("by_mailbox_folder_date", (q) =>
+            q
+              .eq("mailboxId", mailbox._id)
+              .eq("folder", folder)
+              .gte("date", windowStartMs)
+          )
+          .collect();
 
-        if (email.openedAt) opened++;
-
-        const dateKey = new Date(email.date).toISOString().slice(0, 10);
-        if (!dailyCounts[dateKey]) dailyCounts[dateKey] = { sent: 0, received: 0 };
-        dailyCounts[dateKey].sent++;
-      }
-
-      const inboxEmails = await ctx.db
-        .query("emails")
-        .withIndex("by_mailbox_folder", (q) =>
-          q.eq("mailboxId", mailbox._id).eq("folder", "inbox")
-        )
-        .collect();
-
-      totalInbox += inboxEmails.length;
-
-      for (const email of inboxEmails) {
-        const dateKey = new Date(email.date).toISOString().slice(0, 10);
-        if (!dailyCounts[dateKey]) dailyCounts[dateKey] = { sent: 0, received: 0 };
-        dailyCounts[dateKey].received++;
+        for (const email of recent) {
+          const dateKey = new Date(email.date).toISOString().slice(0, 10);
+          if (!dailyCounts[dateKey]) {
+            dailyCounts[dateKey] = { sent: 0, received: 0 };
+          }
+          if (folder === "sent") dailyCounts[dateKey].sent++;
+          else dailyCounts[dateKey].received++;
+        }
       }
     }
 
-    const now = new Date();
     const last30Days: { date: string; label: string; sent: number; received: number }[] = [];
     for (let i = 29; i >= 0; i--) {
       const d = new Date(now);

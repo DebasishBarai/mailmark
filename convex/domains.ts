@@ -9,7 +9,9 @@ import {
   countChanged,
   countCreated,
   countRemoved,
+  deleteDomainStats,
   deleteEmailsCounted,
+  deleteMailboxStats,
   domainBuckets,
 } from "./lib/counters";
 import {
@@ -219,6 +221,7 @@ export const deleteDomainCascade = internalMutation({
       await deleteEmailsCounted(ctx, emails);
 
       await ctx.db.delete(mb._id);
+      await deleteMailboxStats(ctx, mb._id);
     }
     // One counter write for the whole set, for the same reason the emails
     // above are tallied rather than counted one at a time.
@@ -227,6 +230,7 @@ export const deleteDomainCascade = internalMutation({
     const domainDoc = await ctx.db.get(domainId);
     await ctx.db.delete(domainId);
     if (domainDoc) await countRemoved(ctx, domainBuckets(domainDoc));
+    await deleteDomainStats(ctx, domainId);
   },
 });
 

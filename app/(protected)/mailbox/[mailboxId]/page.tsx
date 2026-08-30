@@ -219,11 +219,13 @@ export default function MailboxPage() {
     mailboxId: mbId,
     folder: activeFolder,
   });
-  const inboxEmails = useQuery(api.emails.listByFolder, {
-    mailboxId: mbId,
-    folder: "inbox",
-  });
-  const unreadCount = inboxEmails?.filter((e: Doc<"emails">) => !e.read).length ?? 0;
+  // Old: pull the entire inbox down just to count the unread ones.
+  // const inboxEmails = useQuery(api.emails.listByFolder, {
+  //   mailboxId: mbId,
+  //   folder: "inbox",
+  // });
+  // const unreadCount = inboxEmails?.filter((e: Doc<"emails">) => !e.read).length ?? 0;
+  const unreadCount = useQuery(api.emails.countUnreadByMailbox, { mailboxId: mbId }) ?? 0;
   const contacts = useQuery(api.contacts.listForCurrentUser);
   // Build a lookup map: raw email → display name
   const contactNameMap = new Map<string, string>();

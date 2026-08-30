@@ -216,9 +216,17 @@ export const markRepliedByEmail = internalMutation({
   handler: async (ctx, { mailboxId, senderEmail }) => {
     const email = senderEmail.toLowerCase();
 
+    // Old: .filter() on mailboxId, which scans every sequence on the platform.
+    // Sequence rows hold full HTML email bodies inline in steps[], and this
+    // runs on every inbound reply.
+    //
+    // const sequences = await ctx.db
+    //   .query("sequences")
+    //   .filter((q) => q.eq(q.field("mailboxId"), mailboxId))
+    //   .collect();
     const sequences = await ctx.db
       .query("sequences")
-      .filter((q) => q.eq(q.field("mailboxId"), mailboxId))
+      .withIndex("by_mailbox_id", (q) => q.eq("mailboxId", mailboxId))
       .collect();
 
     for (const seq of sequences) {
