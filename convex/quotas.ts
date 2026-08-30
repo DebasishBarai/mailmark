@@ -11,9 +11,19 @@ export const PLAN_LIMITS = {
 
 export type PlanLimits = typeof PLAN_LIMITS[keyof typeof PLAN_LIMITS];
 
+/** Statuses that entitle a user to the limits of the plan they signed up for.
+ *  Kept in sync with hasActiveSubscription in subscriptions.currentStatus.
+ *  "trialing" counts: starter and pro carry a 7 day trial through Polar, and a
+ *  subscriber inside that trial must get their plan's limits, not free tier
+ *  ones. Note "past_due" is deliberately excluded, since that is a payment
+ *  failure rather than a live entitlement. */
+export function isEntitledStatus(status: string | undefined | null): boolean {
+  return status === "active" || status === "trialing";
+}
+
 /** Returns the limits for the user's current effective plan.
  *  Beta users get starter-tier limits (paywall bypassed, not unlimited).
- *  Users with no active subscription get free-tier limits. */
+ *  Users with no active or trialing subscription get free-tier limits. */
 export const getUserLimits = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }): Promise<PlanLimits> => {
@@ -30,8 +40,10 @@ export const getUserLimits = internalQuery({
       .withIndex("by_user_id", (q) => q.eq("userId", userId))
       .first();
 
+    // Old: subscription?.status === "active" ? subscription.plan : "free"
+    // That sent trialing subscribers to free tier limits mid-trial.
     const plan =
-      subscription?.status === "active" ? subscription.plan : "free";
+      subscription && isEntitledStatus(subscription.status) ? subscription.plan : "free";
 
     return PLAN_LIMITS[plan];
   },
@@ -45,7 +57,8 @@ export function resolvePlan(
 ): keyof typeof PLAN_LIMITS {
   if (userCategory === "admin") return "business";
   if (userCategory === "beta") return "starter";
-  if (subscriptionStatus === "active" && subscriptionPlan) {
+  // Old: if (subscriptionStatus === "active" && subscriptionPlan)
+  if (isEntitledStatus(subscriptionStatus) && subscriptionPlan) {
     return subscriptionPlan as keyof typeof PLAN_LIMITS;
   }
   return "free";
