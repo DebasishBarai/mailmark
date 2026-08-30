@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
+import { apiKeyBuckets, countChanged, countCreated } from "./lib/counters";
 
 export const listForCurrentUser = query({
   args: {},
@@ -38,6 +39,8 @@ export const revoke = mutation({
     if (!key || key.userId !== user._id) throw new Error("Not found");
 
     await ctx.db.patch(id, { revokedAt: Date.now() });
+    const revoked = await ctx.db.get(id);
+    if (revoked) await countChanged(ctx, apiKeyBuckets(key), apiKeyBuckets(revoked));
   },
 });
 
@@ -52,7 +55,10 @@ export const insert = internalMutation({
     createdAt: v.number(),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("api_keys", { ...args });
+    const keyId = await ctx.db.insert("api_keys", { ...args });
+    const created = await ctx.db.get(keyId);
+    if (created) await countCreated(ctx, apiKeyBuckets(created));
+    return keyId;
   },
 });
 

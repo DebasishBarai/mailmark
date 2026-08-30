@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { countChanged, countCreated, sequenceBuckets } from "./lib/counters";
 
 const stepValidator = v.union(
   v.object({
@@ -34,7 +35,9 @@ export const create = internalMutation({
       steps,
       createdAt: Date.now(),
     });
-    return await ctx.db.get(id);
+    const created = await ctx.db.get(id);
+    if (created) await countCreated(ctx, sequenceBuckets(created));
+    return created;
   },
 });
 
@@ -62,7 +65,9 @@ export const pause = internalMutation({
     if (!seq) throw new Error("Sequence not found");
     if (seq.status !== "active") throw new Error("Sequence is not active");
     await ctx.db.patch(id, { status: "paused" });
-    return await ctx.db.get(id);
+    const updated = await ctx.db.get(id);
+    if (updated) await countChanged(ctx, sequenceBuckets(seq), sequenceBuckets(updated));
+    return updated;
   },
 });
 
@@ -73,7 +78,9 @@ export const resume = internalMutation({
     if (!seq) throw new Error("Sequence not found");
     if (seq.status !== "paused") throw new Error("Sequence is not paused");
     await ctx.db.patch(id, { status: "active" });
-    return await ctx.db.get(id);
+    const updated = await ctx.db.get(id);
+    if (updated) await countChanged(ctx, sequenceBuckets(seq), sequenceBuckets(updated));
+    return updated;
   },
 });
 
@@ -83,6 +90,8 @@ export const cancel = internalMutation({
     const seq = await ctx.db.get(id);
     if (!seq) throw new Error("Sequence not found");
     await ctx.db.patch(id, { status: "completed" });
+    const canceled = await ctx.db.get(id);
+    if (canceled) await countChanged(ctx, sequenceBuckets(seq), sequenceBuckets(canceled));
 
     const enrollments = await ctx.db
       .query("sequenceEnrollments")

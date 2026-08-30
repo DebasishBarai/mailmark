@@ -2,6 +2,12 @@ import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import type { DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import {
+  countChanged,
+  countCreated,
+  countRemoved,
+  platformAccountBuckets,
+} from "./lib/counters";
 // import { internal } from "./_generated/api";
 
 // const ADMIN_CLERK_ID = "user_2xo2LyEVBp4BWRHM0RdeaZTPJAb";
@@ -41,7 +47,7 @@ export const addAccount = mutation({
     if (existing) {
       throw new Error(`Account ${args.email} already exists`);
     }
-    return await ctx.db.insert("platformWarmupAccounts", {
+    const accountId = await ctx.db.insert("platformWarmupAccounts", {
       email: args.email,
       provider: "gmail",
       appPassword: args.appPassword,
@@ -50,6 +56,9 @@ export const addAccount = mutation({
       dailyReceivedCount: 0,
       lastResetAt: Date.now(),
     });
+    const created = await ctx.db.get(accountId);
+    if (created) await countCreated(ctx, platformAccountBuckets(created));
+    return accountId;
   },
 });
 
@@ -57,7 +66,12 @@ export const pauseAccount = mutation({
   args: { accountId: v.id("platformWarmupAccounts") },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    const before = await ctx.db.get(args.accountId);
     await ctx.db.patch(args.accountId, { status: "paused" });
+    const after = await ctx.db.get(args.accountId);
+    if (before && after) {
+      await countChanged(ctx, platformAccountBuckets(before), platformAccountBuckets(after));
+    }
   },
 });
 
@@ -68,11 +82,16 @@ export const activateAccount = mutation({
     // await ctx.db.patch(args.accountId, { status: "active" });
     // Clear the failure trail too, otherwise an account that was auto-paused
     // comes back one failure away from being paused again.
+    const before = await ctx.db.get(args.accountId);
     await ctx.db.patch(args.accountId, {
       status: "active",
       consecutiveFailures: 0,
       autoPausedAt: undefined,
     });
+    const after = await ctx.db.get(args.accountId);
+    if (before && after) {
+      await countChanged(ctx, platformAccountBuckets(before), platformAccountBuckets(after));
+    }
   },
 });
 
@@ -80,7 +99,9 @@ export const removeAccount = mutation({
   args: { accountId: v.id("platformWarmupAccounts") },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    const account = await ctx.db.get(args.accountId);
     await ctx.db.delete(args.accountId);
+    if (account) await countRemoved(ctx, platformAccountBuckets(account));
   },
 });
 
@@ -91,12 +112,17 @@ export const updateAppPassword = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    const before = await ctx.db.get(args.accountId);
     await ctx.db.patch(args.accountId, {
       appPassword: args.appPassword,
       status: "active",
       consecutiveFailures: 0,
       autoPausedAt: undefined,
     });
+    const after = await ctx.db.get(args.accountId);
+    if (before && after) {
+      await countChanged(ctx, platformAccountBuckets(before), platformAccountBuckets(after));
+    }
   },
 });
 
@@ -234,6 +260,14 @@ export async function applyAccountFailure(
   });
 
   if (shouldPause) {
+    const paused = await db.get(accountId);
+    if (paused) {
+      await countChanged(
+        { db },
+        platformAccountBuckets(account),
+        platformAccountBuckets(paused)
+      );
+    }
     console.error(
       `Warmup account ${account.email} auto-paused after ${failures} consecutive failure(s): ${reason}`
     );

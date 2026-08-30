@@ -70,4 +70,23 @@ crons.daily(
   {}
 );
 
+// Daily at 3:37 AM UTC: recompute the denormalized platform counters that
+// platformStats reads, from the underlying tables.
+//
+// The counters are maintained incrementally by convex/lib/counters.ts, so this
+// exists to repair drift rather than to produce the numbers: a mutation added
+// later that forgets to call into counters.ts, a row edited by hand in the
+// Convex dashboard, or a race during the walk itself. Each run recounts from
+// scratch, so errors never accumulate.
+//
+// The time is deliberately off the quarter hour: the warmup exchange and
+// engagement crons occupy :00/:15/:30/:45, and the reconcile is most accurate
+// when few mutations are running against the tables it is walking.
+crons.daily(
+  "reconcile platform counters",
+  { hourUTC: 3, minuteUTC: 37 },
+  internal.platformStats.startCounterReconcile,
+  {}
+);
+
 export default crons;

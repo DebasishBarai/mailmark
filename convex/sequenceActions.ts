@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, action, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { countChanged, countCreated, sequenceBuckets } from "./lib/counters";
 
 const stepValidator = v.union(
   v.object({
@@ -157,6 +158,8 @@ export const create = mutation({
       steps,
       createdAt: Date.now(),
     });
+    const created = await ctx.db.get(id);
+    if (created) await countCreated(ctx, sequenceBuckets(created));
 
     return id;
   },
@@ -179,6 +182,8 @@ export const pause = mutation({
     if (sequence.status !== "active") throw new Error("Sequence is not active");
 
     await ctx.db.patch(sequenceId, { status: "paused" });
+    const paused = await ctx.db.get(sequenceId);
+    if (paused) await countChanged(ctx, sequenceBuckets(sequence), sequenceBuckets(paused));
   },
 });
 
@@ -199,6 +204,8 @@ export const resume = mutation({
     if (sequence.status !== "paused") throw new Error("Sequence is not paused");
 
     await ctx.db.patch(sequenceId, { status: "active" });
+    const resumed = await ctx.db.get(sequenceId);
+    if (resumed) await countChanged(ctx, sequenceBuckets(sequence), sequenceBuckets(resumed));
   },
 });
 
@@ -218,6 +225,8 @@ export const cancel = mutation({
     if (!sequence || sequence.userId !== user._id) throw new Error("Not authorized");
 
     await ctx.db.patch(sequenceId, { status: "completed" });
+    const canceled = await ctx.db.get(sequenceId);
+    if (canceled) await countChanged(ctx, sequenceBuckets(sequence), sequenceBuckets(canceled));
 
     const enrollments = await ctx.db
       .query("sequenceEnrollments")
@@ -460,7 +469,7 @@ export const internalCreateSequence = internalMutation({
     if (steps.length === 0) throw new Error("Sequence must have at least one step");
     if (steps[0].type !== "send_email") throw new Error("First step must be send_email");
 
-    return await ctx.db.insert("sequences", {
+    const sequenceId = await ctx.db.insert("sequences", {
       userId: user._id,
       domainId,
       mailboxId,
@@ -469,6 +478,9 @@ export const internalCreateSequence = internalMutation({
       steps,
       createdAt: Date.now(),
     });
+    const created = await ctx.db.get(sequenceId);
+    if (created) await countCreated(ctx, sequenceBuckets(created));
+    return sequenceId;
   },
 });
 

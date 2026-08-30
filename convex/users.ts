@@ -2,6 +2,7 @@ import { action, internalMutation, internalQuery, mutation, query } from "./_gen
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Doc } from "./_generated/dataModel";
+import { countCreated, userBuckets } from "./lib/counters";
 
 export const getUser = internalQuery({
   args: { subject: v.string() },
@@ -30,7 +31,9 @@ export const createUser = internalMutation({
       polarCustomerId: args.polarCustomerId,
       category: "normal",
     });
-    return (await ctx.db.get(userId))!;
+    const created = (await ctx.db.get(userId))!;
+    await countCreated(ctx, userBuckets(created));
+    return created;
   },
 });
 

@@ -1,6 +1,12 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { applyAccountFailure } from "./platformWarmupAccounts";
+import {
+  countChanged,
+  countCreated,
+  warmupEmailBuckets,
+  warmupMailboxBuckets,
+} from "./lib/counters";
 
 // Most emails an engagement round will pick up at once. The round opens an
 // IMAP connection per email, so an unbounded batch is a Convex action timeout
@@ -108,10 +114,18 @@ export const startWarmup = mutation({
         lastSendError: undefined,
         lastSendErrorAt: undefined,
       });
+      const restarted = await ctx.db.get(existing._id);
+      if (restarted) {
+        await countChanged(
+          ctx,
+          warmupMailboxBuckets(existing),
+          warmupMailboxBuckets(restarted)
+        );
+      }
       return existing._id;
     }
 
-    return await ctx.db.insert("warmupMailboxes", {
+    const warmupMailboxId = await ctx.db.insert("warmupMailboxes", {
       userId: user._id,
       mailboxId: args.mailboxId,
       domainId: mailbox.domainId,
@@ -125,6 +139,9 @@ export const startWarmup = mutation({
       inboxRate: 100,
       startedAt: Date.now(),
     });
+    const created = await ctx.db.get(warmupMailboxId);
+    if (created) await countCreated(ctx, warmupMailboxBuckets(created));
+    return warmupMailboxId;
   },
 });
 
@@ -147,6 +164,10 @@ export const pauseWarmup = mutation({
     }
 
     await ctx.db.patch(args.warmupMailboxId, { status: "paused" });
+    const paused = await ctx.db.get(args.warmupMailboxId);
+    if (paused) {
+      await countChanged(ctx, warmupMailboxBuckets(entry), warmupMailboxBuckets(paused));
+    }
   },
 });
 
@@ -174,6 +195,10 @@ export const resumeWarmup = mutation({
       status: "active",
       pausedReason: undefined,
     });
+    const resumed = await ctx.db.get(args.warmupMailboxId);
+    if (resumed) {
+      await countChanged(ctx, warmupMailboxBuckets(entry), warmupMailboxBuckets(resumed));
+    }
   },
 });
 
@@ -401,6 +426,16 @@ export const recordSendFailure = internalMutation({
           }
         : {}),
     });
+    if (shouldPause) {
+      const autoPaused = await ctx.db.get(args.warmupMailboxId);
+      if (autoPaused) {
+        await countChanged(
+          ctx,
+          warmupMailboxBuckets(entry),
+          warmupMailboxBuckets(autoPaused)
+        );
+      }
+    }
 
     if (shouldPause) {
       console.error(
@@ -469,6 +504,14 @@ export const advanceDay = internalMutation({
         sentToday: 0,
         receivedToday: 0,
       });
+      const completed = await ctx.db.get(args.warmupMailboxId);
+      if (completed) {
+        await countChanged(
+          ctx,
+          warmupMailboxBuckets(entry),
+          warmupMailboxBuckets(completed)
+        );
+      }
       return;
     }
 
@@ -603,7 +646,7 @@ export const createWarmupEmailRecord = internalMutation({
     sesMessageId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("warmupEmails", {
+    const warmupEmailId = await ctx.db.insert("warmupEmails", {
       warmupMailboxId: args.warmupMailboxId,
       platformAccountId: args.platformAccountId,
       direction: args.direction,
@@ -621,6 +664,9 @@ export const createWarmupEmailRecord = internalMutation({
         ? { sesMessageId: args.sesMessageId, deliveryStatus: "pending" as const }
         : {}),
     });
+    const created = await ctx.db.get(warmupEmailId);
+    if (created) await countCreated(ctx, warmupEmailBuckets(created));
+    return warmupEmailId;
   },
 });
 
@@ -709,10 +755,19 @@ export const recordWarmupDeliveryStatus = internalMutation({
 
     if (bounceRate >= MAX_BOUNCE_RATE) {
       const rounded = Math.round(bounceRate * 10) / 10;
+      const beforePause = await ctx.db.get(email.warmupMailboxId);
       await ctx.db.patch(email.warmupMailboxId, {
         status: "paused",
         pausedReason: `Warmup paused automatically: ${rounded}% of the last ${answered.length} warmup sends bounced. Sending above 10% risks suspension of the SES account, so check the mailbox and its DNS before resuming.`,
       });
+      const afterPause = await ctx.db.get(email.warmupMailboxId);
+      if (beforePause && afterPause) {
+        await countChanged(
+          ctx,
+          warmupMailboxBuckets(beforePause),
+          warmupMailboxBuckets(afterPause)
+        );
+      }
       console.error(
         `Warmup mailbox ${email.warmupMailboxId} auto-paused at ${rounded}% bounce rate over ${answered.length} sends`
       );
@@ -728,7 +783,17 @@ export const updateWarmupEmailPlacement = internalMutation({
     placement: v.union(v.literal("inbox"), v.literal("spam"), v.literal("unknown")),
   },
   handler: async (ctx, args) => {
+    // Placement is set to "unknown" at insert and resolved later, here, by
+    // both the inbound webhook and the Gmail engagement round. The admin
+    // dashboard's inbox placement rate counts rows that end up "inbox", so
+    // this transition has to move the counter.
+    const before = await ctx.db.get(args.warmupEmailId);
+    if (!before) return;
     await ctx.db.patch(args.warmupEmailId, { placement: args.placement });
+    const after = await ctx.db.get(args.warmupEmailId);
+    if (after) {
+      await countChanged(ctx, warmupEmailBuckets(before), warmupEmailBuckets(after));
+    }
   },
 });
 
