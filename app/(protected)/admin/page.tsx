@@ -62,6 +62,15 @@ export default function AdminDashboardPage() {
       ? Math.round((stats.emails.bounced / stats.emails.sent) * 100)
       : 0;
 
+  // The five folders the app writes. Shown against the total so a gap is
+  // visible rather than silent, which is what the old layout hid.
+  const folderSum =
+    stats.emails.sent +
+    stats.emails.inbox +
+    stats.emails.warmup +
+    stats.emails.outbox +
+    stats.emails.trash;
+
   return (
     <div className="mx-auto max-w-6xl p-6">
       {/* Header */}
@@ -84,12 +93,42 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Emails */}
+      {/*
+        Old: Total Stored sat beside Sent and Received as though it were their
+        sum. It never was. Total counts every row in the emails table, while
+        those two count the sent and inbox folders only, leaving everything in
+        outbox, trash and _warmup in the total and named nowhere on the page.
+        Warmup alone is the largest folder on a platform running warmup.
+
+        The three missing folders now have cards of their own, so the row
+        accounts for the whole table. Delivery stats are unchanged and moved to
+        their own row, since they measure outcomes rather than storage.
+      */}
       <div className="mb-8">
         <SectionHeader title="Emails" />
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          <StatCard label="Total Stored" value={stats.emails.total} color="violet" />
+          <StatCard label="Total Stored" value={stats.emails.total} color="violet" sub="all folders" />
           <StatCard label="Sent" value={stats.emails.sent} color="blue" />
-          <StatCard label="Received" value={stats.emails.inbox} color="green" />
+          <StatCard label="Received" value={stats.emails.inbox} color="green" sub="inbox" />
+          <StatCard label="Warmup" value={stats.emails.warmup} color="amber" sub="pool mail, kept out of the inbox" />
+          <StatCard label="Outbox" value={stats.emails.outbox} color="violet" sub="scheduled, not yet sent" />
+          <StatCard label="Trash" value={stats.emails.trash} color="amber" sub="deleted, still stored" />
+        </div>
+        <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+          Sent + Received + Warmup + Outbox + Trash ={" "}
+          {folderSum.toLocaleString()} of {stats.emails.total.toLocaleString()}{" "}
+          stored.
+          {folderSum !== stats.emails.total && (
+            <>
+              {" "}
+              The {Math.abs(stats.emails.total - folderSum).toLocaleString()} not
+              accounted for are folder counters the nightly reconcile has yet to
+              fill in.
+            </>
+          )}
+        </p>
+
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
           <StatCard label="Delivered" value={stats.emails.delivered} color="green" sub={`${stats.emails.sent > 0 ? Math.round((stats.emails.delivered / stats.emails.sent) * 100) : 0}% of sent`} />
           <StatCard label="Opened" value={stats.emails.opened} color="blue" sub={`${openRate}% open rate`} />
           <StatCard label="Bounced" value={stats.emails.bounced} color={bounceRate > 5 ? "red" : "amber"} sub={`${bounceRate}% bounce rate`} />
