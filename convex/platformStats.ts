@@ -34,9 +34,10 @@ import {
 // getStats near the 32,000 document scan cap. Crossing either makes the query
 // throw, and the caps are the same on every plan.
 //
-// They now read integers maintained by convex/lib/counters.ts. The returned
-// shapes are unchanged, so app/components/PlatformStats.tsx and
-// app/(protected)/admin/page.tsx need no changes.
+// They now read integers maintained by convex/lib/counters.ts.
+// app/components/PlatformStats.tsx reads getStats, whose shape is unchanged.
+// getAdminStats has since grown the per-folder email counts that let
+// app/(protected)/admin/page.tsx account for every row in the total.
 
 export const getStats = query({
   args: {},
@@ -146,8 +147,14 @@ export const getAdminStats = query({
       },
       emails: {
         total: c[K.emailsTotal],
+        // The folder counts partition the table, so the dashboard can show
+        // where every stored row lives: total = sent + inbox + outbox + trash
+        // + warmup.
         sent: c[K.emailsFolderSent],
         inbox: c[K.emailsFolderInbox],
+        outbox: c[K.emailsFolderOutbox],
+        trash: c[K.emailsFolderTrash],
+        warmup: c[K.emailsFolderWarmup],
         delivered: c[K.emailsDelivered],
         bounced: c[K.emailsBounced],
         failed: c[K.emailsFailed],

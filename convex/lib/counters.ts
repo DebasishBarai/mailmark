@@ -35,8 +35,17 @@ export const K = {
   usersNormal: "users.normal",
 
   emailsTotal: "emails.total",
+  // One key per folder the app writes, so emails.total can be shown on the
+  // admin dashboard as a sum of its parts. Sent and inbox are only two of the
+  // five: scheduled mail waits in outbox, deleted mail stays in trash, and
+  // inbound warmup pool mail is filed under _warmup by http.ts so it never
+  // reaches the customer's inbox. Those three were in the total and named
+  // nowhere, which is most of what the dashboard could not account for.
   emailsFolderSent: "emails.folder.sent",
   emailsFolderInbox: "emails.folder.inbox",
+  emailsFolderOutbox: "emails.folder.outbox",
+  emailsFolderTrash: "emails.folder.trash",
+  emailsFolderWarmup: "emails.folder.warmup",
   emailsDelivered: "emails.delivered",
   emailsBounced: "emails.bounced",
   emailsFailed: "emails.failed",
@@ -91,6 +100,10 @@ export function emailBuckets(e: Doc<"emails">): string[] {
   const keys: string[] = [K.emailsTotal];
   if (e.folder === "sent") keys.push(K.emailsFolderSent);
   if (e.folder === "inbox") keys.push(K.emailsFolderInbox);
+  if (e.folder === "outbox") keys.push(K.emailsFolderOutbox);
+  if (e.folder === "trash") keys.push(K.emailsFolderTrash);
+  // Kept in step with the folder http.ts files inbound warmup mail under.
+  if (e.folder === "_warmup") keys.push(K.emailsFolderWarmup);
   if (e.deliveryStatus === "delivered") keys.push(K.emailsDelivered);
   if (e.deliveryStatus === "bounced") keys.push(K.emailsBounced);
   if (e.deliveryStatus === "failed") keys.push(K.emailsFailed);
