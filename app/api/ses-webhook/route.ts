@@ -77,36 +77,63 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
         return await handleDeliveryNotification(message, "complained", reason);
       }
 
-      if (eventType !== "Received") {
-        // Ignore other notifications
-        console.log("[SNS] ignoring eventType:", eventType);
-        return NextResponse.json({ success: true });
+      // Inbound mail is not ingested here any more.
+      //
+      // Every inbound message used to be ingested twice, by two independent
+      // pipelines hanging off the same SES receipt rule. The S3 action drops
+      // the message and the Lambda (lambda/ses-s3-handler.mjs) files it under
+      // {domain}/{mailbox}/inbox/{messageId}.eml, calls /ingestEmail with that
+      // final key, then deletes the drop. The SNS action then brought the same
+      // message here, where it was ingested a second time.
+      //
+      // Convex dedupes the row by messageId, so the second ingest was
+      // invisible until the two raced: this path had to guess the drop key
+      // (receipt.action refers to the SNS action, so objectKey is undefined
+      // here and the key was reconstructed from the domain and messageId),
+      // and when the Lambda's delete landed inside the guessed copy's retry
+      // window, the row was left naming an object that no longer existed and
+      // the mailbox showed "Failed to load email body".
+      //
+      // The Lambda is better at this in every respect: it reads the real key
+      // from the S3 event rather than reconstructing it, takes recipients from
+      // the parsed To and Cc headers, and detects attachments from the raw
+      // body instead of a commonHeaders content-type that SES usually omits.
+      // So it keeps the job and this path stands down.
+      //
+      // Sending events (Delivery, Bounce, Complaint) arrive from the sending
+      // configuration set's own topic and are handled above; they are
+      // unaffected.
+      if (eventType === "Received") {
+        console.log(
+          "[SNS] ignoring inbound Received notification; the ingest Lambda owns this message"
+        );
+        return NextResponse.json({ success: true, ignored: "received" });
       }
 
-      const mail = message.mail;
-      const receipt = message.receipt;
+      console.log("[SNS] ignoring eventType:", eventType);
+      return NextResponse.json({ success: true });
 
-      // The SNS action triggers this notification, so receipt.action refers to
-      // the SNS action (not S3). Construct the S3 key from the known prefix
-      // pattern and messageId. Also check receipt.action.objectKey as fallback.
-      const recipients = mail.destination || [];
-      const domain = recipients[0]?.split("@")[1] || "";
-      const sesMessageId = mail.messageId || "";
-      const s3Key = receipt?.action?.objectKey
-        || (domain && sesMessageId ? `${domain}/incoming/${sesMessageId}` : "");
-
-      const emailData = {
-        key: s3Key,
-        from: mail.commonHeaders?.from?.[0] || mail.source,
-        to: recipients,
-        subject: mail.commonHeaders?.subject || "(no subject)",
-        date: mail.commonHeaders?.date || mail.timestamp,
-        messageId: sesMessageId || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        hasAttachments: (mail.commonHeaders?.["content-type"] || "").includes("multipart") || false,
-        inReplyTo: mail.commonHeaders?.["in-reply-to"] || mail.headers?.find?.((h: { name?: string; value?: string }) => h.name?.toLowerCase() === "in-reply-to")?.value || undefined,
-      };
-
-      return await ingestEmail(emailData);
+      // const mail = message.mail;
+      // const receipt = message.receipt;
+      //
+      // const recipients = mail.destination || [];
+      // const domain = recipients[0]?.split("@")[1] || "";
+      // const sesMessageId = mail.messageId || "";
+      // const s3Key = receipt?.action?.objectKey
+      //   || (domain && sesMessageId ? `${domain}/incoming/${sesMessageId}` : "");
+      //
+      // const emailData = {
+      //   key: s3Key,
+      //   from: mail.commonHeaders?.from?.[0] || mail.source,
+      //   to: recipients,
+      //   subject: mail.commonHeaders?.subject || "(no subject)",
+      //   date: mail.commonHeaders?.date || mail.timestamp,
+      //   messageId: sesMessageId || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      //   hasAttachments: (mail.commonHeaders?.["content-type"] || "").includes("multipart") || false,
+      //   inReplyTo: mail.commonHeaders?.["in-reply-to"] || mail.headers?.find?.((h: { name?: string; value?: string }) => h.name?.toLowerCase() === "in-reply-to")?.value || undefined,
+      // };
+      //
+      // return await ingestEmail(emailData);
     }
 
     return NextResponse.json({ success: true });

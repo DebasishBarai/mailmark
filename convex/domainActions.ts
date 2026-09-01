@@ -889,7 +889,10 @@ async function ensureReceiptRuleWithSns(domain: string, clients: AwsClientBundle
   const ruleName = `devmail-${domain.replace(/\./g, "-")}`;
 
   // Create SNS topic and subscribe webhook
-  const topicArn = await ensureSnsTopicForDomain(domain, clients);
+  // Still ensured, so restoring the SNS action below is a one-line change.
+  // Nothing consumes inbound notifications from this topic today.
+  // const topicArn = await ensureSnsTopicForDomain(domain, clients);
+  await ensureSnsTopicForDomain(domain, clients);
 
   // Delete existing rule so we can recreate it with SNS action
   try {
@@ -903,7 +906,24 @@ async function ensureReceiptRuleWithSns(domain: string, clients: AwsClientBundle
     // Rule may not exist yet - that's fine
   }
 
-  // Create rule with both S3 and SNS actions
+  // Create rule with the S3 action only.
+  //
+  // The SNS action is deliberately gone. It fanned every inbound message out
+  // to a second, redundant ingest pipeline (SNS -> /api/ses-webhook ->
+  // /ingestEmail) that ran alongside the S3 drop plus ingest Lambda, and the
+  // two raced over the same object: the Lambda deletes the drop once it has
+  // filed the message, and a webhook ingest that lost that race left its row
+  // naming a deleted key, which the mailbox renders as "Failed to load email
+  // body".
+  //
+  // One producer, so no race. The S3 action drops the message at
+  // {domain}/incoming/ and the Lambda takes it from there. The inbound branch
+  // of /api/ses-webhook now ignores Received notifications, so this is belt
+  // and braces: it also stops SES publishing a notification nothing consumes.
+  //
+  // The topic itself is still created above and left in place, because tearing
+  // it down is not needed to stop the duplicate ingest and keeps this a
+  // one-line revert if inbound ever has to come back through SNS.
   await ses.send(
     new CreateReceiptRuleCommand({
       RuleSetName: activeRuleSetName,
@@ -918,12 +938,13 @@ async function ensureReceiptRuleWithSns(domain: string, clients: AwsClientBundle
               ObjectKeyPrefix: `${domain}/incoming/`,
             },
           },
-          {
-            SNSAction: {
-              TopicArn: topicArn,
-              Encoding: "UTF-8",
-            },
-          },
+          // Restoring this also means restoring the topicArn assignment above.
+          // {
+          //   SNSAction: {
+          //     TopicArn: topicArn,
+          //     Encoding: "UTF-8",
+          //   },
+          // },
         ],
         ScanEnabled: true,
       },
