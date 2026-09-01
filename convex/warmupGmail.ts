@@ -78,6 +78,22 @@ async function findJunkPath(client: any): Promise<string | null> {
   }
 }
 
+// imapflow hands back Gmail's X-GM-LABELS as a Set, not an array, and the same
+// goes for flags. Array.includes on a Set is not a function, so reading the
+// importance label threw a TypeError on every message that was found in the
+// inbox. The catch in checkPlacement then recorded that as an account failure,
+// which is why healthy accounts kept auto-pausing after three strikes, and it
+// returned "unknown" placement, so no open, importance flag, reply or spam
+// rescue ever ran for a delivered warmup email.
+//
+// Both shapes are accepted rather than just the Set: the value is untyped here
+// and a bare array is what the old code assumed.
+function hasLabel(value: unknown, label: string): boolean {
+  if (value instanceof Set) return value.has(label);
+  if (Array.isArray(value)) return value.includes(label);
+  return false;
+}
+
 function createImapClient(email: string, appPassword: string) {
   return new ImapFlow({
     host: "imap.gmail.com",
@@ -180,11 +196,19 @@ export const checkPlacement = internalAction({
           internal.platformWarmupAccounts.recordAccountSuccess,
           { accountId: args.accountId }
         );
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const labels = (msg as any).labels || [];
+        // // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // const labels = (msg as any).labels || [];
+        // return {
+        //   placement: "inbox",
+        //   isImportant: labels.includes("\\Important"),
+        // };
+        //
+        // fetchOne resolves to false when the sequence number no longer names a
+        // message, so the label read has to survive that as well as the Set.
         return {
           placement: "inbox",
-          isImportant: labels.includes("\\Important"),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          isImportant: hasLabel((msg as any)?.labels, "\\Important"),
         };
       }
 
