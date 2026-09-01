@@ -115,6 +115,27 @@ http.route({
           oldS3Key: s3Key,
           recipientAddress: recipientAddress.toLowerCase(),
         });
+      } else if (existing) {
+        // A redelivery naming a different key used to be dropped here as an
+        // ordinary duplicate. That is exactly backwards when the row is
+        // broken: the delivery is naming a copy the row does not know about,
+        // and the old condition only recovered when the two keys matched,
+        // so the one case where the redelivery had something to offer was
+        // the one case it ignored.
+        //
+        // This is how a message that was sitting readable in S3 stayed
+        // unreadable in the mailbox. The row named a deleted drop, the other
+        // pipeline redelivered naming its own good copy, and the guard read
+        // "not the stalled move" and discarded it.
+        //
+        // reconcileS3Key adopts the new key only if the row's own key has
+        // stopped resolving and the new one resolves, so a healthy row is
+        // never touched.
+        await ctx.runAction(internal.ses.reconcileS3Key, {
+          emailId: existing._id,
+          currentS3Key: existing.s3Key,
+          incomingS3Key: s3Key,
+        });
       } else {
         console.log(
           `Duplicate ingest ignored for ${recipientAddress}: ${messageId}`
@@ -166,7 +187,10 @@ http.route({
       });
     }
 
-    // Move S3 object from domain/incoming/ to domain/mailbox/incoming/
+    // Move the S3 object from domain/incoming/ to domain/mailbox/incoming/,
+    // but only if it is still the raw SES drop. An ingest from the Lambda
+    // arrives already filed under the mailbox, and moveIncomingEmail now
+    // leaves those alone rather than copying the message a second time.
     await ctx.runAction(internal.ses.moveIncomingEmail, {
       emailId,
       oldS3Key: s3Key,

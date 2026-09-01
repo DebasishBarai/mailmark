@@ -14,7 +14,8 @@ import { internal } from "./_generated/api";
 import { PLAN_LIMITS } from "./quotas";
 import { Id } from "./_generated/dataModel";
 import { SendEmailCommand } from "@aws-sdk/client-sesv2";
-import { PutObjectCommand, GetObjectCommand, HeadObjectCommand, CopyObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, GetObjectCommand, HeadObjectCommand, CopyObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import type { ListObjectsV2CommandOutput } from "@aws-sdk/client-s3";
 import { simpleParser } from "mailparser";
 import type { AddressObject } from "mailparser";
 import {
@@ -876,21 +877,94 @@ async function s3ObjectExists(aws: AwsClientBundle, key: string): Promise<boolea
 // {domain}/{mailbox}/incoming/, and the raw SES drop sits at {domain}/incoming/
 // until the Lambda deletes it. A row can name any of them depending on where
 // the move got to, so try them all before calling a message lost.
+//
+// Both spellings of the filename have to be tried at every prefix, because the
+// two ingest paths disagree about the extension: the Lambda names its copy
+// {messageId}.eml, while a row that came from the SNS route names the bare SES
+// drop, which has no extension at all. The earlier version of this only ever
+// stripped .eml and never added it, so from a bare row it could not reach the
+// Lambda's copy. A message sitting readable in {domain}/{mailbox}/inbox/
+// {messageId}.eml was reported as missing on that account alone.
 function candidateS3Keys(s3Key: string, fullAddress: string): string[] {
   const [localPart, domain] = fullAddress.toLowerCase().split("@");
   if (!localPart || !domain) return [];
 
   const filename = s3Key.split("/").pop() || s3Key;
   const withoutExtension = filename.replace(/\.eml$/, "");
+  const names = [withoutExtension, `${withoutExtension}.eml`];
 
+  // const candidates = [
+  //   `${domain}/${localPart}/incoming/${filename}`,
+  //   `${domain}/${localPart}/inbox/${filename}`,
+  //   `${domain}/incoming/${filename}`,
+  //   `${domain}/incoming/${withoutExtension}`,
+  // ];
   const candidates = [
-    `${domain}/${localPart}/incoming/${filename}`,
-    `${domain}/${localPart}/inbox/${filename}`,
-    `${domain}/incoming/${filename}`,
-    `${domain}/incoming/${withoutExtension}`,
+    ...names.map((name) => `${domain}/${localPart}/incoming/${name}`),
+    ...names.map((name) => `${domain}/${localPart}/inbox/${name}`),
+    ...names.map((name) => `${domain}/incoming/${name}`),
   ];
 
   return candidates.filter((key, i) => key !== s3Key && candidates.indexOf(key) === i);
+}
+
+// Index everything under the domain's prefixes once, keyed by the message id
+// embedded in the object name.
+//
+// candidateS3Keys can only find the namings we thought to write down, and it
+// has already been wrong once: the extension gap above hid a message that was
+// readable the whole time. Listing asks S3 where the message actually is
+// rather than guessing, so a naming this code has never seen still resolves.
+// The listing is done once per repair run and consulted in memory, because a
+// per-row list would be several requests per broken email.
+async function indexObjectsByMessageId(
+  aws: AwsClientBundle,
+  prefixes: string[]
+): Promise<Map<string, string[]>> {
+  const index = new Map<string, string[]>();
+
+  for (const prefix of prefixes) {
+    let continuationToken: string | undefined = undefined;
+    do {
+      const page: ListObjectsV2CommandOutput = await aws.s3.send(
+        new ListObjectsV2Command({
+          Bucket: aws.s3Bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        })
+      );
+      for (const object of page.Contents ?? []) {
+        if (!object.Key) continue;
+        const name = (object.Key.split("/").pop() || "").replace(/\.eml$/, "");
+        if (!name) continue;
+        const found = index.get(name);
+        if (found) found.push(object.Key);
+        else index.set(name, [object.Key]);
+      }
+      continuationToken = page.IsTruncated
+        ? page.NextContinuationToken
+        : undefined;
+    } while (continuationToken);
+  }
+
+  return index;
+}
+
+// The message id as it appears in an object name, for looking a row up in the
+// index above. Rows name their object either bare or with .eml.
+function messageIdFromS3Key(s3Key: string): string {
+  return (s3Key.split("/").pop() || s3Key).replace(/\.eml$/, "");
+}
+
+// A row should be repointed at a copy filed under its own mailbox before the
+// shared drop, which whichever pipeline owns it is entitled to delete.
+function preferMailboxCopy(keys: string[], domain: string): string[] {
+  const dropPrefix = `${domain}/incoming/`;
+  return [...keys].sort((a, b) => {
+    const aIsDrop = a.startsWith(dropPrefix) ? 1 : 0;
+    const bIsDrop = b.startsWith(dropPrefix) ? 1 : 0;
+    return aIsDrop - bIsDrop;
+  });
 }
 
 // Read-only diagnostic for "Failed to load email body". Reports, for the most
@@ -936,12 +1010,39 @@ export const inspectEmailS3 = internalAction({
       alsoFoundAt: string[];
       bodyError: string | null;
     }> = [];
+    const [inspectLocalPart, inspectDomain] = mailbox.fullAddress
+      .toLowerCase()
+      .split("@");
+
+    // Same listing fallback the repair uses. Without it this report answers
+    // "not at the keys I thought to check" while printing it as "not found",
+    // which is what made a recoverable message look lost.
+    let objectIndex: Map<string, string[]> | null = null;
+    const lookupByMessageId = async (s3Key: string): Promise<string[]> => {
+      if (!inspectLocalPart || !inspectDomain) return [];
+      if (!objectIndex) {
+        objectIndex = await indexObjectsByMessageId(aws, [
+          `${inspectDomain}/${inspectLocalPart}/`,
+          `${inspectDomain}/incoming/`,
+        ]);
+      }
+      const matches = objectIndex.get(messageIdFromS3Key(s3Key)) ?? [];
+      return preferMailboxCopy(matches, inspectDomain).filter(
+        (key) => key !== s3Key
+      );
+    };
+
     for (const email of recent) {
       const keyExists = await s3ObjectExists(aws, email.s3Key);
 
       const alsoFoundAt: string[] = [];
       for (const candidate of candidateS3Keys(email.s3Key, mailbox.fullAddress)) {
         if (await s3ObjectExists(aws, candidate)) alsoFoundAt.push(candidate);
+      }
+      if (!keyExists) {
+        for (const key of await lookupByMessageId(email.s3Key)) {
+          if (!alsoFoundAt.includes(key)) alsoFoundAt.push(key);
+        }
       }
 
       // Reproduce what the mailbox does when you open the message, so a row
@@ -1011,6 +1112,26 @@ export const repairEmailS3Keys = internalAction({
     const repaired: Array<{ subject: string; from: string; to: string }> = [];
     const missing: Array<{ subject: string; s3Key: string }> = [];
 
+    const [localPart, domain] = mailbox.fullAddress.toLowerCase().split("@");
+
+    // Built on first need, so a mailbox with nothing broken never pays for the
+    // listing, and a mailbox with many broken rows pays for it exactly once.
+    let objectIndex: Map<string, string[]> | null = null;
+    const lookupByMessageId = async (s3Key: string): Promise<string | null> => {
+      if (!localPart || !domain) return null;
+      if (!objectIndex) {
+        objectIndex = await indexObjectsByMessageId(aws, [
+          `${domain}/${localPart}/`,
+          `${domain}/incoming/`,
+        ]);
+      }
+      const matches = objectIndex.get(messageIdFromS3Key(s3Key)) ?? [];
+      const usable = preferMailboxCopy(matches, domain).filter(
+        (key) => key !== s3Key
+      );
+      return usable[0] ?? null;
+    };
+
     for (const email of emails) {
       if (await s3ObjectExists(aws, email.s3Key)) {
         intact++;
@@ -1024,6 +1145,9 @@ export const repairEmailS3Keys = internalAction({
           break;
         }
       }
+
+      // No candidate matched, so stop guessing and ask S3 what it holds.
+      if (!found) found = await lookupByMessageId(email.s3Key);
 
       if (!found) {
         missing.push({ subject: email.subject, s3Key: email.s3Key });
@@ -1173,19 +1297,45 @@ export const moveIncomingEmail = internalAction({
     const [localPart, domain] = recipientAddress.toLowerCase().split("@");
     if (!localPart || !domain) return;
 
-    const aws = await clientsForS3Key(ctx, oldS3Key);
-    const bucket = aws.s3Bucket;
-
-    const filename = oldS3Key.split("/").pop() || oldS3Key;
-    const newS3Key = `${domain}/${localPart}/incoming/${filename}`;
-
-    if (oldS3Key === newS3Key) {
+    // Only the raw SES drop is ours to move. The drop is the one object SES
+    // itself writes, at {domain}/incoming/{messageId}: a flat per-domain
+    // prefix, because a receipt rule matching the whole domain cannot template
+    // its key per recipient. Anything else is already filed under a mailbox.
+    //
+    // This guard is the difference between one move and two. The Lambda hands
+    // /ingestEmail a key it has already finished with,
+    // {domain}/{mailbox}/inbox/{messageId}.eml, and without this check the old
+    // code compared that to {domain}/{mailbox}/incoming/{messageId}.eml, found
+    // them different, and copied the message a third time before deleting the
+    // Lambda's copy. That is where the .eml files under incoming/ came from:
+    // the Lambda never writes there. Re-moving a filed message buys nothing
+    // and gives the delete another chance to land on the copy a row names.
+    const segments = oldS3Key.split("/");
+    const isRawDrop =
+      segments.length === 3 && segments[0] === domain && segments[1] === "incoming";
+    if (!isRawDrop) {
       await ctx.scheduler.runAfter(0, internal.ses.syncRecipientsFromS3, {
         emailId,
         s3Key: oldS3Key,
       });
       return;
     }
+
+    const aws = await clientsForS3Key(ctx, oldS3Key);
+    const bucket = aws.s3Bucket;
+
+    const filename = oldS3Key.split("/").pop() || oldS3Key;
+    const newS3Key = `${domain}/${localPart}/incoming/${filename}`;
+
+    // Unreachable now that the guard above returns for every key that is not
+    // the raw drop: a drop key can never equal the mailbox key built from it.
+    // if (oldS3Key === newS3Key) {
+    //   await ctx.scheduler.runAfter(0, internal.ses.syncRecipientsFromS3, {
+    //     emailId,
+    //     s3Key: oldS3Key,
+    //   });
+    //   return;
+    // }
 
     // Take our own copy before doing anything else with the message.
     //
@@ -1229,6 +1379,30 @@ export const moveIncomingEmail = internalAction({
     }
 
     if (!copied) {
+      // The drop is gone. Before stranding the row on a key that no longer
+      // resolves, check whether the other consumer of this delivery already
+      // filed the message somewhere: losing the race is not the same as
+      // losing the mail, and it usually is not. Adopting its copy is what
+      // keeps a transient race from costing an email permanently.
+      const rescued = candidateS3Keys(oldS3Key, `${localPart}@${domain}`);
+      for (const candidate of rescued) {
+        if (await s3ObjectExists(aws, candidate)) {
+          console.error(
+            `Copy from ${oldS3Key} failed but the message is filed at ${candidate}; adopting it:`,
+            lastError
+          );
+          await ctx.runMutation(internal.emails.updateS3Key, {
+            emailId,
+            s3Key: candidate,
+          });
+          await ctx.scheduler.runAfter(0, internal.ses.syncRecipientsFromS3, {
+            emailId,
+            s3Key: candidate,
+          });
+          return;
+        }
+      }
+
       console.error(
         `Failed to copy ${oldS3Key} to ${newS3Key} after 3 attempts; the row still points at the drop and the message may be lost:`,
         lastError
@@ -1262,5 +1436,52 @@ export const moveIncomingEmail = internalAction({
     } catch (error) {
       console.error(`Failed to delete ${oldS3Key} after copying:`, error);
     }
+  },
+});
+
+// Repoint a row at a key a later delivery named, when the row's own key has
+// stopped resolving and the new one has not.
+//
+// A second delivery of an already ingested message is usually nothing to act
+// on, but it carries something the row cannot get anywhere else: another
+// pipeline's opinion of where the message lives. When the row's key is dead
+// and that opinion is alive, the redelivery is the row's chance to recover,
+// and taking it turns a permanently broken email into a self-healing one.
+//
+// Deliberately conservative. A row whose object still reads is left exactly as
+// it is, so this can only ever move a row off a key that is already broken.
+export const reconcileS3Key = internalAction({
+  args: {
+    emailId: v.id("emails"),
+    currentS3Key: v.string(),
+    incomingS3Key: v.string(),
+  },
+  handler: async (ctx, { emailId, currentS3Key, incomingS3Key }) => {
+    if (currentS3Key === incomingS3Key) {
+      return { adopted: false, reason: "same key" };
+    }
+
+    const aws = await clientsForS3Key(ctx, incomingS3Key);
+
+    if (await s3ObjectExists(aws, currentS3Key)) {
+      return { adopted: false, reason: "current key still resolves" };
+    }
+    if (!(await s3ObjectExists(aws, incomingS3Key))) {
+      return { adopted: false, reason: "neither key resolves" };
+    }
+
+    await ctx.runMutation(internal.emails.updateS3Key, {
+      emailId,
+      s3Key: incomingS3Key,
+    });
+    console.log(
+      `Adopted ${incomingS3Key} for an email whose key ${currentS3Key} no longer resolves`
+    );
+    await ctx.scheduler.runAfter(0, internal.ses.syncRecipientsFromS3, {
+      emailId,
+      s3Key: incomingS3Key,
+    });
+
+    return { adopted: true, s3Key: incomingS3Key };
   },
 });
