@@ -171,13 +171,25 @@ export default function AdminEmailActivityPage() {
   const [domainId, setDomainId] = useState<Id<"domains"> | "">("");
   const [domainFilter, setDomainFilter] = useState("");
   const [windowIndex, setWindowIndex] = useState(1); // 30 days
-  const [tab, setTab] = useState<"emails" | "recipients">("emails");
+  const [tab, setTab] = useState<"emails" | "recipients" | "bounced">("emails");
+  // The bounced tab has two readings of the same rows: one line per address
+  // (the suppression list) or one line per message (why it bounced).
+  const [bounceView, setBounceView] = useState<"recipients" | "messages">("recipients");
   const [rowFilter, setRowFilter] = useState("");
   const [repeatedOnly, setRepeatedOnly] = useState(false);
 
   const activity = useQuery(
     api.adminEmailActivity.getDomainEmailActivity,
     domainId ? { domainId, days: WINDOWS[windowIndex].days } : "skip"
+  );
+
+  // Only loaded once the tab is opened. It is a second full scan of the sent
+  // folder, and most visits to this page are not about bounces.
+  const bounces = useQuery(
+    api.adminEmailActivity.getBouncedRecipients,
+    domainId && tab === "bounced"
+      ? { domainId, days: WINDOWS[windowIndex].days }
+      : "skip"
   );
 
   const visibleDomains = useMemo(() => {
@@ -222,6 +234,29 @@ export default function AdminEmailActivityPage() {
       );
     });
   }, [activity, rowFilter, repeatedOnly]);
+
+  const filteredBounceRecipients = useMemo(() => {
+    if (!bounces) return [];
+    const needle = rowFilter.trim().toLowerCase();
+    if (!needle) return bounces.recipients;
+    return bounces.recipients.filter(
+      (recipient) =>
+        recipient.email.includes(needle) ||
+        (recipient.name ?? "").toLowerCase().includes(needle)
+    );
+  }, [bounces, rowFilter]);
+
+  const filteredBounceMessages = useMemo(() => {
+    if (!bounces) return [];
+    const needle = rowFilter.trim().toLowerCase();
+    if (!needle) return bounces.messages;
+    return bounces.messages.filter((message) =>
+      [message.subject, message.mailbox, ...message.to, ...message.cc, ...message.bcc]
+        .join(" ")
+        .toLowerCase()
+        .includes(needle)
+    );
+  }, [bounces, rowFilter]);
 
   if (domains === undefined) {
     return (
@@ -270,6 +305,40 @@ export default function AdminEmailActivityPage() {
         recipient.scheduledCount,
         new Date(recipient.firstAt).toISOString(),
         new Date(recipient.lastAt).toISOString(),
+      ]),
+    ]);
+  }
+
+  function exportBounces() {
+    if (!bounces) return;
+    if (bounceView === "recipients") {
+      downloadCsv(`${bounces.domain.domain}-bounced-recipients.csv`, [
+        ["Recipient", "Name", "Bounces", "Bounced", "Failed", "First", "Last", "Mailboxes", "Last subject"],
+        ...filteredBounceRecipients.map((recipient) => [
+          recipient.email,
+          recipient.name ?? "",
+          recipient.bounces,
+          recipient.bounced,
+          recipient.failed,
+          new Date(recipient.firstAt).toISOString(),
+          new Date(recipient.lastAt).toISOString(),
+          recipient.mailboxes.join("; "),
+          recipient.lastSubject,
+        ]),
+      ]);
+      return;
+    }
+    downloadCsv(`${bounces.domain.domain}-bounced-emails.csv`, [
+      ["When", "Status", "Mailbox", "Subject", "Recipients", "To", "Cc", "Bcc"],
+      ...filteredBounceMessages.map((message) => [
+        new Date(message.at).toISOString(),
+        message.deliveryStatus ?? "",
+        message.mailbox,
+        message.subject,
+        message.recipientCount,
+        message.to.join("; "),
+        message.cc.join("; "),
+        message.bcc.join("; "),
       ]),
     ]);
   }
@@ -475,7 +544,7 @@ export default function AdminEmailActivityPage() {
           {/* Tabs */}
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 dark:border-gray-700">
             <div className="flex gap-1">
-              {(["emails", "recipients"] as const).map((name) => (
+              {(["emails", "recipients", "bounced"] as const).map((name) => (
                 <button
                   key={name}
                   type="button"
@@ -490,12 +559,34 @@ export default function AdminEmailActivityPage() {
                   <span className="ml-1.5 text-xs text-gray-400 dark:text-gray-500">
                     {name === "emails"
                       ? activity.rows.length.toLocaleString()
-                      : activity.recipients.length.toLocaleString()}
+                      : name === "recipients"
+                        ? activity.recipients.length.toLocaleString()
+                        : bounces
+                          ? bounces.recipients.length.toLocaleString()
+                          : ""}
                   </span>
                 </button>
               ))}
             </div>
             <div className="flex items-center gap-2 pb-2">
+              {tab === "bounced" && (
+                <div className="flex rounded-md border border-gray-300 dark:border-gray-600">
+                  {(["recipients", "messages"] as const).map((view) => (
+                    <button
+                      key={view}
+                      type="button"
+                      onClick={() => setBounceView(view)}
+                      className={`px-2.5 py-1 text-xs font-medium capitalize first:rounded-l-md last:rounded-r-md ${
+                        bounceView === view
+                          ? "bg-violet-600 text-white"
+                          : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      {view}
+                    </button>
+                  ))}
+                </div>
+              )}
               {tab === "recipients" && (
                 <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
                   <input
@@ -510,12 +601,22 @@ export default function AdminEmailActivityPage() {
               <input
                 value={rowFilter}
                 onChange={(event) => setRowFilter(event.target.value)}
-                placeholder={tab === "emails" ? "filter by subject or recipient" : "filter recipients"}
+                placeholder={
+                  tab === "emails" || (tab === "bounced" && bounceView === "messages")
+                    ? "filter by subject or recipient"
+                    : "filter recipients"
+                }
                 className="w-56 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900 dark:text-white"
               />
               <button
                 type="button"
-                onClick={tab === "emails" ? exportEmails : exportRecipients}
+                onClick={
+                  tab === "emails"
+                    ? exportEmails
+                    : tab === "bounced"
+                      ? exportBounces
+                      : exportRecipients
+                }
                 className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
               >
                 Export CSV
@@ -659,6 +760,216 @@ export default function AdminEmailActivityPage() {
                 </p>
               )}
             </div>
+          )}
+
+          {tab === "bounced" && bounces === undefined && (
+            <div className="flex items-center justify-center rounded-lg border border-gray-200 bg-white py-16 dark:border-gray-700 dark:bg-gray-800">
+              <div className="h-6 w-6 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600" />
+            </div>
+          )}
+
+          {tab === "bounced" && bounces && (
+            <>
+              {/*
+                Bounce coverage is its own read, not a slice of the numbers
+                above. The scan here skips the outbox (a queued message cannot
+                have bounced) and spreads its budget evenly over the mailboxes,
+                so it usually reaches far more sent mail than the mixed scan
+                behind the Emails tab. That also means the two bounce figures on
+                this page can differ, and this line is what explains why.
+              */}
+              <div
+                className={`mb-4 rounded-lg border p-3 text-sm ${
+                  bounces.truncated
+                    ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
+                    : "border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300"
+                }`}
+              >
+                {bounces.truncated ? (
+                  <>
+                    Read {bounces.sentScanned.toLocaleString()} sent messages across all{" "}
+                    {bounces.mailboxCount.toLocaleString()} mailboxes, up to the{" "}
+                    {bounces.scanCap.toLocaleString()} row cap. The domain has{" "}
+                    {bounces.sentAllTime.toLocaleString()} sent all time, so bounces older
+                    than this reach are not listed. Narrow the window to be sure of a
+                    shorter period.
+                  </>
+                ) : bounces.windowDays === null ? (
+                  <>
+                    Read all {bounces.sentScanned.toLocaleString()} sent messages this domain
+                    has, across {bounces.mailboxCount.toLocaleString()} mailboxes. This is
+                    every bounce on record for it.
+                  </>
+                ) : (
+                  <>
+                    Read all {bounces.sentScanned.toLocaleString()} messages sent in the last{" "}
+                    {bounces.windowDays} days, across {bounces.mailboxCount.toLocaleString()}{" "}
+                    mailboxes. Complete for this window. Switch to All time for the full
+                    history.
+                  </>
+                )}
+              </div>
+
+              <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+                <StatCard
+                  label="Bounced recipients"
+                  value={bounces.totals.recipients}
+                  color="red"
+                  sub="distinct addresses"
+                />
+                <StatCard
+                  label="Bounced messages"
+                  value={bounces.totals.bounceMessages}
+                  color="red"
+                  sub={`${bounces.totals.bounced.toLocaleString()} bounced, ${bounces.totals.failed.toLocaleString()} failed`}
+                />
+                <StatCard
+                  label="Bounce rate"
+                  value={`${(bounces.totals.rate * 100).toFixed(2)}%`}
+                  color={bounces.totals.rate > 0.05 ? "red" : "amber"}
+                  sub="of sent mail read"
+                />
+                <StatCard
+                  label="Sent read"
+                  value={bounces.sentScanned}
+                  color="gray"
+                  sub={`of ${bounces.sentAllTime.toLocaleString()} all time`}
+                />
+              </div>
+
+              {bounceView === "recipients" && (
+                <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">Recipient</th>
+                        <th className="px-4 py-3 text-right font-medium">Bounces</th>
+                        <th className="px-4 py-3 text-right font-medium">Bounced</th>
+                        <th className="px-4 py-3 text-right font-medium">Failed</th>
+                        <th className="px-4 py-3 font-medium">Last bounce</th>
+                        <th className="px-4 py-3 font-medium">Sent from</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {filteredBounceRecipients.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                            No bounced recipients in this window.
+                          </td>
+                        </tr>
+                      )}
+                      {filteredBounceRecipients.map((recipient) => (
+                        <tr key={recipient.email}>
+                          <td className="px-4 py-3">
+                            <div className="break-all font-medium text-gray-900 dark:text-white">
+                              {recipient.email}
+                            </div>
+                            {recipient.name && (
+                              <div className="text-xs text-gray-400 dark:text-gray-500">
+                                {recipient.name}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900/40 dark:text-red-400">
+                              {recipient.bounces}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
+                            {recipient.bounced}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">
+                            {recipient.failed}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                            {formatDateTime(recipient.lastAt)}
+                            <span className="block text-[11px] text-gray-400 dark:text-gray-500">
+                              {relativeTime(recipient.lastAt)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                            {recipient.mailboxes.slice(0, 2).join(", ")}
+                            {recipient.mailboxes.length > 2 &&
+                              ` +${recipient.mailboxes.length - 2}`}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {bounces.recipientsTruncated && (
+                    <p className="border-t border-gray-100 px-4 py-3 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500">
+                      Showing the {bounces.recipientCap.toLocaleString()} most bounced addresses.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {bounceView === "messages" && (
+                <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">When</th>
+                        <th className="px-4 py-3 font-medium">Status</th>
+                        <th className="px-4 py-3 font-medium">Subject</th>
+                        <th className="px-4 py-3 font-medium">From</th>
+                        <th className="px-4 py-3 font-medium">Recipients</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {filteredBounceMessages.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                            No bounced messages in this window.
+                          </td>
+                        </tr>
+                      )}
+                      {filteredBounceMessages.map((message) => (
+                        <tr key={message._id}>
+                          <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                            {formatDateTime(message.at)}
+                            <span className="block text-[11px] text-gray-400 dark:text-gray-500">
+                              {relativeTime(message.at)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <DeliveryPill status={message.deliveryStatus} />
+                          </td>
+                          <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                            {message.subject || "(no subject)"}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                            {message.mailbox}
+                          </td>
+                          <td className="px-4 py-3">
+                            <RecipientCell to={message.to} cc={message.cc} bcc={message.bcc} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {bounces.messagesTruncated && (
+                    <p className="border-t border-gray-100 px-4 py-3 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500">
+                      Showing the {bounces.rowCap.toLocaleString()} most recent bounced messages.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/*
+                A bounce is recorded against the message row, and a row carries
+                every address the message was addressed to. Campaign sends are
+                one row per recipient, so the attribution is exact there. A
+                hand-composed mail to several people is one row, so all of its
+                addresses appear here when it bounces for one of them.
+              */}
+              <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+                SES reports a bounce against a message. For campaign sends that is one
+                message per recipient, so each address above bounced. Where a single
+                message went to several addresses, all of them are listed even if only
+                one of them bounced.
+              </p>
+            </>
           )}
         </>
       )}
