@@ -8,7 +8,6 @@
  * @module
  */
 
-import type * as adminEmailActivity from "../adminEmailActivity.js";
 import type * as affiliates from "../affiliates.js";
 import type * as apiKeyActions from "../apiKeyActions.js";
 import type * as apiKeys from "../apiKeys.js";
@@ -53,7 +52,6 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  adminEmailActivity: typeof adminEmailActivity;
   affiliates: typeof affiliates;
   apiKeyActions: typeof apiKeyActions;
   apiKeys: typeof apiKeys;
