@@ -341,3 +341,223 @@ export const getDomainEmailActivity = query({
     };
   },
 });
+
+// ── Bounced mail ──
+//
+// getDomainEmailActivity above answers "what has this domain been sending",
+// and it reads the sent and outbox folders together under one shared cap. For
+// a domain with far more queued mail than sent mail that is the wrong shape
+// for a bounce question: the outbox rows eat the budget, the scan stops part
+// way down the mailbox list, and the bounce figure ends up counting only the
+// mailboxes that happened to come first.
+//
+// A bounce can only exist on a message SES already accepted, which is to say
+// a row in the sent folder. So this query never reads the outbox at all, and
+// spends the whole budget on sent mail spread evenly across every mailbox.
+// On the domain this was built against that is the difference between seeing
+// roughly a third of the sent mail and seeing all of it.
+
+// Delivery statuses that mean the message did not reach the recipient.
+// "failed" is SES rejecting or giving up, "bounced" is the receiving side
+// refusing it. Both belong on a suppression list, so both are collected here
+// and the per-status split is kept so a hard bounce is still tellable from a
+// send that never left.
+type BounceStatus = "bounced" | "failed";
+
+function isBounceStatus(status: string | undefined): status is BounceStatus {
+  return status === "bounced" || status === "failed";
+}
+
+export const getBouncedRecipients = query({
+  args: {
+    domainId: v.id("domains"),
+    // Same window semantics as getDomainEmailActivity, minus the outbox case:
+    // omitted means all time.
+    days: v.optional(v.number()),
+  },
+  handler: async (ctx, { domainId, days }) => {
+    await requireAdminUser(ctx);
+
+    const domain = await ctx.db.get(domainId);
+    if (!domain) return null;
+
+    const owner = await ctx.db.get(domain.userId);
+
+    const mailboxes = await ctx.db
+      .query("mailboxes")
+      .withIndex("by_domain_id", (q) => q.eq("domainId", domainId))
+      .collect();
+
+    const mailboxLabel = new Map<Id<"mailboxes">, string>();
+    for (const mailbox of mailboxes) {
+      mailboxLabel.set(mailbox._id, mailbox.fullAddress);
+    }
+
+    const since =
+      days && days > 0 ? Date.now() - days * 24 * 60 * 60 * 1000 : null;
+
+    // Budget split evenly over the mailboxes still to read, recomputed each
+    // time round. A quiet mailbox that does not use its share hands what is
+    // left to the ones after it, so the even split costs nothing when the
+    // domain fits inside the cap, and when it does not every mailbox is still
+    // represented instead of the list being cut off part way through.
+    let budget = SCAN_CAP;
+    let truncated = false;
+    let sentScanned = 0;
+    const bouncedRows: Doc<"emails">[] = [];
+
+    for (let i = 0; i < mailboxes.length; i++) {
+      if (budget <= 0) {
+        truncated = true;
+        break;
+      }
+      const mailbox = mailboxes[i];
+      const share = Math.max(1, Math.floor(budget / (mailboxes.length - i)));
+      const take = Math.min(share, budget);
+
+      // One more than the share, so a full result tells us this mailbox had
+      // more to give rather than us inferring it from an exact length.
+      const rows = await ctx.db
+        .query("emails")
+        .withIndex("by_mailbox_folder_date", (q) => {
+          const base = q.eq("mailboxId", mailbox._id).eq("folder", SENT_FOLDER);
+          return since !== null ? base.gte("date", since) : base;
+        })
+        .order("desc")
+        .take(take + 1);
+
+      if (rows.length > take) {
+        truncated = true;
+        rows.length = take;
+      }
+      budget -= rows.length;
+      sentScanned += rows.length;
+
+      for (const row of rows) {
+        if (isBounceStatus(row.deliveryStatus)) bouncedRows.push(row);
+      }
+    }
+
+    // Per-address rollup. This is the list an admin is actually after: one
+    // row per person, not one per message, so it can be handed to whoever
+    // maintains the suppression list.
+    const tally = new Map<
+      string,
+      {
+        email: string;
+        name: string | null;
+        bounces: number;
+        bounced: number;
+        failed: number;
+        firstAt: number;
+        lastAt: number;
+        mailboxes: string[];
+        lastSubject: string;
+      }
+    >();
+
+    let bouncedCount = 0;
+    let failedCount = 0;
+
+    for (const email of bouncedRows) {
+      if (email.deliveryStatus === "bounced") bouncedCount += 1;
+      else failedCount += 1;
+
+      const raws = [...email.to, ...(email.cc ?? []), ...(email.bcc ?? [])];
+      const mailbox = mailboxLabel.get(email.mailboxId) ?? email.from;
+
+      for (const address of recipientsOf(email)) {
+        const raw = raws.find((r) => normalizeAddress(r) === address);
+        const existing = tally.get(address);
+        if (existing) {
+          existing.bounces += 1;
+          if (email.deliveryStatus === "bounced") existing.bounced += 1;
+          else existing.failed += 1;
+          existing.firstAt = Math.min(existing.firstAt, email.date);
+          if (email.date > existing.lastAt) {
+            existing.lastAt = email.date;
+            existing.lastSubject = email.subject;
+          }
+          if (!existing.mailboxes.includes(mailbox)) existing.mailboxes.push(mailbox);
+          if (!existing.name) existing.name = raw ? displayNameOf(raw) : null;
+        } else {
+          tally.set(address, {
+            email: address,
+            name: raw ? displayNameOf(raw) : null,
+            bounces: 1,
+            bounced: email.deliveryStatus === "bounced" ? 1 : 0,
+            failed: email.deliveryStatus === "failed" ? 1 : 0,
+            firstAt: email.date,
+            lastAt: email.date,
+            mailboxes: [mailbox],
+            lastSubject: email.subject,
+          });
+        }
+      }
+    }
+
+    const recipients = [...tally.values()].sort(
+      (a, b) => b.bounces - a.bounces || b.lastAt - a.lastAt
+    );
+
+    const messages = bouncedRows
+      .map((email) => ({
+        _id: email._id,
+        mailbox: mailboxLabel.get(email.mailboxId) ?? email.from,
+        from: email.from,
+        subject: email.subject,
+        at: email.date,
+        deliveryStatus: email.deliveryStatus ?? null,
+        to: email.to,
+        cc: email.cc ?? [],
+        bcc: email.bcc ?? [],
+        recipientCount: recipientsOf(email).length,
+        batchId: email.batchId ?? null,
+      }))
+      .sort((a, b) => b.at - a.at);
+
+    // All-time sent, straight from the counters, so the page can say what
+    // share of the domain's sent mail this scan actually covered rather than
+    // leaving an admin to assume it was all of it.
+    let sentAllTime = 0;
+    for (const mailbox of mailboxes) {
+      const stats = await readMailboxStats(ctx, mailbox._id);
+      sentAllTime += stats.byFolder[SENT_FOLDER] ?? 0;
+    }
+
+    return {
+      domain: {
+        _id: domain._id,
+        domain: domain.domain,
+        verified: domain.verified,
+        ownerEmail: owner?.email ?? null,
+        ownerName: owner?.name ?? null,
+      },
+      windowDays: days ?? null,
+      since,
+      truncated,
+      scanCap: SCAN_CAP,
+      // Sent rows actually read, against the domain's all-time sent total.
+      // With no window and truncated false these two match, and the list
+      // below is every bounce the domain has.
+      sentScanned,
+      sentAllTime,
+      mailboxCount: mailboxes.length,
+      totals: {
+        bounceMessages: bouncedRows.length,
+        bounced: bouncedCount,
+        failed: failedCount,
+        recipients: recipients.length,
+        // Bounce rate over the sent mail that was read, which is the only
+        // denominator this query can honestly claim.
+        rate: sentScanned > 0 ? bouncedRows.length / sentScanned : 0,
+      },
+      recipients: recipients.slice(0, RECIPIENT_CAP),
+      recipientsTruncated: recipients.length > RECIPIENT_CAP,
+      recipientCap: RECIPIENT_CAP,
+      messages: messages.slice(0, ROW_CAP),
+      messagesTruncated: messages.length > ROW_CAP,
+      rowCap: ROW_CAP,
+    };
+  },
+});
