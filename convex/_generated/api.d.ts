@@ -15,6 +15,8 @@ import type * as awsAccountActions from "../awsAccountActions.js";
 import type * as awsAccounts from "../awsAccounts.js";
 import type * as contacts from "../contacts.js";
 import type * as crons from "../crons.js";
+import type * as deliverability from "../deliverability.js";
+import type * as deliverabilityNotify from "../deliverabilityNotify.js";
 import type * as domainActions from "../domainActions.js";
 import type * as domainHealth from "../domainHealth.js";
 import type * as domainHealthQueries from "../domainHealthQueries.js";
@@ -59,6 +61,8 @@ declare const fullApi: ApiFromModules<{
   awsAccounts: typeof awsAccounts;
   contacts: typeof contacts;
   crons: typeof crons;
+  deliverability: typeof deliverability;
+  deliverabilityNotify: typeof deliverabilityNotify;
   domainActions: typeof domainActions;
   domainHealth: typeof domainHealth;
   domainHealthQueries: typeof domainHealthQueries;

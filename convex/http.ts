@@ -248,7 +248,20 @@ http.route({
     }
 
     const body = await request.json();
-    const { messageId, status, timestamp, reason } = body;
+    const {
+      messageId,
+      status,
+      timestamp,
+      reason,
+      // Raw SES fields, forwarded by app/api/ses-webhook/route.ts. Optional:
+      // an event replayed from before that change carries none of them, and
+      // the classifier falls back to the collapsed status.
+      bounceType,
+      bounceSubType,
+      complaintFeedbackType,
+      diagnosticCode,
+      recipient,
+    } = body;
 
     console.log("[trackDelivery] received messageId:", messageId, "status:", status);
 
@@ -291,6 +304,29 @@ http.route({
         messageId,
         status,
         timestamp: eventTime,
+      });
+    }
+
+    // Per-account deliverability accounting. Separate from the two mutations
+    // above because it needs the raw SES classification rather than the
+    // collapsed delivery status, and because a complaint against ordinary mail
+    // has nowhere to go on the emails row: its deliveryStatus union has no
+    // "complained" member, so before this every customer complaint was read
+    // off SNS and dropped.
+    //
+    // Warmup is skipped: warmup sends are not counted in the send buckets, so
+    // counting their bounces would inflate the account's rate.
+    if (!warmupResult.matched) {
+      await ctx.runMutation(internal.deliverability.recordOutcome, {
+        sesMessageId: messageId,
+        status,
+        timestamp: eventTime,
+        bounceType: typeof bounceType === "string" ? bounceType : undefined,
+        bounceSubType: typeof bounceSubType === "string" ? bounceSubType : undefined,
+        complaintFeedbackType:
+          typeof complaintFeedbackType === "string" ? complaintFeedbackType : undefined,
+        diagnosticCode: typeof diagnosticCode === "string" ? diagnosticCode : undefined,
+        recipient: typeof recipient === "string" ? recipient : undefined,
       });
     }
     console.log(

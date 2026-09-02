@@ -37,6 +37,41 @@ async function clientsForMailboxResult(
   return getPlatformAwsClients();
 }
 
+// How long a scheduled send waits before re-checking enforcement, and how many
+// times it will wait. One hour for two weeks: long enough to ride out a review,
+// short enough that a lifted pause releases the queue the same hour.
+const ENFORCEMENT_DEFERRAL_MS = 60 * 60 * 1000;
+const ENFORCEMENT_MAX_DEFERRALS = 24 * 14;
+
+/**
+ * Deliverability enforcement gate.
+ *
+ * Returns whether the account owning this mailbox may send right now. An
+ * account in "monitor" (the default for everyone) always may; "throttle"
+ * allows sends under a rolling 24h ceiling; "pause" allows none.
+ *
+ * Fails open on purpose. If the lookup itself fails, that is an
+ * infrastructure problem rather than evidence of abuse, and refusing a
+ * customer's mail over it would be worse than the bounce spike this gate
+ * exists to contain. The warning is logged loudly instead.
+ */
+async function enforcementDecision(
+  ctx: ActionCtx,
+  userId: Id<"users">
+): Promise<{ allowed: boolean; reason?: string; mode?: string }> {
+  try {
+    return await ctx.runQuery(internal.deliverability.getEnforcementState, {
+      userId,
+    });
+  } catch (error) {
+    console.warn(
+      "[deliverability] enforcement check failed, allowing send:",
+      error
+    );
+    return { allowed: true };
+  }
+}
+
 // Generate unsubscribe headers and footer for RFC 8058 compliance
 // (Gmail/Yahoo 2024 one-click unsubscribe requirement)
 function buildUnsubscribeHeaders(unsubUrl: string, unsubPostUrl: string): string[] {
@@ -141,6 +176,12 @@ export const sendEmail = action({
     });
 
     if (!mailbox) throw new Error("Mailbox not found");
+
+    // Deliverability enforcement, before any other work on the send
+    const enforcement = await enforcementDecision(ctx, mailbox.userId);
+    if (!enforcement.allowed) {
+      throw new Error(enforcement.reason ?? "Sending is currently restricted on this account.");
+    }
 
     // Verify recipient emails before sending
     const allRecipients = [...to, ...(cc ?? []), ...(bcc ?? [])];
@@ -510,6 +551,49 @@ export const sendScheduledEmail = internalAction({
       return;
     }
 
+    // Deliverability enforcement, checked at execution time rather than at
+    // scheduling time: a pause put in place after the message was queued has
+    // to catch it, and one lifted before it fires has to let it through.
+    //
+    // A blocked job re-queues itself instead of being cancelled.
+    // ctx.scheduler.cancel cannot be undone, so cancelling here would turn a
+    // reversible pause into the permanent loss of a customer's queued
+    // schedule. The message keeps its outbox row and goes out on its own once
+    // enforcement is lifted.
+    const scheduledEnforcement = await enforcementDecision(ctx, emails.userId);
+    if (!scheduledEnforcement.allowed) {
+      const email = await ctx.runQuery(internal.emails.getByMailboxAndMessageId, {
+        mailboxId,
+        messageId,
+      });
+      const deferrals = email?.enforcementDeferredCount ?? 0;
+
+      if (deferrals >= ENFORCEMENT_MAX_DEFERRALS) {
+        console.warn(
+          `[sendScheduledEmail] messageId=${messageId} has deferred ${deferrals} times ` +
+            `under ${scheduledEnforcement.mode}; leaving it in the outbox for the owner to resend`
+        );
+        return;
+      }
+
+      const deferredUntil = Date.now() + ENFORCEMENT_DEFERRAL_MS;
+      const jobId = await ctx.scheduler.runAt(
+        deferredUntil,
+        internal.ses.sendScheduledEmail,
+        { s3Key, messageId, mailboxId, to, cc, bcc, fromAddress, batchId }
+      );
+      await ctx.runMutation(internal.emails.recordEnforcementDeferral, {
+        messageId,
+        scheduledJobId: String(jobId),
+        deferredUntil,
+      });
+      console.log(
+        `[sendScheduledEmail] deferring messageId=${messageId} for one hour ` +
+          `(${scheduledEnforcement.mode}); deferral ${deferrals + 1} of ${ENFORCEMENT_MAX_DEFERRALS}`
+      );
+      return;
+    }
+
     // Warming schedule enforcement
     const warmingSchedule = await ctx.runQuery(
       internal.warmingSchedules.getActiveByDomainId,
@@ -681,6 +765,13 @@ export const sendEmailViaApi = internalAction({
   handler: async (ctx, { mailboxId, to, subject, html, batchId }) => {
     const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
     if (!mailbox) throw new Error("Mailbox not found");
+
+    // Deliverability enforcement. This covers the public /v1/send route too,
+    // which reaches SES only through this action.
+    const apiEnforcement = await enforcementDecision(ctx, mailbox.userId);
+    if (!apiEnforcement.allowed) {
+      throw new Error(apiEnforcement.reason ?? "Sending is currently restricted on this account.");
+    }
 
     // Verify recipient emails before sending
     const apiVerification = await ctx.runAction(

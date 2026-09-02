@@ -13,6 +13,7 @@ import {
   patchEmailCounted,
   readMailboxStats,
 } from "./lib/counters";
+import { countSend } from "./lib/deliverability";
 
 export const getMailboxWithDomain = internalQuery({
   args: { mailboxId: v.id("mailboxes") },
@@ -647,6 +648,7 @@ export const markScheduledEmailAsSentByMessageId = internalMutation({
       scheduledJobId: undefined,
       date: Date.now(),
     });
+    await countSend(ctx, email.mailboxId);
   },
 });
 
@@ -694,6 +696,7 @@ export const markScheduledAsSent = internalMutation({
     sesMessageId: v.optional(v.string()),
   },
   handler: async (ctx, { emailId, sesMessageId }) => {
+    const scheduled = await ctx.db.get(emailId);
     // await ctx.db.patch(emailId, { ... });
     await patchEmailCounted(ctx, emailId, {
       folder: "sent",
@@ -703,6 +706,7 @@ export const markScheduledAsSent = internalMutation({
       scheduledJobId: undefined,
       date: Date.now(),
     });
+    if (scheduled) await countSend(ctx, scheduled.mailboxId);
   },
 });
 
@@ -736,6 +740,33 @@ export const cancelScheduledEmail = mutation({
 
     // await ctx.db.delete(emailId);
     await deleteEmailCounted(ctx, emailId);
+  },
+});
+
+/**
+ * Records that a scheduled send deferred itself because its account was under
+ * a deliverability throttle or pause when the job ran.
+ *
+ * The scheduler job is re-queued rather than cancelled. ctx.scheduler.cancel
+ * is unrecoverable, so cancelling a paused account's queue would destroy a
+ * customer's schedule to enforce something that is meant to be reversible.
+ * The row stays in the outbox with a later scheduledAt and the new job id.
+ */
+export const recordEnforcementDeferral = internalMutation({
+  args: {
+    messageId: v.string(),
+    scheduledJobId: v.optional(v.string()),
+    deferredUntil: v.optional(v.number()),
+  },
+  handler: async (ctx, { messageId, scheduledJobId, deferredUntil }) => {
+    const email = await findByMessageId(ctx.db, messageId);
+    if (!email) return;
+    await patchEmailCounted(ctx, email._id, {
+      ...(scheduledJobId ? { scheduledJobId } : {}),
+      ...(deferredUntil ? { scheduledAt: deferredUntil } : {}),
+      enforcementDeferredCount: (email.enforcementDeferredCount ?? 0) + 1,
+      enforcementDeferredAt: Date.now(),
+    });
   },
 });
 
@@ -781,7 +812,7 @@ export const insertSent = internalMutation({
   handler: async (ctx, { hasAttachments, folder, batchId, ...rest }) => {
     const emailFolder = folder ?? "sent";
     // return await ctx.db.insert("emails", { ... });
-    return await insertEmailCounted(ctx, {
+    const inserted = await insertEmailCounted(ctx, {
       ...rest,
       folder: emailFolder,
       read: true,
@@ -794,6 +825,16 @@ export const insertSent = internalMutation({
       deliveryStatus: emailFolder === "sent" ? "pending" : undefined,
       ...(batchId ? { batchId } : {}),
     });
+
+    // Per-account deliverability rollup. Counted here rather than in the send
+    // actions so it counts what SES actually accepted: this mutation runs
+    // after the SendEmailCommand returns, and every send path calls it.
+    // Drafts and outbox rows are not sends and are not counted.
+    if (emailFolder === "sent") {
+      await countSend(ctx, rest.mailboxId, rest.date);
+    }
+
+    return inserted;
   },
 });
 

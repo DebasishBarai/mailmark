@@ -151,6 +151,13 @@ export default defineSchema({
     // Scheduled send: set when the user schedules the email for later delivery
     scheduledAt: v.optional(v.number()),
     scheduledJobId: v.optional(v.string()),
+    // Set when a scheduled send found its account under a deliverability
+    // throttle or pause at execution time and re-queued itself instead of
+    // sending. The job is never cancelled: a cancelled scheduler job cannot be
+    // recovered, so a pause would silently destroy a customer's queue. The
+    // send defers, and it goes out on its own once enforcement is lifted.
+    enforcementDeferredCount: v.optional(v.number()),
+    enforcementDeferredAt: v.optional(v.number()),
   })
     .index("by_mailbox_folder", ["mailboxId", "folder"])
     // Every stats reader wanted "this mailbox's sent mail since <date>" but
@@ -587,6 +594,131 @@ export default defineSchema({
     finishedAt: v.optional(v.number()),
     lastError: v.optional(v.string()),
   }).index("by_name", ["name"]),
+
+  // ── Deliverability guardrails ────────────────────────────────────────────
+  //
+  // "Account" here is a users row. Domains, mailboxes and AWS accounts all
+  // hang off a user, and SES reputation is what the whole platform shares, so
+  // the user is the level a bounce spike has to be caught at.
+
+  // Enforcement state, one row per sending account. Created lazily in
+  // "monitor" on the account's first counted send.
+  //
+  // Mode is set by an internal mutation, never by the evaluator: a threshold
+  // breach records an incident and raises an alert in every mode, and only
+  // changes what sends in throttle or pause. Stopping a paying customer's
+  // campaign outright is rarely the right answer to a bounce spike, so
+  // throttle (a ceiling, default 100 sends per rolling 24h) is the expected
+  // response and pause is the blunt one.
+  accountDeliverability: defineTable({
+    userId: v.id("users"),
+    enforcementMode: v.union(
+      v.literal("monitor"),
+      v.literal("throttle"),
+      v.literal("pause")
+    ),
+    // Sends per rolling 24h allowed in "throttle" mode. Unset means the
+    // default in lib/deliverability.ts.
+    throttleDailyLimit: v.optional(v.number()),
+    modeSetAt: v.number(),
+    modeSetReason: v.optional(v.string()),
+    // Free-form note about who moved the account, e.g. an admin email.
+    modeSetBy: v.optional(v.string()),
+    // Denormalized from the most recent incident, so the internal listing can
+    // show why an account was moved without reading its incident history.
+    lastBreachAt: v.optional(v.number()),
+    lastBreachMetric: v.optional(v.string()),
+    lastBreachValue: v.optional(v.number()),
+    lastOwnerNotifiedAt: v.optional(v.number()),
+    lastInternalNotifiedAt: v.optional(v.number()),
+    lastEvaluatedAt: v.optional(v.number()),
+  }).index("by_user", ["userId"]),
+
+  // Per (account, clock hour) rollup of sending outcomes. The 24h and 7d
+  // windows are range reads over this index.
+  deliverabilityBuckets: defineTable({
+    userId: v.id("users"),
+    hourStart: v.number(),
+    sends: v.number(),
+    delivered: v.number(),
+    // Hard and soft are split on the raw SES bounceType (Permanent vs
+    // Transient), not on emails.deliveryStatus, which collapses them into a
+    // pair of labels that do not mean what their names suggest.
+    hardBounces: v.number(),
+    softBounces: v.number(),
+    complaints: v.number(),
+  })
+    .index("by_user_hour", ["userId", "hourStart"])
+    // Lets the retention cron find expired rows by date instead of scanning
+    // every account's history.
+    .index("by_hour", ["hourStart"]),
+
+  // One row per bounce or complaint, for forensics: which addresses on which
+  // send went bad, and what SES said about them. Deliveries and sends are not
+  // recorded here, only counted in the buckets above.
+  //
+  // This is also the only place a complaint against ordinary mail is recorded
+  // at all. emails.deliveryStatus has no "complained" member, so before this
+  // table complaints on customer sends were read off SNS and dropped.
+  deliverabilityEvents: defineTable({
+    userId: v.id("users"),
+    domainId: v.optional(v.id("domains")),
+    mailboxId: v.optional(v.id("mailboxes")),
+    emailId: v.optional(v.id("emails")),
+    sesMessageId: v.string(),
+    kind: v.union(
+      v.literal("hard_bounce"),
+      v.literal("soft_bounce"),
+      v.literal("complaint")
+    ),
+    bounceType: v.optional(v.string()),
+    bounceSubType: v.optional(v.string()),
+    complaintFeedbackType: v.optional(v.string()),
+    diagnosticCode: v.optional(v.string()),
+    recipient: v.optional(v.string()),
+    at: v.number(),
+  })
+    .index("by_user_at", ["userId", "at"])
+    .index("by_ses_message_id", ["sesMessageId"])
+    .index("by_at", ["at"]),
+
+  // One row per threshold breach: the metric that tripped, its value, the
+  // sample it was computed over, and what was done about it. This is the
+  // record the spec asks for, and it is written in every enforcement mode.
+  deliverabilityIncidents: defineTable({
+    userId: v.id("users"),
+    at: v.number(),
+    metric: v.union(
+      v.literal("hard_bounce_rate"),
+      v.literal("complaint_rate")
+    ),
+    // Stored as a fraction (0.054), not a percentage.
+    value: v.number(),
+    threshold: v.number(),
+    windowHours: v.number(),
+    sampleSends: v.number(),
+    hardBounces: v.number(),
+    complaints: v.number(),
+    enforcementMode: v.union(
+      v.literal("monitor"),
+      v.literal("throttle"),
+      v.literal("pause")
+    ),
+    // What the account's mode meant for sending at the moment of the breach.
+    // Nothing here auto-pauses: an account in monitor takes "none".
+    actionTaken: v.union(
+      v.literal("none"),
+      v.literal("throttled"),
+      v.literal("paused")
+    ),
+    ownerNotified: v.optional(v.boolean()),
+    internalNotified: v.optional(v.boolean()),
+    notifyError: v.optional(v.string()),
+    resolvedAt: v.optional(v.number()),
+    resolvedNote: v.optional(v.string()),
+  })
+    .index("by_user_at", ["userId", "at"])
+    .index("by_at", ["at"]),
 
   api_keys: defineTable({
     userId: v.id("users"),

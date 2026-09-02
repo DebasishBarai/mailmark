@@ -61,10 +61,21 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
         const bounceType = message.bounce?.bounceType;
         // Permanent bounces = failed, transient bounces = bounced (temporary)
         const status = bounceType === "Permanent" ? "failed" : "bounced";
+        const diagnosticCode =
+          message.bounce?.bouncedRecipients?.[0]?.diagnosticCode;
         const reason =
-          message.bounce?.bouncedRecipients?.[0]?.diagnosticCode ??
+          diagnosticCode ??
           [bounceType, message.bounce?.bounceSubType].filter(Boolean).join("/");
-        return await handleDeliveryNotification(message, status, reason);
+        // The raw SES fields are forwarded alongside the collapsed status.
+        // "failed" and "bounced" above are this codebase's own labels for
+        // permanent and transient, which is not what either word suggests, so
+        // per-account bounce accounting classifies on bounceType instead.
+        return await handleDeliveryNotification(message, status, reason, {
+          bounceType,
+          bounceSubType: message.bounce?.bounceSubType,
+          diagnosticCode,
+          recipient: message.bounce?.bouncedRecipients?.[0]?.emailAddress,
+        });
       }
 
       // Complaints were dropped here entirely. They still are for ordinary
@@ -72,9 +83,12 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
       // needs them: a complaint against a warmup send is a reputation event on
       // the customer's own SES account.
       if (eventType === "Complaint") {
-        const reason =
-          message.complaint?.complaintFeedbackType ?? "complaint";
-        return await handleDeliveryNotification(message, "complained", reason);
+        const complaintFeedbackType = message.complaint?.complaintFeedbackType;
+        const reason = complaintFeedbackType ?? "complaint";
+        return await handleDeliveryNotification(message, "complained", reason, {
+          complaintFeedbackType,
+          recipient: message.complaint?.complainedRecipients?.[0]?.emailAddress,
+        });
       }
 
       // Inbound mail is not ingested here any more.
@@ -146,10 +160,19 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
   }
 }
 
+type SesEventDetail = {
+  bounceType?: string;
+  bounceSubType?: string;
+  complaintFeedbackType?: string;
+  diagnosticCode?: string;
+  recipient?: string;
+};
+
 async function handleDeliveryNotification(
   message: Record<string, unknown>,
   status: "delivered" | "failed" | "bounced" | "complained",
-  reason?: string
+  reason?: string,
+  detail?: SesEventDetail
 ) {
   const mail = message.mail as Record<string, unknown> | undefined;
   console.log("[DELIVERY] status:", status, "| mail present:", !!mail);
@@ -181,7 +204,7 @@ async function handleDeliveryNotification(
         "Content-Type": "application/json",
         "x-webhook-secret": process.env.SES_WEBHOOK_SECRET!,
       },
-      body: JSON.stringify({ messageId, status, timestamp, reason }),
+      body: JSON.stringify({ messageId, status, timestamp, reason, ...(detail ?? {}) }),
     }
   );
   console.log("[DELIVERY] /trackDelivery response status:", trackRes.status, await trackRes.text());

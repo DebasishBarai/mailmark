@@ -100,4 +100,28 @@ crons.daily(
   {}
 );
 
+// Hourly at :07: re-evaluate every account that has sent in the last 24 hours
+// against the bounce and complaint thresholds.
+//
+// The real trigger is event driven: a rate can only rise when a bounce or
+// complaint arrives, and recordOutcome evaluates the account right there. This
+// is the safety net for a lost or late SNS delivery, and it is off the quarter
+// hours the warmup crons occupy.
+crons.cron(
+  "deliverability sweep",
+  "7 * * * *",
+  internal.deliverability.sweepAccounts,
+  {}
+);
+
+// Daily at 4:07 AM UTC: drop deliverability buckets past 30 days and bounce
+// events past 90 days. After the counter reconcile and entity stats rebuild so
+// the three walks do not compete.
+crons.daily(
+  "prune deliverability history",
+  { hourUTC: 4, minuteUTC: 7 },
+  internal.deliverability.pruneOldData,
+  {}
+);
+
 export default crons;
