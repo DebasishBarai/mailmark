@@ -31,14 +31,17 @@ import {
   BUCKET_RETENTION_MS,
   EVENT_RETENTION_MS,
   asPercent,
-  breachFor,
+  breachesFor,
   bumpBucket,
   classifyOutcome,
   deltaForOutcome,
   ensureAccountRow,
   getAccountRow,
   hourStartOf,
+  MIN_SAMPLE_SENDS,
   ratesFor,
+  readBuckets,
+  totalsFrom,
   windowTotals,
 } from "./lib/deliverability";
 
@@ -148,64 +151,72 @@ export const recordOutcome = internalMutation({
 async function evaluate(
   ctx: MutationCtx,
   userId: Id<"users">
-): Promise<{ breached: boolean }> {
+): Promise<{ breached: boolean; recorded: number }> {
   const now = Date.now();
   const totals = await windowTotals(ctx, userId, now - EVALUATION_WINDOW_MS);
-  const breach = breachFor(totals);
+  const breaches = breachesFor(totals);
 
   const account = await ensureAccountRow(ctx, userId);
-  await ctx.db.patch(account._id, { lastEvaluatedAt: now });
+  // Written at most once a minute. This is a diagnostic ("is the evaluator
+  // running?"), and every send reads this same row, so patching it on each
+  // bounce would put avoidable write conflicts in front of sending.
+  if (now - (account.lastEvaluatedAt ?? 0) > 60_000) {
+    await ctx.db.patch(account._id, { lastEvaluatedAt: now });
+  }
 
-  if (!breach) return { breached: false };
+  if (breaches.length === 0) return { breached: false, recorded: 0 };
 
-  // One incident per account per cooldown. A breached account keeps bouncing,
-  // and every bounce lands here.
+  // One incident per metric per cooldown. A breached account keeps bouncing,
+  // and every one of those bounces lands here.
   const recent = await ctx.db
     .query("deliverabilityIncidents")
     .withIndex("by_user_at", (q) =>
       q.eq("userId", userId).gte("at", now - INCIDENT_COOLDOWN_MS)
     )
     .collect();
-  if (recent.some((i) => i.metric === breach.metric)) {
-    return { breached: true };
-  }
 
   const mode = account.enforcementMode;
   const actionTaken =
     mode === "pause" ? "paused" : mode === "throttle" ? "throttled" : "none";
 
-  const incidentId = await ctx.db.insert("deliverabilityIncidents", {
-    userId,
-    at: now,
-    metric: breach.metric,
-    value: breach.value,
-    threshold: breach.threshold,
-    windowHours: Math.round(EVALUATION_WINDOW_MS / (60 * 60 * 1000)),
-    sampleSends: totals.sends,
-    hardBounces: totals.hardBounces,
-    complaints: totals.complaints,
-    enforcementMode: mode,
-    actionTaken,
-  });
+  let recorded = 0;
+  for (const breach of breaches) {
+    if (recent.some((i) => i.metric === breach.metric)) continue;
 
-  await ctx.db.patch(account._id, {
-    lastBreachAt: now,
-    lastBreachMetric: breach.metric,
-    lastBreachValue: breach.value,
-  });
+    const incidentId = await ctx.db.insert("deliverabilityIncidents", {
+      userId,
+      at: now,
+      metric: breach.metric,
+      value: breach.value,
+      threshold: breach.threshold,
+      windowHours: Math.round(EVALUATION_WINDOW_MS / (60 * 60 * 1000)),
+      sampleSends: totals.sends,
+      hardBounces: totals.hardBounces,
+      complaints: totals.complaints,
+      enforcementMode: mode,
+      actionTaken,
+    });
 
-  await ctx.scheduler.runAfter(
-    0,
-    internal.deliverabilityNotify.sendBreachNotification,
-    { incidentId }
-  );
+    await ctx.db.patch(account._id, {
+      lastBreachAt: now,
+      lastBreachMetric: breach.metric,
+      lastBreachValue: breach.value,
+    });
 
-  console.warn(
-    `[deliverability] ${breach.metric} breach for user ${userId}: ` +
-      `${asPercent(breach.value)}% over ${totals.sends} sends, mode=${mode}`
-  );
+    await ctx.scheduler.runAfter(
+      0,
+      internal.deliverabilityNotify.sendBreachNotification,
+      { incidentId }
+    );
 
-  return { breached: true };
+    console.warn(
+      `[deliverability] ${breach.metric} breach for user ${userId}: ` +
+        `${asPercent(breach.value)}% over ${totals.sends} sends, mode=${mode}`
+    );
+    recorded++;
+  }
+
+  return { breached: true, recorded };
 }
 
 /** Re-evaluates one account. Exposed for the sweep and for manual checks. */
@@ -226,13 +237,19 @@ export const evaluateAccount = internalMutation({
 export const sweepAccounts = internalMutation({
   args: { maxAccounts: v.optional(v.number()) },
   handler: async (ctx, { maxAccounts }) => {
-    const cap = maxAccounts ?? 500;
+    // Sized so one run stays comfortably inside Convex's 32,000 document scan
+    // cap: up to cap * 30 bucket rows here, plus roughly 25 more per account
+    // that evaluate() reads back.
+    const cap = maxAccounts ?? 200;
     const since = hourStartOf(Date.now() - EVALUATION_WINDOW_MS);
 
+    // Bounded rather than collected: this is a safety net behind the
+    // event-driven path, so reading a capped slice of the window is better
+    // than a query that grows with the platform and eventually throws.
     const recentBuckets = await ctx.db
       .query("deliverabilityBuckets")
       .withIndex("by_hour", (q) => q.gte("hourStart", since))
-      .collect();
+      .take(cap * 30);
 
     const active = new Set<Id<"users">>();
     for (const bucket of recentBuckets) {
@@ -376,13 +393,21 @@ export const markIncidentNotified = internalMutation({
 export const listAccountRates = internalQuery({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }) => {
-    const accounts = await ctx.db.query("accountDeliverability").take(limit ?? 200);
+    // Capped deliberately. Each account costs one 7 day bucket read, which is
+    // up to 169 documents, and Convex stops a query at 32,000 documents
+    // scanned. 100 accounts leaves comfortable headroom; raising this without
+    // moving to a paginated read would put the query at risk of throwing
+    // rather than degrading.
+    const accounts = await ctx.db.query("accountDeliverability").take(limit ?? 100);
     const now = Date.now();
 
     const rows = await Promise.all(
       accounts.map(async (account) => {
-        const day = await windowTotals(ctx, account.userId, now - EVALUATION_WINDOW_MS);
-        const week = await windowTotals(ctx, account.userId, now - REPORTING_WINDOW_MS);
+        // One read for the wider window, narrowed in memory for the shorter
+        // one. Reading both from the database would double the scan.
+        const buckets = await readBuckets(ctx, account.userId, now - REPORTING_WINDOW_MS);
+        const day = totalsFrom(buckets, now - EVALUATION_WINDOW_MS);
+        const week = totalsFrom(buckets, now - REPORTING_WINDOW_MS);
         const user = await ctx.db.get(account.userId);
         const dayRates = ratesFor(day);
         const weekRates = ratesFor(week);
@@ -420,7 +445,7 @@ export const listAccountRates = internalQuery({
           },
           // Whether the 24h window is large enough for its rates to mean
           // anything. A 30% rate over 10 sends is not a signal.
-          significant: day.sends >= 500,
+          significant: day.sends >= MIN_SAMPLE_SENDS,
         };
       })
     );
@@ -442,8 +467,9 @@ export const getAccountDetail = internalQuery({
   handler: async (ctx, { userId, eventLimit }) => {
     const now = Date.now();
     const account = await getAccountRow(ctx, userId);
-    const day = await windowTotals(ctx, userId, now - EVALUATION_WINDOW_MS);
-    const week = await windowTotals(ctx, userId, now - REPORTING_WINDOW_MS);
+    const buckets = await readBuckets(ctx, userId, now - REPORTING_WINDOW_MS);
+    const day = totalsFrom(buckets, now - EVALUATION_WINDOW_MS);
+    const week = totalsFrom(buckets, now - REPORTING_WINDOW_MS);
 
     const incidents = await ctx.db
       .query("deliverabilityIncidents")
@@ -495,7 +521,10 @@ export const getIncident = internalQuery({
 export const pruneOldData = internalMutation({
   args: { maxRows: v.optional(v.number()) },
   handler: async (ctx, { maxRows }) => {
-    const cap = maxRows ?? 2000;
+    // Each row is one delete, and a Convex transaction has a write ceiling.
+    // Two tables at 1000 rows each stays well inside it; the cron catches up
+    // over subsequent runs when there is more than that to drop.
+    const cap = maxRows ?? 1000;
     const now = Date.now();
 
     const staleBuckets = await ctx.db

@@ -566,7 +566,18 @@ export const sendScheduledEmail = internalAction({
         mailboxId,
         messageId,
       });
-      const deferrals = email?.enforcementDeferredCount ?? 0;
+
+      // No outbox row means the send was cancelled or purged while it was
+      // deferred. Re-queueing would loop forever, because the deferral counter
+      // that ends the loop lives on the row that is gone.
+      if (!email) {
+        console.log(
+          `[sendScheduledEmail] no outbox row for messageId=${messageId}; dropping the deferred send`
+        );
+        return;
+      }
+
+      const deferrals = email.enforcementDeferredCount ?? 0;
 
       if (deferrals >= ENFORCEMENT_MAX_DEFERRALS) {
         console.warn(

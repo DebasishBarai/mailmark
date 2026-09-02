@@ -316,18 +316,32 @@ http.route({
     //
     // Warmup is skipped: warmup sends are not counted in the send buckets, so
     // counting their bounces would inflate the account's rate.
+    //
+    // Wrapped: a throw here would fail the whole webhook with a 500, SNS would
+    // retry the notification indefinitely, and delivery status tracking (which
+    // already succeeded above) would be re-run on every retry. Bounce
+    // accounting is not worth breaking delivery tracking over, so a failure is
+    // logged and dropped.
     if (!warmupResult.matched) {
-      await ctx.runMutation(internal.deliverability.recordOutcome, {
-        sesMessageId: messageId,
-        status,
-        timestamp: eventTime,
-        bounceType: typeof bounceType === "string" ? bounceType : undefined,
-        bounceSubType: typeof bounceSubType === "string" ? bounceSubType : undefined,
-        complaintFeedbackType:
-          typeof complaintFeedbackType === "string" ? complaintFeedbackType : undefined,
-        diagnosticCode: typeof diagnosticCode === "string" ? diagnosticCode : undefined,
-        recipient: typeof recipient === "string" ? recipient : undefined,
-      });
+      try {
+        await ctx.runMutation(internal.deliverability.recordOutcome, {
+          sesMessageId: messageId,
+          status,
+          timestamp: eventTime,
+          bounceType: typeof bounceType === "string" ? bounceType : undefined,
+          bounceSubType: typeof bounceSubType === "string" ? bounceSubType : undefined,
+          complaintFeedbackType:
+            typeof complaintFeedbackType === "string" ? complaintFeedbackType : undefined,
+          diagnosticCode: typeof diagnosticCode === "string" ? diagnosticCode : undefined,
+          recipient: typeof recipient === "string" ? recipient : undefined,
+        });
+      } catch (error) {
+        console.error(
+          "[trackDelivery] deliverability accounting failed for messageId:",
+          messageId,
+          error
+        );
+      }
     }
     console.log(
       "[trackDelivery] mutation done for messageId:",

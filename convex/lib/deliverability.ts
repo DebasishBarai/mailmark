@@ -145,10 +145,15 @@ export async function ensureAccountRow(
   ctx: WriteCtx,
   userId: Id<"users">
 ): Promise<Doc<"accountDeliverability">> {
+  // .first() rather than .unique(): these helpers run inside the send path, and
+  // a duplicate row (which the index read's OCC conflict should prevent, but
+  // which would be unrecoverable if it ever occurred) must not be able to
+  // throw a customer's send. Degrading to a slightly undercounted statistic is
+  // the right failure here.
   const existing = await ctx.db
     .query("accountDeliverability")
     .withIndex("by_user", (q) => q.eq("userId", userId))
-    .unique();
+    .first();
   if (existing) return existing;
 
   const id = await ctx.db.insert("accountDeliverability", {
@@ -167,7 +172,7 @@ export async function getAccountRow(
   return await ctx.db
     .query("accountDeliverability")
     .withIndex("by_user", (q) => q.eq("userId", userId))
-    .unique();
+    .first();
 }
 
 /** Adds the given counts to the account's bucket for the hour containing `at`. */
@@ -185,7 +190,7 @@ export async function bumpBucket(
     .withIndex("by_user_hour", (q) =>
       q.eq("userId", userId).eq("hourStart", hourStart)
     )
-    .unique();
+    .first();
 
   if (existing) {
     await ctx.db.patch(existing._id, {
@@ -209,15 +214,75 @@ export async function bumpBucket(
   });
 }
 
-/** Counts one accepted send against the account that owns the mailbox. */
+/**
+ * Counts one accepted send against the account that owns the mailbox.
+ *
+ * Swallows its own failures on purpose. This runs inside the mutation that
+ * records a message SES has already accepted, and at that point the message is
+ * gone: if this throws, the mutation rolls back, the `emails` row is never
+ * written, and the caller reports a send failure for mail that actually went
+ * out, which invites a duplicate resend. A missing bucket increment is a small
+ * statistical gap; a lost sent-mail record is a real bug for the customer.
+ *
+ * Note this is not a guard against transaction conflicts. Convex retries a
+ * conflicted mutation from the top, which is the correct behavior and is
+ * unaffected by this catch.
+ */
 export async function countSend(
   ctx: WriteCtx,
   mailboxId: Id<"mailboxes">,
   at: number = Date.now()
 ): Promise<void> {
-  const mailbox = await ctx.db.get(mailboxId);
-  if (!mailbox) return;
-  await bumpBucket(ctx, mailbox.userId, { sends: 1 }, at);
+  try {
+    const mailbox = await ctx.db.get(mailboxId);
+    if (!mailbox) return;
+    await bumpBucket(ctx, mailbox.userId, { sends: 1 }, at);
+  } catch (error) {
+    console.error(
+      "[deliverability] failed to count send for mailbox",
+      mailboxId,
+      error
+    );
+  }
+}
+
+/** Reads an account's bucket rows from the hour containing `sinceMs` onward. */
+export async function readBuckets(
+  ctx: ReadCtx,
+  userId: Id<"users">,
+  sinceMs: number
+): Promise<Doc<"deliverabilityBuckets">[]> {
+  return await ctx.db
+    .query("deliverabilityBuckets")
+    .withIndex("by_user_hour", (q) =>
+      q.eq("userId", userId).gte("hourStart", hourStartOf(sinceMs))
+    )
+    .collect();
+}
+
+/**
+ * Sums an already-read set of buckets over a window.
+ *
+ * Kept separate from the read so a caller that needs two windows (24h and 7d,
+ * as the internal listing does) reads the wider one once and narrows it in
+ * memory. Reading twice would double the document count of a query that is
+ * already the largest read in this module.
+ */
+export function totalsFrom(
+  buckets: Doc<"deliverabilityBuckets">[],
+  sinceMs: number
+): WindowTotals {
+  const from = hourStartOf(sinceMs);
+  const totals = emptyTotals();
+  for (const b of buckets) {
+    if (b.hourStart < from) continue;
+    totals.sends += b.sends;
+    totals.delivered += b.delivered;
+    totals.hardBounces += b.hardBounces;
+    totals.softBounces += b.softBounces;
+    totals.complaints += b.complaints;
+  }
+  return totals;
 }
 
 /**
@@ -234,23 +299,7 @@ export async function windowTotals(
   userId: Id<"users">,
   sinceMs: number
 ): Promise<WindowTotals> {
-  const from = hourStartOf(sinceMs);
-  const buckets = await ctx.db
-    .query("deliverabilityBuckets")
-    .withIndex("by_user_hour", (q) =>
-      q.eq("userId", userId).gte("hourStart", from)
-    )
-    .collect();
-
-  const totals = emptyTotals();
-  for (const b of buckets) {
-    totals.sends += b.sends;
-    totals.delivered += b.delivered;
-    totals.hardBounces += b.hardBounces;
-    totals.softBounces += b.softBounces;
-    totals.complaints += b.complaints;
-  }
-  return totals;
+  return totalsFrom(await readBuckets(ctx, userId, sinceMs), sinceMs);
 }
 
 export function ratesFor(totals: WindowTotals): WindowRates {
@@ -269,31 +318,41 @@ export function asPercent(rate: number): number {
   return Math.round(rate * 100 * 1000) / 1000;
 }
 
+export type Breach = {
+  metric: "hard_bounce_rate" | "complaint_rate";
+  value: number;
+  threshold: number;
+};
+
 /**
- * Which threshold, if any, the window has crossed. Returns null when the
- * sample is too small to draw a conclusion from.
+ * Every threshold the window has crossed, empty when none or when the sample
+ * is too small to draw a conclusion from.
+ *
+ * Both metrics are reported rather than just the first match. They are
+ * independent problems with different causes and different fixes, and each
+ * incident carries its own cooldown, so returning only the worst one would
+ * hide a complaint breach for as long as a bounce breach persisted.
  */
-export function breachFor(
-  totals: WindowTotals
-): { metric: "hard_bounce_rate" | "complaint_rate"; value: number; threshold: number } | null {
-  if (totals.sends < MIN_SAMPLE_SENDS) return null;
+export function breachesFor(totals: WindowTotals): Breach[] {
+  if (totals.sends < MIN_SAMPLE_SENDS) return [];
 
   const rates = ratesFor(totals);
+  const breaches: Breach[] = [];
   if (rates.hardBounceRate >= HARD_BOUNCE_RATE_THRESHOLD) {
-    return {
+    breaches.push({
       metric: "hard_bounce_rate",
       value: rates.hardBounceRate,
       threshold: HARD_BOUNCE_RATE_THRESHOLD,
-    };
+    });
   }
   if (rates.complaintRate >= COMPLAINT_RATE_THRESHOLD) {
-    return {
+    breaches.push({
       metric: "complaint_rate",
       value: rates.complaintRate,
       threshold: COMPLAINT_RATE_THRESHOLD,
-    };
+    });
   }
-  return null;
+  return breaches;
 }
 
 export function metricLabel(metric: "hard_bounce_rate" | "complaint_rate"): string {
