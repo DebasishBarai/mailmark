@@ -563,7 +563,7 @@ export default function MailboxPage() {
   const isAnyUploading = composeAttachments.some((att) => att.status === "uploading");
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [verificationResults, setVerificationResults] = useState<Record<string, { isValid: boolean; reason?: string }>>({});
+  const [verificationResults, setVerificationResults] = useState<Record<string, { isValid: boolean; reason?: string; result?: string }>>({});
   const [isVerifying, setIsVerifying] = useState(false);
   const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showRecipientBreakdown, setShowRecipientBreakdown] = useState(false);
@@ -829,7 +829,9 @@ export default function MailboxPage() {
         setVerificationResults((prev) => {
           const next = { ...prev };
           for (const r of result.results) {
-            next[r.email.toLowerCase()] = { isValid: r.isValid, reason: r.reason };
+            // result as well as reason: reason is MillionVerifier's sub-result and is
+            // often absent, and "invalid" beats "Invalid" as a fallback.
+            next[r.email.toLowerCase()] = { isValid: r.isValid, reason: r.reason, result: r.result };
           }
           return next;
         });
@@ -2967,7 +2969,21 @@ export default function MailboxPage() {
               if (invalidRecipients.length > 0) return (
                 <div className="mt-3 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
                   <span className="font-medium">{invalidRecipients.length} invalid recipient{invalidRecipients.length > 1 ? "s" : ""} detected.</span>{" "}
-                  {invalidRecipients.map((e) => verificationResults[e.toLowerCase()]?.reason ?? "Invalid").join("; ")}. Remove them to avoid bounces.
+                  Remove {invalidRecipients.length > 1 ? "them" : "it"} to avoid bounces.
+                  {/* One line per address. The reasons used to be joined on their own,
+                      so two bad recipients read "Invalid; Invalid" and you could not
+                      tell which address either belonged to. */}
+                  <ul className="mt-1 space-y-0.5">
+                    {invalidRecipients.map((e) => {
+                      const v = verificationResults[e.toLowerCase()];
+                      const why = (v?.reason ?? v?.result ?? "invalid").replace(/_/g, " ");
+                      return (
+                        <li key={e} className="break-all">
+                          <span className="font-medium">{e}</span>: {why}
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
               );
               return null;
