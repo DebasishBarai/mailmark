@@ -28,6 +28,11 @@ export default defineSchema({
     // Optional because rows predating it carry nothing until the
     // contactCountBackfill sweep fills them in.
     contactCount: v.optional(v.number()),
+    // How many recipients rows this user holds, ie the size of their audience.
+    // Maintained by lib/recipients.ts recordRecipients on the send paths.
+    // Optional for the same reason contactCount is: rows predating it carry
+    // nothing until the recipientCountBackfill sweep fills them in.
+    recipientCount: v.optional(v.number()),
   }).index("by_clerk_id", ["clerkId"]),
 
   domains: defineTable({
@@ -204,6 +209,28 @@ export default defineSchema({
     userId: v.id("users"),
     email: v.string(),
     name: v.string(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_user_email", ["userId", "email"]),
+
+  // Distinct addresses a user has mailed: their audience.
+  //
+  // The contacts table above is reply derived. It only gains a row when
+  // someone writes *to* the user with a display name, or when the contacts API
+  // is called directly, so it is an address book rather than a measure of
+  // reach. A user who imports a CSV and mail merges to 5,000 people has 5,000
+  // recipients here and possibly zero contacts.
+  //
+  // A row per distinct address rather than a counter alone, because the number
+  // wanted is distinct addresses and dedup needs somewhere to look the address
+  // up. by_user_email is that lookup; users.recipientCount is the running
+  // total so nothing has to count these rows.
+  recipients: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    // When this address first entered the audience. Kept so the set can later
+    // be windowed (distinct recipients this month) without a schema change.
+    firstSeenAt: v.number(),
   })
     .index("by_user_id", ["userId"])
     .index("by_user_email", ["userId", "email"]),
