@@ -17,8 +17,22 @@ export const listByUserInternal = internalQuery({
 export const deleteInternal = internalMutation({
   args: { contactId: v.id("contacts") },
   handler: async (ctx, { contactId }) => {
+    // Read before the delete, since the row is the only thing that knows which
+    // user's contactCount has to come down.
+    const contact = await ctx.db.get(contactId);
     await ctx.db.delete(contactId);
     await countRemoved(ctx, contactBuckets());
+
+    if (contact) {
+      const user = await ctx.db.get(contact.userId);
+      if (user) {
+        // Clamped at 0: a row deleted before the backfill reached this user
+        // would otherwise push an unset count negative.
+        await ctx.db.patch(contact.userId, {
+          contactCount: Math.max(0, (user.contactCount ?? 0) - 1),
+        });
+      }
+    }
   },
 });
 
@@ -52,6 +66,15 @@ export const upsert = internalMutation({
     } else {
       await ctx.db.insert("contacts", { userId, email, name });
       await countCreated(ctx, contactBuckets());
+
+      // Only the insert branch moves the count. A name update above changes no
+      // row count, and this is deliberately not gated on PLAN_LIMITS.contacts:
+      // the cap is measured, not enforced, so an over-limit user keeps having
+      // their contacts captured and simply reports usage above their limit.
+      const user = await ctx.db.get(userId);
+      if (user) {
+        await ctx.db.patch(userId, { contactCount: (user.contactCount ?? 0) + 1 });
+      }
 
       // Verify at ingestion, not at send.
       //
@@ -94,5 +117,96 @@ export const listForCurrentUser = query({
       .query("contacts")
       .withIndex("by_user_id", (q) => q.eq("userId", user._id))
       .collect();
+  },
+});
+
+// ── contactCount backfill ───────────────────────────────────────────────────
+//
+// users.contactCount is maintained incrementally by upsert and deleteInternal
+// above, so every row written before that existed carries nothing. This walk
+// fills them in. It is safe to run again at any time: each pass recounts a
+// user from scratch rather than adjusting what is already there, so it also
+// repairs drift from a future mutation that forgets to move the count.
+//
+// Paged and scheduled rather than looped, so no single transaction goes near
+// the 32,000 document scan cap: one page of users per mutation, then one
+// mutation per user walking that user's contacts a page at a time.
+
+const USER_PAGE = 200;
+const CONTACT_PAGE = 500;
+
+/** Recount contactCount for every user. Run from the Convex dashboard. */
+export const startContactCountBackfill = internalMutation({
+  args: { cursor: v.optional(v.string()) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db
+      .query("users")
+      .paginate({ cursor: cursor ?? null, numItems: USER_PAGE });
+
+    for (const user of page.page) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.contacts.backfillUserContactCount,
+        { userId: user._id }
+      );
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.contacts.startContactCountBackfill,
+        { cursor: page.continueCursor }
+      );
+    }
+  },
+});
+
+/** Recount one user's contacts and write the total to their contactCount. */
+export const backfillUserContactCount = internalMutation({
+  args: {
+    userId: v.id("users"),
+    t0: v.optional(v.number()),
+    cursor: v.optional(v.string()),
+    tally: v.optional(v.number()),
+    snapshot: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    // User deleted mid-walk: there is nothing left to count for.
+    if (!user) return;
+
+    // First step of this user's walk: fix the cutoff and remember where the
+    // count stood, so upserts and deletes landing during the walk are added
+    // back at the end rather than overwritten. Same scheme as the mailbox and
+    // domain stat rebuilds in platformStats.ts.
+    const t0 = args.t0 ?? Date.now();
+    const snapshot = args.snapshot ?? (user.contactCount ?? 0);
+    let tally = args.tally ?? 0;
+
+    const page = await ctx.db
+      .query("contacts")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .paginate({ cursor: args.cursor ?? null, numItems: CONTACT_PAGE });
+
+    for (const contact of page.page) {
+      // Rows created at or after the cutoff are the live hooks' to count.
+      if (contact._creationTime >= t0) continue;
+      tally += 1;
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.contacts.backfillUserContactCount,
+        { userId: args.userId, t0, cursor: page.continueCursor, tally, snapshot }
+      );
+      return;
+    }
+
+    // Whatever the live hooks moved the count by during the walk is the drift
+    // between the snapshot and the count as it stands now. Clamped at 0 so a
+    // walk racing a delete cannot leave the field negative.
+    const drift = (user.contactCount ?? 0) - snapshot;
+    await ctx.db.patch(args.userId, { contactCount: Math.max(0, tally + drift) });
   },
 });

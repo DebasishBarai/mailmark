@@ -2,11 +2,17 @@ import { internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 
 // null = unlimited
+//
+// contacts is a stock cap (how many contact rows a user may hold at once), not
+// a monthly flow like emailsPerMonth. Nothing enforces it yet: contacts.upsert
+// still inserts past the cap and nothing is ever deleted. The number and the
+// per user count exist so usage can be measured before any gate is turned on.
 export const PLAN_LIMITS = {
-  free:     { domains: 1,    mailboxes: 3,    emailsPerMonth: 1_000 },
-  starter:  { domains: 1,    mailboxes: 3,    emailsPerMonth: 1_000 },
-  pro:      { domains: 5,    mailboxes: null, emailsPerMonth: 25_000 },
-  business: { domains: null, mailboxes: null, emailsPerMonth: 100_000 },
+  // Old: no contacts key.
+  free:     { domains: 1,    mailboxes: 3,    emailsPerMonth: 1_000,   contacts: 500 },
+  starter:  { domains: 1,    mailboxes: 3,    emailsPerMonth: 1_000,   contacts: 500 },
+  pro:      { domains: 5,    mailboxes: null, emailsPerMonth: 25_000,  contacts: 10_000 },
+  business: { domains: null, mailboxes: null, emailsPerMonth: 100_000, contacts: 50_000 },
 } as const;
 
 export type PlanLimits = typeof PLAN_LIMITS[keyof typeof PLAN_LIMITS];
@@ -115,11 +121,16 @@ export const getUsageAndLimits = query({
         domains: limits.domains,
         mailboxes: limits.mailboxes,
         emailsPerMonth: limits.emailsPerMonth,
+        contacts: limits.contacts,
       },
       usage: {
         domains: domains.length,
         mailboxes: mailboxes.length,
         emailsSentThisMonth,
+        // Read off the denormalised count rather than collecting the contacts
+        // table, which keeps this query as cheap as it was. Reads 0 for a user
+        // the backfill has not reached yet.
+        contacts: user.contactCount ?? 0,
       },
     };
   },
