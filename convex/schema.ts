@@ -526,9 +526,22 @@ export default defineSchema({
     lastError: v.optional(v.string()),
     // Counts for reporting: how the submitted addresses came back.
     resultCounts: v.optional(v.any()),
+    // walk rows only: how many steps in a row have thrown.
+    //
+    // Every step of the walk is a scheduled action, and Convex does not retry
+    // one that throws, so a single failure used to end a run silently: the row
+    // kept status "collecting" and simply stopped being updated. Steps are
+    // retried now, and this is what stops a step that fails deterministically
+    // from being retried forever. Reset to 0 by any step that succeeds.
+    consecutiveErrors: v.optional(v.number()),
   })
     .index("by_kind_status", ["kind", "status"])
     .index("by_run", ["runId"])
+    // Walk lookups take this rather than by_run: a run accumulates one file
+    // row per 5,000 addresses, each carrying the full list it submitted, and
+    // collecting every row of the run to find the single walk row meant every
+    // step of the scan re-read all of them.
+    .index("by_run_kind", ["runId", "kind"])
     .index("by_file_id", ["fileId"]),
 
   // SES sending events that arrived before the message row they describe.
