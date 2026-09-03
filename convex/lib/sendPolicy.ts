@@ -84,10 +84,19 @@ export const DEFAULT_UNKNOWN_POLICY: "allow" | "block" = "allow";
 export const DEFAULT_ON_VERIFIER_UNAVAILABLE: "hold" | "send" = "hold";
 
 // How long a held message waits before trying again, and how many times.
-// Ten minutes times 12 gives a verifier outage two hours to recover before any
-// message is given up on, which comfortably covers a rate-limit window.
+//
+// Ten minutes times 144 is twenty-four hours. The ceiling has to survive the
+// backfill, not just a rate-limit window: while 22,024 queued addresses are
+// being verified in bulk, a message whose send time arrives before its own
+// address has been reached will hold, and a two hour ceiling would turn that
+// ordinary timing into a permanently blocked message. A day is long enough for
+// a bulk file to land and for a human to notice an outage.
+//
+// Messages that do exhaust the ceiling are recoverable: they become blocked
+// rows with reason "verifier_unavailable", and ses.requeueBlockedByVerifier
+// re-arms them. Nothing is lost either way.
 export const HOLD_RETRY_MS = 10 * 60 * 1000;
-export const MAX_HOLDS = 12;
+export const MAX_HOLDS = 144;
 
 // ── Block reasons ──
 //
@@ -104,12 +113,19 @@ export const BLOCK_REASONS = {
   unknownBlocked: "unknown_blocked",
   malformedAddress: "malformed_address",
   verifierUnavailable: "verifier_unavailable",
+  // Distinct from the above on purpose. An unreachable API is an incident; an
+  // unset MILLIONVERIFIER_API_KEY is a deploy that forgot a step, and the two
+  // want completely different responses. Reading "verifier_unavailable" while
+  // MillionVerifier is perfectly healthy has sent people hunting in the wrong
+  // place before.
+  verifierNotConfigured: "verifier_not_configured",
 } as const;
 
 export const HOLD_REASONS = {
   sendingPaused: "sending_paused",
   awaitingVerification: "awaiting_verification",
   verifierUnavailable: "verifier_unavailable",
+  verifierNotConfigured: "verifier_not_configured",
 } as const;
 
 /** Runtime overrides read from the sendingControls row. */

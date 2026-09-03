@@ -1670,3 +1670,89 @@ export const reconcileS3Key = internalAction({
     return { adopted: true, s3Key: incomingS3Key };
   },
 });
+
+/**
+ * Re-arm messages the gate blocked because the verifier could not be reached.
+ *
+ * A block is normally correct and final. This exists for the one case where it
+ * is not: MillionVerifier was down (or its key was missing) for longer than the
+ * hold ceiling, so messages were marked blocked for a reason that had nothing
+ * to do with their recipients. Without this the only record of them would be a
+ * blocked row nothing could act on.
+ *
+ * Deliberately narrow. It touches only blocks whose reason is a verifier
+ * problem: suppressions, unsubscribes and invalid addresses are correct
+ * refusals and stay refused. Each message goes back through the full gate when
+ * its re-armed job fires, so a recipient that has since been suppressed is
+ * still refused.
+ *
+ * Run from the dashboard once the verifier is healthy again:
+ *   internal.ses.requeueBlockedByVerifier {}
+ */
+export const requeueBlockedByVerifier = internalAction({
+  args: {
+    cursor: v.optional(v.string()),
+    requeued: v.optional(v.number()),
+    maxPerRun: v.optional(v.number()),
+    // Spread the re-armed sends over this many minutes rather than firing them
+    // all at once. Releasing thousands of messages into SES in one burst is
+    // exactly the kind of spike that damages a sending reputation, which is
+    // the thing this whole change exists to protect.
+    spreadMinutes: v.optional(v.number()),
+  },
+  handler: async (
+    ctx,
+    { cursor, requeued, maxPerRun, spreadMinutes }
+  ): Promise<{ requeued: number }> => {
+    const limit = maxPerRun ?? 5000;
+    const spread = (spreadMinutes ?? 60) * 60 * 1000;
+    let done = requeued ?? 0;
+    if (done >= limit) return { requeued: done };
+
+    const page = await ctx.runQuery(internal.emails.listBlockedByVerifier, {
+      cursor,
+      limit: 100,
+    });
+
+    for (const row of page.rows) {
+      if (done >= limit) break;
+
+      const jobId = await ctx.scheduler.runAfter(
+        Math.floor(Math.random() * spread),
+        internal.ses.sendScheduledEmail,
+        {
+          s3Key: row.s3Key,
+          messageId: row.messageId,
+          mailboxId: row.mailboxId,
+          to: row.to,
+          cc: row.cc,
+          bcc: row.bcc,
+          fromAddress: row.from,
+          batchId: row.batchId,
+        }
+      );
+
+      const cleared = await ctx.runMutation(
+        internal.emails.clearVerifierBlock,
+        { emailId: row.emailId, scheduledJobId: String(jobId) }
+      );
+      if (cleared) done++;
+    }
+
+    if (!page.isDone && done < limit) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.ses.requeueBlockedByVerifier,
+        {
+          cursor: page.continueCursor,
+          requeued: done,
+          maxPerRun: limit,
+          spreadMinutes: spreadMinutes ?? 60,
+        }
+      );
+    }
+
+    console.log(`[requeueBlockedByVerifier] re-armed ${done} message(s)`);
+    return { requeued: done };
+  },
+});

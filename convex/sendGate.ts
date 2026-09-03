@@ -175,7 +175,41 @@ export const evaluateRecipients = internalQuery({
         (cached.expiresAt ?? cached.checkedAt + policy.verificationTtlMs) > now;
 
       if (!fresh) {
+        // Retry the lookup either way: this is how an outage recovers on its
+        // own without anybody re-queueing anything.
         result.needsVerification.push(email);
+
+        // An "error" row means a lookup was actually attempted and the
+        // verifier could not answer. That is the outage case, and it is the
+        // one the onVerifierUnavailable policy exists to decide, so it is run
+        // through decideForResult rather than being held unconditionally.
+        //
+        // Holding it unconditionally, which is what this did before, made the
+        // policy's "send" setting unreachable: an operator could set it during
+        // an outage and nothing would change, because an error row never got
+        // as far as the policy.
+        //
+        // An address with no row at all is different and is always held. We
+        // have not tried yet, so there is nothing to fail open about.
+        if (cached && cached.result === "error") {
+          const outageVerdict = decideForResult("error", policy);
+          if (outageVerdict.decision === "allow") {
+            result.allowed.push(email);
+          } else {
+            // recordResults stores the failure text in `reason`, so a hold
+            // caused by a missing key can say so instead of blaming an API
+            // that is actually healthy.
+            const notConfigured = cached.reason === "not_configured";
+            result.held.push({
+              email,
+              reason: notConfigured
+                ? HOLD_REASONS.verifierNotConfigured
+                : (outageVerdict.reason ?? HOLD_REASONS.verifierUnavailable),
+            });
+          }
+          continue;
+        }
+
         result.held.push({
           email,
           reason: HOLD_REASONS.awaitingVerification,

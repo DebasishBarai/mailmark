@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import {
   verifyOne,
   isOutageError,
+  isNotConfigured,
   type MvLookup,
 } from "./lib/millionVerifier";
 import { normalizeAddress, isPlausibleAddress } from "./lib/sendPolicy";
@@ -107,10 +108,20 @@ export const verifyAddresses = internalAction({
       (l) => l.result === "error" && isOutageError(l.errorReason)
     );
     if (outage) {
-      console.warn(
-        "[verification] MillionVerifier unavailable:",
-        lookups.find((l) => l.result === "error")?.errorReason
-      );
+      const reason = lookups.find((l) => l.result === "error")?.errorReason;
+      // Say plainly which of the two problems this is. An unset key looks
+      // exactly like an outage from the outside, and it will halt the whole
+      // queue just as effectively, so it must not be buried in a generic
+      // "unavailable" line.
+      if (isNotConfigured(reason)) {
+        console.error(
+          "[verification] MILLIONVERIFIER_API_KEY is not set on this deployment. " +
+            "No address can be verified, so sends will hold. Set it with: " +
+            "npx convex env set MILLIONVERIFIER_API_KEY <key>"
+        );
+      } else {
+        console.warn("[verification] MillionVerifier unavailable:", reason);
+      }
     }
 
     return {
@@ -240,10 +251,10 @@ export const revalidateExpired = internalAction({
       }
     );
 
+    // listExpired already restricts this to rows that carry a real, aged-out
+    // verdict; legacy and failed rows are excluded there.
     const emails = page.page
       .map((row: { email: string }) => row.email)
-      // A row with expiresAt unset is either a legacy DNS row or a failed
-      // lookup. Both are worth a real verdict.
       .filter((email: string) => isPlausibleAddress(email));
 
     if (emails.length > 0) {

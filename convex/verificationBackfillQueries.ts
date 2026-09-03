@@ -18,8 +18,18 @@ import { normalizeAddress, isPlausibleAddress } from "./lib/sendPolicy";
 const MAILBOX_PAGE = 50;
 const OUTBOX_PAGE = 400;
 
-/** Addresses collected before a file is submitted. Kept below the document
- * size limit: 5,000 addresses is roughly 150 KB, comfortably inside 16 MiB. */
+/**
+ * Addresses collected before a file is submitted to MillionVerifier.
+ *
+ * The binding constraint is the 1 MiB *document* limit, not the 16 MiB
+ * transaction read limit: this array is stored inline on the walk row. At
+ * roughly 30 bytes per address, 5,000 is about 150 KB, and the walk can
+ * overflow by up to one page of recipients before it flushes (see collectPage),
+ * so the real peak is nearer 200 KB. That leaves comfortable headroom.
+ *
+ * Raising this is not free: 30,000 addresses would put the row within reach of
+ * the 1 MiB ceiling, and a walk row that fails to write strands the run.
+ */
 export const BULK_BATCH_SIZE = 5000;
 
 export const getWalk = internalQuery({

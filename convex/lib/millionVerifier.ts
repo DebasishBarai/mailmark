@@ -36,10 +36,22 @@ export type MvLookup = {
 const SINGLE_API = "https://api.millionverifier.com/api/v3/";
 const BULK_API = "https://bulkapi.millionverifier.com/bulkapi/v2";
 
-/** Absent key is an outage, not a verdict: the policy holds sends by default. */
+/**
+ * The marker an unset key produces, so a caller can distinguish a deploy that
+ * forgot MILLIONVERIFIER_API_KEY from MillionVerifier being down. Both hold
+ * sends, but only one of them is fixed by waiting.
+ */
+export const NOT_CONFIGURED = "not_configured";
+
+/** Absent key holds sends by default; it is never a verdict about an address. */
 export function apiKey(): string | null {
   const key = process.env.MILLIONVERIFIER_API_KEY;
   return key && key.length > 0 ? key : null;
+}
+
+/** Whether a recorded error came from the key being unset. */
+export function isNotConfigured(reason?: string): boolean {
+  return reason === NOT_CONFIGURED;
 }
 
 /**
@@ -76,6 +88,10 @@ function normalizeResult(raw: unknown): MvResult {
  */
 export function isOutageError(reason?: string): boolean {
   if (!reason) return false;
+  // An unset key belongs here too. It is not an incident, but it has the same
+  // shape as one for control flow: every remaining call in the batch will fail
+  // identically, so stop rather than retrying each address in turn.
+  if (reason === NOT_CONFIGURED) return true;
   const text = reason.toLowerCase();
   return (
     text.includes("credit") ||
@@ -113,7 +129,7 @@ export async function verifyOne(
     return {
       email,
       result: "error",
-      errorReason: "MILLIONVERIFIER_API_KEY is not set",
+      errorReason: NOT_CONFIGURED,
     };
   }
 
@@ -183,7 +199,7 @@ export async function bulkUpload(
   fileName: string
 ): Promise<BulkUpload> {
   const key = apiKey();
-  if (!key) return { ok: false, error: "MILLIONVERIFIER_API_KEY is not set" };
+  if (!key) return { ok: false, error: NOT_CONFIGURED };
   if (emails.length === 0) return { ok: false, error: "empty batch" };
 
   const form = new FormData();
@@ -239,7 +255,7 @@ export type BulkStatus =
 
 export async function bulkStatus(fileId: string): Promise<BulkStatus> {
   const key = apiKey();
-  if (!key) return { ok: false, error: "MILLIONVERIFIER_API_KEY is not set" };
+  if (!key) return { ok: false, error: NOT_CONFIGURED };
 
   try {
     const response = await fetchWithTimeout(
@@ -299,7 +315,7 @@ export type BulkResults =
  */
 export async function bulkDownload(fileId: string): Promise<BulkResults> {
   const key = apiKey();
-  if (!key) return { ok: false, error: "MILLIONVERIFIER_API_KEY is not set" };
+  if (!key) return { ok: false, error: NOT_CONFIGURED };
 
   try {
     const response = await fetchWithTimeout(

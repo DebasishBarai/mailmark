@@ -1361,3 +1361,91 @@ export const replayPendingDeliveryEventsBatch = internalAction({
     }
   },
 });
+
+/**
+ * Messages the gate blocked for a reason that may since have gone away.
+ *
+ * Only verifier problems qualify. A suppression, an unsubscribe, or an invalid
+ * address is a correct and permanent refusal, and re-arming those would undo
+ * the entire point of the gate. A message blocked because the verifier was
+ * unreachable, or because the API key was missing, was refused for a reason
+ * that had nothing to do with the recipient.
+ *
+ * Paginated: the outbox is 40,000+ rows and a transaction may scan 32,000.
+ */
+export const listBlockedByVerifier = internalQuery({
+  args: {
+    cursor: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { cursor, limit }) => {
+    const page = await ctx.db
+      .query("sendBlocks")
+      .withIndex("by_reason", (q) => q.eq("reason", "verifier_unavailable"))
+      .paginate({ cursor: cursor ?? null, numItems: limit ?? 100 });
+
+    const rows: Array<{
+      emailId: Id<"emails">;
+      messageId: string;
+      mailboxId: Id<"mailboxes">;
+      s3Key: string;
+      to: string[];
+      cc?: string[];
+      bcc?: string[];
+      from: string;
+      batchId?: string;
+    }> = [];
+
+    for (const block of page.page) {
+      if (!block.messageId) continue;
+      const email = await findByMessageId(ctx.db, block.messageId);
+      // Only still-blocked rows are candidates. A message that has since been
+      // sent, or deliberately blocked for a different reason, is left alone.
+      if (!email || email.deliveryStatus !== "blocked") continue;
+      if (
+        email.blockReason !== "verifier_unavailable" &&
+        email.blockReason !== "verifier_not_configured"
+      ) {
+        continue;
+      }
+      rows.push({
+        emailId: email._id,
+        messageId: email.messageId,
+        mailboxId: email.mailboxId,
+        s3Key: email.s3Key,
+        to: email.to,
+        cc: email.cc,
+        bcc: email.bcc,
+        from: email.from,
+        batchId: email.batchId,
+      });
+    }
+
+    return { rows, isDone: page.isDone, continueCursor: page.continueCursor };
+  },
+});
+
+/**
+ * Clear a verifier block so the message can be dispatched again.
+ *
+ * The hold counter is reset too, otherwise the message would arrive at its
+ * exhausted ceiling immediately and block again on the first hold.
+ */
+export const clearVerifierBlock = internalMutation({
+  args: { emailId: v.id("emails"), scheduledJobId: v.optional(v.string()) },
+  handler: async (ctx, { emailId, scheduledJobId }) => {
+    const email = await ctx.db.get(emailId);
+    if (!email || email.deliveryStatus !== "blocked") return false;
+
+    await patchEmailCounted(ctx, emailId, {
+      deliveryStatus: undefined,
+      blockedAt: undefined,
+      blockReason: undefined,
+      blockDetail: undefined,
+      holdCount: 0,
+      lastHeldAt: undefined,
+      scheduledJobId,
+    });
+    return true;
+  },
+});

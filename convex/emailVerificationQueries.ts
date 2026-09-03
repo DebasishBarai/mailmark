@@ -261,11 +261,28 @@ export const recordResults = internalMutation({
 });
 
 /**
- * Addresses whose verdict has expired, oldest first.
+ * Addresses whose verdict has expired, oldest expiry first.
  *
- * Paginated by the caller: this table has a row per address the platform has
- * ever checked, which after the backfill is tens of thousands, so it is read a
- * page at a time and never collected.
+ * The range starts above zero deliberately, which excludes every row whose
+ * expiresAt is unset. Three kinds of row have no expiry, and none of them
+ * belongs in this sweep:
+ *
+ *   - legacy rows from the old DNS-only check
+ *   - rows whose lookup failed ("error")
+ *   - placeholders written by markRefreshStarted
+ *
+ * In Convex ordering, unset sorts before every number, so a bare
+ * `lt("expiresAt", now)` returned all of those *first*. There are potentially
+ * tens of thousands of legacy rows, so the sweep's daily budget would have
+ * been spent entirely on them and never reach a genuinely expired result -
+ * while paying single-lookup prices for addresses the bulk backfill handles
+ * far more cheaply. Those rows are already treated as unverified by the gate,
+ * so they get verified on demand or in bulk; this sweep exists only to renew
+ * results that have aged out.
+ *
+ * Paginated by the caller: after the backfill this table holds a row per
+ * address the platform has ever checked, so it is read a page at a time and
+ * never collected.
  */
 export const listExpired = internalQuery({
   args: {
@@ -278,7 +295,9 @@ export const listExpired = internalQuery({
   handler: async (ctx, { now, paginationOpts }) => {
     return await ctx.db
       .query("emailVerifications")
-      .withIndex("by_expires_at", (q) => q.lt("expiresAt", now))
+      .withIndex("by_expires_at", (q) =>
+        q.gt("expiresAt", 0).lt("expiresAt", now)
+      )
       .paginate(paginationOpts);
   },
 });
