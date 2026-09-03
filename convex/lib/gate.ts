@@ -1,6 +1,7 @@
 import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { describeReason } from "./sendPolicy";
 
 /**
  * The action-side wrapper around convex/sendGate.ts.
@@ -29,14 +30,20 @@ export type GateOutcome = {
   held: Array<{ email: string; reason: string }>;
 };
 
-/** A single line summarising why a send was refused, for an error message. */
+/**
+ * A single line summarising why a send was refused, for an error message.
+ *
+ * Reasons are put into words here rather than passed through as codes. This
+ * string is shown to whoever is composing, and it was reaching them reading
+ * "tom@example.com: invalid_address".
+ */
 export function describeRefusal(outcome: GateOutcome): string {
   const parts: string[] = [];
   for (const block of outcome.blocked) {
-    parts.push(`${block.email}: ${block.reason}`);
+    parts.push(`${block.email}: ${describeReason(block.reason)}`);
   }
   for (const hold of outcome.held) {
-    parts.push(`${hold.email}: ${hold.reason}`);
+    parts.push(`${hold.email}: ${describeReason(hold.reason)}`);
   }
   return parts.join("; ");
 }
