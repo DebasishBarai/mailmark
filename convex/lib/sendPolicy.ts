@@ -191,15 +191,65 @@ export function decideForResult(
 }
 
 /**
+ * MillionVerifier subresults that describe a temporary condition rather than a
+ * dead mailbox.
+ *
+ * Drawn from the documented Subresult enum. Every one of them can appear on an
+ * address that is perfectly real: a full mailbox empties, a greylisting server
+ * relents, a timeout was our side of the connection, an anti-spam system was
+ * having a bad day. Suppressing on any of them would permanently discard a
+ * valid recipient, which is the same mistake as suppressing on a transient
+ * SES bounce.
+ */
+const TRANSIENT_SUBRESULTS = new Set([
+  "internal_error",
+  "no_local_ip_available",
+  "dns_server_failed",
+  "dns_error",
+  "dns_refused",
+  "could_not_connect",
+  "connection_lost",
+  "connection_timeout",
+  "connection_refused",
+  "connection_reset_by_peer",
+  "connection_no_route_to_host",
+  "timeout_error",
+  "mailbox_full",
+  "greylisted",
+  "ip_blocked",
+  "anti_spam_system",
+  "mail_service_unavailable",
+  "host_not_accept_incoming_mail",
+  "no_code_in_banner",
+  "invalid_banner_code",
+  "no_code_in_ehlo_response",
+  "no_code_in_helo_response",
+  "no_code_in_mail_from_response",
+  "no_code_in_rcpt_to_response",
+  "unknown",
+]);
+
+/**
  * Which verification results are worth remembering as a suppression.
  *
  * An invalid or disposable address is invalid for everybody, so paying to
  * rediscover it on every campaign is waste. Suppression rows are per-user
  * though, so this only writes one for the account that tried to send.
+ *
+ * The subresult is consulted because "invalid" is not always a statement about
+ * the mailbox. MillionVerifier can return invalid with a subresult of
+ * mailbox_full, greylisted or connection_timeout, none of which proves the
+ * address does not exist. Those still *block* the send - the verdict is the
+ * verdict - but they must not become a permanent suppression, or a server
+ * having a bad afternoon costs us the address forever.
  */
 export function suppressionReasonForResult(
-  result: VerificationResult
+  result: VerificationResult,
+  subResult?: string
 ): "invalid" | "disposable" | null {
+  if (subResult && TRANSIENT_SUBRESULTS.has(subResult.toLowerCase())) {
+    return null;
+  }
   if (result === "invalid") return "invalid";
   if (result === "disposable") return "disposable";
   return null;

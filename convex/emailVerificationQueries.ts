@@ -250,7 +250,8 @@ export const recordResults = internalMutation({
 
       if (userId) {
         const reason = suppressionReasonForResult(
-          entry.result as VerificationResult
+          entry.result as VerificationResult,
+          entry.subResult
         );
         if (reason) await suppress(ctx, { userId, email, reason });
       }

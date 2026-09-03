@@ -32,6 +32,11 @@ import { VERIFICATION_TTL_MS } from "./lib/sendPolicy";
 // is frequent enough to be responsive and rare enough to be free.
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
+// How long a submitted file may sit unfinished before it is written off.
+// MillionVerifier quotes minutes to hours depending on list size and queue
+// depth, so two days is generous while still being finite.
+const STALE_BATCH_MS = 48 * 60 * 60 * 1000;
+
 // Verdicts applied per transaction. Each write is a read plus a patch on the
 // verifications table, so this stays far inside the transaction caps.
 const APPLY_CHUNK = 500;
@@ -178,15 +183,39 @@ export const pollFiles = internalAction({
           `[backfill] status check failed for file ${batch.fileId}:`,
           status.error
         );
+        // A terminal failure will not change on the next poll. Record it and
+        // stop, rather than asking about the same dead file every fifteen
+        // minutes forever.
         await ctx.runMutation(internal.verificationBackfillQueries.updateBatch, {
           batchId: batch._id,
           lastError: status.error,
+          ...(status.terminal
+            ? { status: "failed" as const, finished: true }
+            : {}),
         });
-        anyPending = true;
+        if (!status.terminal) anyPending = true;
         continue;
       }
 
       if (!status.finished) {
+        // Give up on a file that has been in progress implausibly long. Without
+        // this, a file MillionVerifier silently loses would be polled for the
+        // life of the deployment.
+        if (Date.now() - batch.startedAt > STALE_BATCH_MS) {
+          console.error(
+            `[backfill] file ${batch.fileId} still unfinished after ${Math.round(STALE_BATCH_MS / 3600000)}h, giving up`
+          );
+          await ctx.runMutation(
+            internal.verificationBackfillQueries.updateBatch,
+            {
+              batchId: batch._id,
+              status: "failed",
+              lastError: "timed out waiting for MillionVerifier to finish",
+              finished: true,
+            }
+          );
+          continue;
+        }
         anyPending = true;
         continue;
       }
@@ -238,6 +267,22 @@ export const applyResults = internalAction({
         batchId,
         status: "processing",
         lastError: download.error,
+      });
+      return;
+    }
+
+    // A finished file that yields no rows at all, when we submitted addresses,
+    // is a failed download rather than an empty report. Marking it applied
+    // would throw away verdicts we have already paid for and leave the
+    // addresses looking unverified forever.
+    if (download.rows.length === 0 && (batch.total ?? 0) > 0) {
+      console.error(
+        `[backfill] file ${batch.fileId} returned no rows for ${batch.total} submitted addresses; will retry`
+      );
+      await ctx.runMutation(internal.verificationBackfillQueries.updateBatch, {
+        batchId,
+        status: "processing",
+        lastError: "download returned no rows",
       });
       return;
     }

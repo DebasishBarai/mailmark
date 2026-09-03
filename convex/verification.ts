@@ -3,7 +3,6 @@ import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
   verifyOne,
-  isOutageError,
   isNotConfigured,
   type MvLookup,
 } from "./lib/millionVerifier";
@@ -32,17 +31,25 @@ async function lookupAll(emails: string[]): Promise<MvLookup[]> {
     const slice = emails.slice(i, i + SINGLE_CONCURRENCY);
     results.push(...(await Promise.all(slice.map((email) => verifyOne(email)))));
 
-    // An outage is an outage: once one call reports out of credits, rate
-    // limited, or unreachable, the rest of the batch would fail identically
-    // and each attempt costs latency. Stop, and let the policy decide what a
-    // missing verdict means.
-    if (results.some((r) => r.result === "error" && isOutageError(r.errorReason))) {
+    // An outage is an outage: once one call reports out of credits, a blocked
+    // IP, an unusable key or an unreachable host, the rest of the batch fails
+    // identically and each attempt costs latency. Stop, and let the send
+    // policy decide what a missing verdict means.
+    //
+    // This keys off the `systemic` flag the client derives from `resultcode`,
+    // not off the wording of the error. The service's own error text is not
+    // stable - its docs give "apikey_not_found" for a bad key while the live
+    // API answers "Api key not found" - and an earlier version of this matched
+    // substrings, which silently failed to recognise "IP address blocked",
+    // "Internal error" and "No apikey specified" as systemic at all.
+    const systemic = results.find(
+      (r) => r.result === "error" && r.systemic
+    );
+    if (systemic) {
       const remaining = emails.slice(i + SINGLE_CONCURRENCY);
-      const reason =
-        results.find((r) => r.result === "error")?.errorReason ??
-        "verifier unavailable";
+      const reason = systemic.errorReason ?? "verifier unavailable";
       for (const email of remaining) {
-        results.push({ email, result: "error", errorReason: reason });
+        results.push({ email, result: "error", errorReason: reason, systemic: true });
       }
       break;
     }
@@ -104,11 +111,10 @@ export const verifyAddresses = internalAction({
       userId,
     });
 
-    const outage = lookups.some(
-      (l) => l.result === "error" && isOutageError(l.errorReason)
-    );
+    const outage = lookups.some((l) => l.result === "error" && l.systemic);
     if (outage) {
-      const reason = lookups.find((l) => l.result === "error")?.errorReason;
+      const reason = lookups.find((l) => l.result === "error" && l.systemic)
+        ?.errorReason;
       // Say plainly which of the two problems this is. An unset key looks
       // exactly like an outage from the outside, and it will halt the whole
       // queue just as effectively, so it must not be buried in a generic
