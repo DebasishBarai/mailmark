@@ -21,6 +21,13 @@ export default defineSchema({
     // never be retried: every later addUser found the row and answered false.
     // Persisting it lets the client settle the debt on any later visit.
     signupConversionReportedAt: v.optional(v.number()),
+    // How many contacts rows this user holds, maintained by contacts.upsert
+    // and contacts.deleteInternal. Counting the rows instead would mean a
+    // .collect() over the whole contacts table for the user on a path that
+    // runs once per inbound email, so the count is denormalised here.
+    // Optional because rows predating it carry nothing until the
+    // contactCountBackfill sweep fills them in.
+    contactCount: v.optional(v.number()),
   }).index("by_clerk_id", ["clerkId"]),
 
   domains: defineTable({
