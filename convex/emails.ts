@@ -13,6 +13,7 @@ import {
   patchEmailCounted,
   readMailboxStats,
 } from "./lib/counters";
+import { recordRecipientsForMailbox } from "./lib/recipients";
 import { internal } from "./_generated/api";
 import { suppress } from "./suppressions";
 import { isPermanentBounce } from "./lib/sendPolicy";
@@ -683,6 +684,13 @@ export const insertScheduled = internalMutation({
     batchId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Scheduled mail counts towards the audience when it is queued, not when
+    // it eventually leaves: the user has committed to sending to these people.
+    await recordRecipientsForMailbox(ctx, args.mailboxId, [
+      ...args.to,
+      ...(args.cc ?? []),
+      ...(args.bcc ?? []),
+    ]);
     // return await ctx.db.insert("emails", { ... });
     return await insertEmailCounted(ctx, {
       ...args,
@@ -794,6 +802,17 @@ export const insertSent = internalMutation({
   },
   handler: async (ctx, { hasAttachments, folder, batchId, ...rest }) => {
     const emailFolder = folder ?? "sent";
+
+    // Every immediate send, from the app and from the API, lands here, so this
+    // is where the audience grows. Scheduled mail does not pass through: it is
+    // inserted by insertScheduled and later patched from outbox to sent, and
+    // insertScheduled records it at that point instead.
+    await recordRecipientsForMailbox(ctx, rest.mailboxId, [
+      ...rest.to,
+      ...(rest.cc ?? []),
+      ...(rest.bcc ?? []),
+    ]);
+
     // return await ctx.db.insert("emails", { ... });
     return await insertEmailCounted(ctx, {
       ...rest,

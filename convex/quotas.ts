@@ -3,16 +3,24 @@ import { v } from "convex/values";
 
 // null = unlimited
 //
-// contacts is a stock cap (how many contact rows a user may hold at once), not
-// a monthly flow like emailsPerMonth. Nothing enforces it yet: contacts.upsert
-// still inserts past the cap and nothing is ever deleted. The number and the
-// per user count exist so usage can be measured before any gate is turned on.
+// recipients is a stock cap on the size of a user's audience: how many distinct
+// addresses they have ever mailed, counted in the recipients table. It is not a
+// monthly flow like emailsPerMonth, and it is deliberately not a cap on the
+// contacts table. Production settled which of the two is the real measure: an
+// account that had mailed thousands of people held 18 contacts, because
+// contacts is reply derived and CSV merges and sequence enrollments never
+// touch it.
+//
+// Nothing enforces this yet. The send paths still send past the cap and nothing
+// is ever deleted. The number and the per user count exist so usage can be
+// measured before any gate is turned on.
 export const PLAN_LIMITS = {
-  // Old: no contacts key.
-  free:     { domains: 1,    mailboxes: 3,    emailsPerMonth: 1_000,   contacts: 500 },
-  starter:  { domains: 1,    mailboxes: 3,    emailsPerMonth: 1_000,   contacts: 500 },
-  pro:      { domains: 5,    mailboxes: null, emailsPerMonth: 25_000,  contacts: 10_000 },
-  business: { domains: null, mailboxes: null, emailsPerMonth: 100_000, contacts: 50_000 },
+  // Old: no recipients key, then briefly a contacts key with these same
+  // numbers, which measured the address book rather than the audience.
+  free:     { domains: 1,    mailboxes: 3,    emailsPerMonth: 1_000,   recipients: 500 },
+  starter:  { domains: 1,    mailboxes: 3,    emailsPerMonth: 1_000,   recipients: 500 },
+  pro:      { domains: 5,    mailboxes: null, emailsPerMonth: 25_000,  recipients: 10_000 },
+  business: { domains: null, mailboxes: null, emailsPerMonth: 100_000, recipients: 50_000 },
 } as const;
 
 export type PlanLimits = typeof PLAN_LIMITS[keyof typeof PLAN_LIMITS];
@@ -121,16 +129,22 @@ export const getUsageAndLimits = query({
         domains: limits.domains,
         mailboxes: limits.mailboxes,
         emailsPerMonth: limits.emailsPerMonth,
-        contacts: limits.contacts,
+        // Old: contacts: limits.contacts.
+        recipients: limits.recipients,
       },
       usage: {
         domains: domains.length,
         mailboxes: mailboxes.length,
         emailsSentThisMonth,
-        // Read off the denormalised count rather than collecting the contacts
-        // table, which keeps this query as cheap as it was. Reads 0 for a user
-        // the backfill has not reached yet.
+        // Both read off denormalised counts rather than collecting the tables,
+        // which keeps this query as cheap as it was. Each reads 0 for a user
+        // its backfill has not reached yet.
+        //
+        // contacts has no plan limit any more. It is kept because it is a real
+        // number about the account (people who have written in), just not the
+        // one a plan is sized on.
         contacts: user.contactCount ?? 0,
+        recipients: user.recipientCount ?? 0,
       },
     };
   },

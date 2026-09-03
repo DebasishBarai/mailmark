@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { recordRecipients } from "./lib/recipients";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { countChanged, countCreated, sequenceBuckets } from "./lib/counters";
 
@@ -137,6 +138,14 @@ export const enroll = internalMutation({
       status: "active",
       enrolledAt: Date.now(),
     });
+
+    // Enrolling is a commitment to mail this person, so they join the audience
+    // now rather than when the sequence's first step fires. The sequence row
+    // carries the userId; the enrollment does not.
+    const sequence = await ctx.db.get(sequenceId);
+    if (sequence) {
+      await recordRecipients(ctx, sequence.userId, [contactEmail]);
+    }
     return id;
   },
 });
