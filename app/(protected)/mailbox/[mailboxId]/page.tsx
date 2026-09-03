@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useAction } from "convex/react";
+import { sendErrorMessage } from "@/lib/sendErrors";
 import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { useSidebar } from "../../../components/SidebarContext";
@@ -872,7 +873,7 @@ export default function MailboxPage() {
       });
       resetComposeState();
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : "Failed to send email. Please try again.");
+      setSendError(sendErrorMessage(err, "Failed to send email. Please try again."));
     } finally {
       setIsSending(false);
     }
@@ -937,7 +938,7 @@ export default function MailboxPage() {
       }
       resetComposeState();
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : "Failed to send campaign. Please try again.");
+      setSendError(sendErrorMessage(err, "Failed to send campaign. Please try again."));
     } finally {
       setIsSending(false);
     }
@@ -967,7 +968,7 @@ export default function MailboxPage() {
       });
       resetComposeState();
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : "Failed to schedule email. Please try again.");
+      setSendError(sendErrorMessage(err, "Failed to schedule email. Please try again."));
     } finally {
       setIsSending(false);
     }
@@ -1032,7 +1033,7 @@ export default function MailboxPage() {
       }
       resetComposeState();
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : "Failed to schedule campaign. Please try again.");
+      setSendError(sendErrorMessage(err, "Failed to schedule campaign. Please try again."));
     } finally {
       setIsSending(false);
     }
