@@ -127,6 +127,23 @@ crons.interval(
   {}
 );
 
+// Every 15 minutes, off the quarter hours: restart a backfill scan whose
+// scheduled chain has gone.
+//
+// The scan is a chain of self-scheduling actions, hundreds of links long, and
+// Convex neither retries a scheduled function that throws nor carries one
+// across a deploy. The file half of the backfill has had the cron above to
+// cover that from the start; the walk half had nothing, so a broken link left
+// a run sitting at "collecting" with an updatedAt that had stopped moving and
+// nothing to notice it. Steps retry themselves now; this is the belt to that
+// braces, for the failure that stops a step from running at all.
+crons.cron(
+  "resume stalled verification backfill",
+  "8,23,38,53 * * * *",
+  internal.verificationBackfill.resumeStalled,
+  {}
+);
+
 // Daily at 4:20 AM UTC: re-verify addresses whose verdict has expired.
 //
 // Contact data decays at roughly 2% a month, so at the 90 day TTL about a

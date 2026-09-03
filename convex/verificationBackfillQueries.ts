@@ -1,5 +1,11 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  query,
+  type DatabaseReader,
+} from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { normalizeAddress, isPlausibleAddress } from "./lib/sendPolicy";
 
 /**
@@ -32,15 +38,24 @@ const OUTBOX_PAGE = 400;
  */
 export const BULK_BATCH_SIZE = 5000;
 
+/**
+ * The one walk row for a run.
+ *
+ * By runId *and* kind. Every caller here used to collect the whole run and
+ * pick the walk out of it, which meant re-reading every file row - each one
+ * carrying the 5,000 addresses it submitted - on every step of a scan that
+ * runs hundreds of steps.
+ */
+async function walkRow(db: DatabaseReader, runId: string) {
+  return await db
+    .query("verificationBatches")
+    .withIndex("by_run_kind", (q) => q.eq("runId", runId).eq("kind", "walk"))
+    .first();
+}
+
 export const getWalk = internalQuery({
   args: { runId: v.string() },
-  handler: async (ctx, { runId }) => {
-    const rows = await ctx.db
-      .query("verificationBatches")
-      .withIndex("by_run", (q) => q.eq("runId", runId))
-      .collect();
-    return rows.find((r) => r.kind === "walk") ?? null;
-  },
+  handler: async (ctx, { runId }) => await walkRow(ctx.db, runId),
 });
 
 export const startWalk = internalMutation({
@@ -55,6 +70,7 @@ export const startWalk = internalMutation({
       startedAt: now,
       updatedAt: now,
       total: 0,
+      consecutiveErrors: 0,
     });
   },
 });
@@ -79,11 +95,7 @@ const MAILBOXES_DONE = "DONE";
 export const collectPage = internalMutation({
   args: { runId: v.string() },
   handler: async (ctx, { runId }) => {
-    const rows = await ctx.db
-      .query("verificationBatches")
-      .withIndex("by_run", (q) => q.eq("runId", runId))
-      .collect();
-    const walk = rows.find((r) => r.kind === "walk");
+    const walk = await walkRow(ctx.db, runId);
 
     // A newer run has taken over, or this one was cancelled.
     if (!walk || walk.status !== "collecting") {
@@ -141,6 +153,7 @@ export const collectPage = internalMutation({
           mailboxQueue: [],
           currentMailboxId: undefined,
           emailCursor: undefined,
+          consecutiveErrors: 0,
           updatedAt: Date.now(),
         });
         return {
@@ -199,6 +212,7 @@ export const collectPage = internalMutation({
       emailCursor: mailboxFinished ? undefined : outboxPage.continueCursor,
       total: (walk.total ?? 0) + outboxPage.page.length,
       status: finished ? "uploading" : "collecting",
+      consecutiveErrors: 0,
       updatedAt: Date.now(),
     });
 
@@ -212,22 +226,28 @@ export const collectPage = internalMutation({
 });
 
 /**
- * Take the collected addresses off the walk row, dropping any that have since
- * been verified, and hand them to the caller to submit.
+ * Of the addresses handed in, the ones that still need verifying.
+ *
+ * Called a chunk at a time (see FRESH_CHUNK in verificationBackfill.ts), which
+ * is the whole point of it. This was takePending, which did the same lookup for
+ * every address on the walk row in a single mutation - up to the full
+ * BULK_BATCH_SIZE of 5,000 indexed reads, each one a separate round trip
+ * against a transaction that may run for one second and scan 32,000 documents.
+ * It is the one step in the flush that can throw while leaving the walk row
+ * untouched, which is exactly the state the first production run stalled in:
+ * pending full, status still "collecting", updatedAt frozen six seconds after
+ * the run began. APPLY_CHUNK already chunks the write side for this reason;
+ * the read side was simply missed.
+ *
+ * A query, not a mutation: it decides what to submit and changes nothing, so a
+ * failed upload leaves the addresses where they were. See dropPending.
  */
-export const takePending = internalMutation({
-  args: { runId: v.string(), ttlMs: v.optional(v.number()) },
-  handler: async (ctx, { runId, ttlMs }) => {
-    const rows = await ctx.db
-      .query("verificationBatches")
-      .withIndex("by_run", (q) => q.eq("runId", runId))
-      .collect();
-    const walk = rows.find((r) => r.kind === "walk");
-    if (!walk) return { emails: [] as string[] };
-
+export const filterUnverified = internalQuery({
+  args: { emails: v.array(v.string()), ttlMs: v.optional(v.number()) },
+  handler: async (ctx, { emails, ttlMs }) => {
     const now = Date.now();
-    const emails: string[] = [];
-    for (const email of walk.pending ?? []) {
+    const unverified: string[] = [];
+    for (const email of emails) {
       const cached = await ctx.db
         .query("emailVerifications")
         .withIndex("by_email", (q) => q.eq("email", email))
@@ -238,11 +258,89 @@ export const takePending = internalMutation({
         cached.result !== "error" &&
         (cached.expiresAt ?? cached.checkedAt + (ttlMs ?? 0)) > now;
       // Never pay twice: an address with a live verdict is not submitted.
-      if (!fresh) emails.push(email);
+      if (!fresh) unverified.push(email);
     }
+    return unverified;
+  },
+});
 
-    await ctx.db.patch(walk._id, { pending: [], updatedAt: now });
-    return { emails };
+/**
+ * Forget addresses the flush has finished with: submitted in a file, or
+ * dropped because they already held a live verdict.
+ *
+ * Removes the named addresses rather than emptying the array, so anything a
+ * concurrent collect step has added since survives, and so a flush that failed
+ * before this point leaves every address in place to be retried.
+ */
+export const dropPending = internalMutation({
+  args: { runId: v.string(), emails: v.array(v.string()) },
+  handler: async (ctx, { runId, emails }) => {
+    const walk = await walkRow(ctx.db, runId);
+    if (!walk) return;
+    const handled = new Set(emails);
+    await ctx.db.patch(walk._id, {
+      pending: (walk.pending ?? []).filter((email) => !handled.has(email)),
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Record that a step threw, and report how many have thrown in a row.
+ *
+ * Also bumps updatedAt, so a run that is failing and retrying does not look
+ * stalled to the watchdog and get a second chain started alongside it.
+ */
+export const noteWalkError = internalMutation({
+  args: { runId: v.string(), error: v.string() },
+  handler: async (ctx, { runId, error }) => {
+    const walk = await walkRow(ctx.db, runId);
+    if (!walk) return { found: false, consecutiveErrors: 0 };
+    const consecutiveErrors = (walk.consecutiveErrors ?? 0) + 1;
+    await ctx.db.patch(walk._id, {
+      consecutiveErrors,
+      lastError: error,
+      updatedAt: Date.now(),
+    });
+    return { found: true, consecutiveErrors };
+  },
+});
+
+/**
+ * Runs whose scheduled chain has gone away.
+ *
+ * A healthy walk patches its row on every page, a fraction of a second apart,
+ * so a row that has not moved in minutes has no chain behind it any more: the
+ * step that was to schedule the next one threw, or a deploy landed on it. The
+ * file half of the backfill has had a cron to cover that since it was written
+ * (see "poll bulk verification files"); the walk half had nothing, which is
+ * why a stalled run stayed stalled until someone noticed.
+ */
+export const listStalledWalks = internalQuery({
+  args: { olderThanMs: v.number() },
+  handler: async (ctx, { olderThanMs }) => {
+    const cutoff = Date.now() - olderThanMs;
+    const stalled: Doc<"verificationBatches">[] = [];
+    // Both live statuses: "collecting" is mid-scan, "uploading" is a scan that
+    // finished but whose last file never made it out.
+    for (const status of ["collecting", "uploading"] as const) {
+      const rows = await ctx.db
+        .query("verificationBatches")
+        .withIndex("by_kind_status", (q) =>
+          q.eq("kind", "walk").eq("status", status)
+        )
+        .take(25);
+      stalled.push(...rows.filter((row) => row.updatedAt < cutoff));
+    }
+    return stalled;
+  },
+});
+
+/** Mark a walk as just touched, so the next watchdog tick leaves it alone. */
+export const touchWalk = internalMutation({
+  args: { walkId: v.id("verificationBatches") },
+  handler: async (ctx, { walkId }) => {
+    await ctx.db.patch(walkId, { updatedAt: Date.now() });
   },
 });
 
@@ -327,11 +425,7 @@ export const updateBatch = internalMutation({
 export const finishWalk = internalMutation({
   args: { runId: v.string(), status: v.union(v.literal("done"), v.literal("failed")), error: v.optional(v.string()) },
   handler: async (ctx, { runId, status, error }) => {
-    const rows = await ctx.db
-      .query("verificationBatches")
-      .withIndex("by_run", (q) => q.eq("runId", runId))
-      .collect();
-    const walk = rows.find((r) => r.kind === "walk");
+    const walk = await walkRow(ctx.db, runId);
     if (!walk) return;
     await ctx.db.patch(walk._id, {
       status,
