@@ -62,6 +62,15 @@ const sidebarLinks = [
     ),
   },
   {
+    label: "Suppressions",
+    href: "/suppressions",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M18.75 10.5V6a3 3 0 00-3-3h-1.5a3 3 0 00-3 3v4.5m-6 0h16.5a1.5 1.5 0 011.5 1.5v7.5a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5V12a1.5 1.5 0 011.5-1.5z" />
+      </svg>
+    ),
+  },
+  {
     label: "Developer",
     href: "/developer",
     icon: (
