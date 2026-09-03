@@ -8,7 +8,7 @@ if (typeof globalThis.DOMParser === "undefined") {
   (globalThis as any).DOMParser = DOMParser;
 }
 
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { action, internalAction, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { PLAN_LIMITS } from "./quotas";
@@ -116,6 +116,22 @@ function buildRawMimeEmail(
   return lines.join("\r\n");
 }
 
+/**
+ * Why the public actions here throw ConvexError rather than Error.
+ *
+ * Convex redacts a plain Error on a production deployment: the client is
+ * handed "Server Error" and the message is dropped. Only ConvexError carries
+ * its payload through to the caller. Every refusal on this path had a specific
+ * reason written for the person composing the message - which recipient the
+ * gate refused and why, that sending is paused, that the monthly or warming
+ * limit is spent - and all of it was arriving in the compose window as
+ * "[CONVEX A(ses:sendEmail)] Server Error Called by client", which tells them
+ * nothing and looks like the product is broken rather than working correctly.
+ *
+ * Internal actions below are left on plain Error on purpose: they are called
+ * from the HTTP router and the scheduler, which read error.message server side
+ * where nothing is redacted.
+ */
 export const sendEmail = action({
   args: {
     mailboxId: v.id("mailboxes"),
@@ -135,14 +151,14 @@ export const sendEmail = action({
   handler: async (ctx, { mailboxId, to, cc, bcc, subject, body, attachments, folder, batchId }) => {
     const emailFolder = folder ?? "sent";
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    if (!identity) throw new ConvexError("Not authenticated");
 
     // Get mailbox and domain info
     const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, {
       mailboxId,
     });
 
-    if (!mailbox) throw new Error("Mailbox not found");
+    if (!mailbox) throw new ConvexError("Mailbox not found");
 
     // ── Eligibility gate ──
     //
@@ -165,7 +181,7 @@ export const sendEmail = action({
     });
 
     if (gate.sendingPaused) {
-      throw new Error(
+      throw new ConvexError(
         `Sending is paused${gate.pausedReason ? `: ${gate.pausedReason}` : ""}. No messages are being dispatched.`
       );
     }
@@ -175,7 +191,7 @@ export const sendEmail = action({
     // everyone else and dropping that address without saying so: on an
     // interactive path there is somebody to tell, and they can retry.
     if (gate.held.length > 0) {
-      throw new Error(
+      throw new ConvexError(
         `Could not verify ${gate.held.map((h) => h.email).join(", ")} right now. Nothing was sent; please try again shortly.`
       );
     }
@@ -186,7 +202,7 @@ export const sendEmail = action({
     bcc = bcc?.filter((e) => permitted.has(e.trim().toLowerCase()));
 
     if (to.length === 0 && (cc?.length ?? 0) === 0 && (bcc?.length ?? 0) === 0) {
-      throw new Error(
+      throw new ConvexError(
         `No eligible recipients. ${describeRefusal(gate)}`
       );
     }
@@ -199,7 +215,7 @@ export const sendEmail = action({
       userId: mailbox.userId,
     });
     if (sentThisMonth >= emailLimits.emailsPerMonth) {
-      throw new Error(
+      throw new ConvexError(
         `Monthly email limit reached (${emailLimits.emailsPerMonth.toLocaleString()} emails). Please upgrade your plan.`
       );
     }
@@ -210,7 +226,7 @@ export const sendEmail = action({
       { domainId: mailbox.domainId }
     );
     if (warmingSchedule && warmingSchedule.sentToday >= warmingSchedule.dailyLimit) {
-      throw new Error(
+      throw new ConvexError(
         `Warming limit reached for today (${warmingSchedule.dailyLimit} emails on day ${warmingSchedule.currentDay} of ${warmingSchedule.totalDays}). Sending will resume tomorrow.`
       );
     }
@@ -412,12 +428,12 @@ export const scheduleEmail = action({
   },
   handler: async (ctx, { mailboxId, to, cc, bcc, subject, body, attachments, scheduledAt, batchId }) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    if (!identity) throw new ConvexError("Not authenticated");
 
-    if (scheduledAt <= Date.now()) throw new Error("Scheduled time must be in the future");
+    if (scheduledAt <= Date.now()) throw new ConvexError("Scheduled time must be in the future");
 
     const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
-    if (!mailbox) throw new Error("Mailbox not found");
+    if (!mailbox) throw new ConvexError("Mailbox not found");
 
     // Screen at queue time so an already-known-bad address is refused while
     // the user is still looking at the compose window, rather than three weeks
@@ -438,12 +454,12 @@ export const scheduleEmail = action({
       allowInlineVerification: true,
     });
     if (schedGate.sendingPaused) {
-      throw new Error(
+      throw new ConvexError(
         `Sending is paused${schedGate.pausedReason ? `: ${schedGate.pausedReason}` : ""}.`
       );
     }
     if (schedGate.blocked.length > 0 && schedGate.allowed.length === 0 && schedGate.held.length === 0) {
-      throw new Error(`No eligible recipients. ${describeRefusal(schedGate)}`);
+      throw new ConvexError(`No eligible recipients. ${describeRefusal(schedGate)}`);
     }
 
     // Email quota check
@@ -454,7 +470,7 @@ export const scheduleEmail = action({
       userId: mailbox.userId,
     });
     if (schedSentThisMonth >= schedLimits.emailsPerMonth) {
-      throw new Error(
+      throw new ConvexError(
         `Monthly email limit reached (${schedLimits.emailsPerMonth.toLocaleString()} emails). Please upgrade your plan.`
       );
     }
