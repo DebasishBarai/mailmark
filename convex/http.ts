@@ -248,7 +248,7 @@ http.route({
     }
 
     const body = await request.json();
-    const { messageId, status, timestamp, reason } = body;
+    const { messageId, status, timestamp, reason, bounceType, bounceSubType, recipients } = body;
 
     console.log("[trackDelivery] received messageId:", messageId, "status:", status);
 
@@ -275,6 +275,27 @@ http.route({
     const eventTime = typeof timestamp === "number" ? timestamp : Date.now();
     const eventReason = typeof reason === "string" ? reason : undefined;
 
+    // Per-recipient detail, when SES sent any. Each entry names one address
+    // that actually failed and carries the receiving server's own words.
+    const eventRecipients: Array<{
+      email: string;
+      diagnosticCode?: string;
+      smtpStatus?: string;
+    }> = Array.isArray(recipients)
+      ? recipients
+          .filter(
+            (r: unknown): r is { email: string } =>
+              typeof r === "object" &&
+              r !== null &&
+              typeof (r as { email?: unknown }).email === "string"
+          )
+          .map((r) => ({
+            email: (r as { email: string }).email.toLowerCase(),
+            diagnosticCode: (r as { diagnosticCode?: string }).diagnosticCode,
+            smtpStatus: (r as { smtpStatus?: string }).smtpStatus,
+          }))
+      : [];
+
     // Warmup sends have no row in the emails table, so this is the only place
     // their bounces can be recorded. The mutation no-ops when the id belongs to
     // ordinary mail, and an SES message id only ever belongs to one of the two,
@@ -284,22 +305,53 @@ http.route({
       { sesMessageId: messageId, status, timestamp: eventTime, reason: eventReason }
     );
 
-    // "complained" is warmup-only for now: the emails table has no such
-    // delivery status, and the SNS handler used to drop complaints entirely.
-    if (!warmupResult.matched && status !== "complained") {
-      await ctx.runMutation(internal.emails.updateDeliveryStatus, {
-        messageId,
-        status,
-        timestamp: eventTime,
-      });
+    let applied = warmupResult.matched;
+
+    if (!warmupResult.matched) {
+      // Complaints are no longer dropped here: the emails table has a
+      // "complained" status now, and a complaint is the signal most likely to
+      // get an SES account suspended, so it must reach suppression.
+      const outcome = await ctx.runMutation(
+        internal.emails.recordDeliveryEvent,
+        {
+          sesMessageId: messageId,
+          status,
+          timestamp: eventTime,
+          reason: eventReason,
+          bounceType: typeof bounceType === "string" ? bounceType : undefined,
+          bounceSubType:
+            typeof bounceSubType === "string" ? bounceSubType : undefined,
+          recipients: eventRecipients,
+        }
+      );
+      applied = outcome.matched;
+
+      // No row for this id yet. sendEmail calls SES, then writes to S3, then
+      // inserts the row, and a hard bounce comes back faster than that, so the
+      // notification regularly arrived first, found nothing, and was dropped.
+      // That is how messages have sat in pending since March. Park it instead;
+      // replayPendingDeliveryEvents drains the parking lot.
+      if (!outcome.matched) {
+        await ctx.runMutation(internal.emails.parkDeliveryEvent, {
+          sesMessageId: messageId,
+          status,
+          timestamp: eventTime,
+          reason: eventReason,
+          bounceType: typeof bounceType === "string" ? bounceType : undefined,
+          bounceSubType:
+            typeof bounceSubType === "string" ? bounceSubType : undefined,
+          recipients: eventRecipients,
+        });
+      }
     }
+
     console.log(
       "[trackDelivery] mutation done for messageId:",
       messageId,
-      warmupResult.matched ? "(warmup send)" : ""
+      warmupResult.matched ? "(warmup send)" : applied ? "" : "(parked for replay)"
     );
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, applied }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });

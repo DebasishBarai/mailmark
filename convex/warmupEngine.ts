@@ -241,6 +241,23 @@ export const runWarmupRound = internalAction({
       {}
     );
 
+    // The kill switch, checked once for the whole round.
+    //
+    // Warmup is exempt from recipient verification (its recipients are
+    // platform-controlled mailboxes we own, so paying a verifier for them
+    // would be waste) but not from the operator halt. It has its own flag
+    // rather than following sendingPaused, because stopping the queue while a
+    // backfill runs should not also stop a domain's reputation ramp, which
+    // takes weeks to rebuild. See the sendingControls schema comment.
+    const controls = await ctx.runQuery(
+      internal.sendingControls.getStateInternal,
+      {}
+    );
+    if (controls.warmupPaused) {
+      console.log("[warmup] warmupPaused is set, skipping round");
+      return;
+    }
+
     const availableAccounts = await ctx.runQuery(
       internal.platformWarmupAccounts.getAvailableAccounts,
       {}

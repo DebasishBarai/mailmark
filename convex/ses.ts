@@ -23,6 +23,8 @@ import {
   getAwsClientsForAccount,
   type AwsClientBundle,
 } from "./lib/awsClients";
+import { evaluateForSend, describeRefusal } from "./lib/gate";
+import { HOLD_RETRY_MS, MAX_HOLDS, BLOCK_REASONS } from "./lib/sendPolicy";
 import type { Doc } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
 
@@ -142,31 +144,51 @@ export const sendEmail = action({
 
     if (!mailbox) throw new Error("Mailbox not found");
 
-    // Verify recipient emails before sending
-    const allRecipients = [...to, ...(cc ?? []), ...(bcc ?? [])];
-    const verification = await ctx.runAction(
-      internal.emailVerification.verifyRecipientsBeforeSend,
-      { emails: allRecipients }
-    );
-    if (!verification.allValid) {
+    // ── Eligibility gate ──
+    //
+    // One check for suppression, unsubscribes and verification, in that
+    // order, for every recipient. This replaces the old pair of checks here:
+    // a DNS/MX lookup that could not see whether a mailbox existed, and an
+    // unsubscribe filter that only ran when a batchId happened to be set.
+    //
+    // Compose is interactive, so it is allowed to wait for a verification the
+    // cache is missing. In practice the wait is rare: contact ingestion
+    // verifies addresses long before anybody composes to them.
+    const gate = await evaluateForSend(ctx, {
+      userId: mailbox.userId,
+      domainId: mailbox.domainId,
+      emails: [...to, ...(cc ?? []), ...(bcc ?? [])],
+      path: "compose",
+      mailboxId,
+      batchId,
+      allowInlineVerification: true,
+    });
+
+    if (gate.sendingPaused) {
       throw new Error(
-        `Invalid recipient(s): ${verification.invalid.join(", ")}. Please remove or correct them before sending.`
+        `Sending is paused${gate.pausedReason ? `: ${gate.pausedReason}` : ""}. No messages are being dispatched.`
       );
     }
 
-    // Filter out unsubscribed recipients (campaign emails)
-    if (batchId) {
-      const unsubscribed = await ctx.runQuery(
-        internal.unsubscribe.checkUnsubscribedRecipients,
-        { domainId: mailbox.domainId, emails: to }
+    // A recipient still held after the inline lookup means the verifier could
+    // not answer and policy says hold. Tell the user rather than sending to
+    // everyone else and dropping that address without saying so: on an
+    // interactive path there is somebody to tell, and they can retry.
+    if (gate.held.length > 0) {
+      throw new Error(
+        `Could not verify ${gate.held.map((h) => h.email).join(", ")} right now. Nothing was sent; please try again shortly.`
       );
-      if (unsubscribed.length > 0) {
-        const filtered = to.filter((e) => !unsubscribed.includes(e));
-        if (filtered.length === 0) {
-          return { success: true, messageId: "skipped-all-unsubscribed" };
-        }
-        to = filtered;
-      }
+    }
+
+    const permitted = new Set(gate.allowed);
+    to = to.filter((e) => permitted.has(e.trim().toLowerCase()));
+    cc = cc?.filter((e) => permitted.has(e.trim().toLowerCase()));
+    bcc = bcc?.filter((e) => permitted.has(e.trim().toLowerCase()));
+
+    if (to.length === 0 && (cc?.length ?? 0) === 0 && (bcc?.length ?? 0) === 0) {
+      throw new Error(
+        `No eligible recipients. ${describeRefusal(gate)}`
+      );
     }
 
     // Email quota check
@@ -397,16 +419,31 @@ export const scheduleEmail = action({
     const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
     if (!mailbox) throw new Error("Mailbox not found");
 
-    // Verify recipient emails before scheduling
-    const schedAllRecipients = [...to, ...(cc ?? []), ...(bcc ?? [])];
-    const schedVerification = await ctx.runAction(
-      internal.emailVerification.verifyRecipientsBeforeSend,
-      { emails: schedAllRecipients }
-    );
-    if (!schedVerification.allValid) {
+    // Screen at queue time so an already-known-bad address is refused while
+    // the user is still looking at the compose window, rather than three weeks
+    // later in a log. This is a courtesy check, not the authority: the gate in
+    // sendScheduledEmail runs again at dispatch, because suppression and
+    // unsubscribe state changes between now and then and a verification made
+    // today may have expired by the send date.
+    //
+    // Only outright blocks refuse the schedule. An address merely awaiting
+    // verification is queued as normal and resolved before it sends.
+    const schedGate = await evaluateForSend(ctx, {
+      userId: mailbox.userId,
+      domainId: mailbox.domainId,
+      emails: [...to, ...(cc ?? []), ...(bcc ?? [])],
+      path: "scheduled",
+      mailboxId,
+      batchId,
+      allowInlineVerification: true,
+    });
+    if (schedGate.sendingPaused) {
       throw new Error(
-        `Invalid recipient(s): ${schedVerification.invalid.join(", ")}. Please remove or correct them before sending.`
+        `Sending is paused${schedGate.pausedReason ? `: ${schedGate.pausedReason}` : ""}.`
       );
+    }
+    if (schedGate.blocked.length > 0 && schedGate.allowed.length === 0 && schedGate.held.length === 0) {
+      throw new Error(`No eligible recipients. ${describeRefusal(schedGate)}`);
     }
 
     // Email quota check
@@ -503,10 +540,115 @@ export const sendScheduledEmail = internalAction({
     batchId: v.optional(v.string()),
   },
   handler: async (ctx, { s3Key, messageId, mailboxId, to, cc, bcc, fromAddress, batchId }) => {
+    // The lists as scheduled. A hold re-arms the job with these rather than
+    // the gate-filtered ones, so an address held today is reconsidered on the
+    // retry instead of being quietly dropped from the message forever.
+    const originalTo = to;
+    const originalCc = cc;
+    const originalBcc = bcc;
+
     // Look up the outbox email record to verify it still exists
     const emails = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
     if (!emails) {
       console.log("[sendScheduledEmail] mailbox not found, skipping", mailboxId);
+      return;
+    }
+
+    // ── Eligibility gate ──
+    //
+    // This path had no checks at all. Verification ran when the message was
+    // *scheduled*, which for the current queue is up to three weeks before it
+    // sends, and unsubscribes were never consulted here at any point. Since
+    // this is the path that delivers every one of the 40,000+ queued messages,
+    // it is the one that most needed a gate.
+    //
+    // No inline verification: a lookup is scheduled and the message is held,
+    // so the API never sits in this path's latency.
+    const gate = await evaluateForSend(ctx, {
+      userId: emails.userId,
+      domainId: emails.domainId,
+      emails: [...to, ...(cc ?? []), ...(bcc ?? [])],
+      path: "scheduled",
+      mailboxId,
+      messageId,
+      batchId,
+    });
+
+    const permittedScheduled = new Set(gate.allowed);
+    to = to.filter((e) => permittedScheduled.has(e.trim().toLowerCase()));
+    cc = cc?.filter((e) => permittedScheduled.has(e.trim().toLowerCase()));
+    bcc = bcc?.filter((e) => permittedScheduled.has(e.trim().toLowerCase()));
+    const hasRecipient =
+      to.length > 0 || (cc?.length ?? 0) > 0 || (bcc?.length ?? 0) > 0;
+
+    // Held: the kill switch is on, or a verification is still in flight, or
+    // the verifier is unreachable and policy says hold. Re-arm rather than
+    // send or discard, so lifting the switch (or the API recovering) resumes
+    // the queue exactly where it stopped.
+    //
+    // Any held recipient holds the whole message, even when others are
+    // eligible. Sending to the eligible ones now would drop the held one from
+    // this message permanently: the send has happened, nothing re-queues it,
+    // and an address awaiting verification would silently never be mailed. A
+    // hold is temporary by definition, so waiting ten minutes and
+    // re-evaluating everybody costs nothing but delay.
+    //
+    // A *blocked* recipient is different and deliberately does not hold: that
+    // refusal is permanent, so the rest of the message goes out and the block
+    // is recorded.
+    if (gate.held.length > 0) {
+      const hold = await ctx.runMutation(
+        internal.emails.recordHoldByMessageId,
+        { messageId }
+      );
+
+      if (hold.holdCount > MAX_HOLDS) {
+        // Give up re-arming, but keep the message: it becomes a blocked row
+        // with a reason, which is visible, rather than a job cycling forever.
+        console.error(
+          `[sendScheduledEmail] ${messageId} held ${hold.holdCount} times, blocking`
+        );
+        await ctx.runMutation(internal.emails.markBlockedByMessageId, {
+          messageId,
+          reason: BLOCK_REASONS.verifierUnavailable,
+          detail: gate.held.map((h) => `${h.email}: ${h.reason}`).join("; "),
+        });
+        await ctx.runMutation(internal.sendGate.recordBlocks, {
+          userId: emails.userId,
+          path: "scheduled",
+          blocks: gate.held.map((h) => ({
+            email: h.email,
+            reason: BLOCK_REASONS.verifierUnavailable,
+            detail: h.reason,
+          })),
+          mailboxId,
+          messageId,
+          batchId,
+        });
+        return;
+      }
+
+      const jobId = await ctx.scheduler.runAfter(
+        HOLD_RETRY_MS,
+        internal.ses.sendScheduledEmail,
+        { s3Key, messageId, mailboxId, to: originalTo, cc: originalCc, bcc: originalBcc, fromAddress, batchId }
+      );
+      await ctx.runMutation(internal.emails.updateScheduledJobId, {
+        messageId,
+        scheduledJobId: String(jobId),
+      });
+      return;
+    }
+
+    // Every recipient refused. The row is marked blocked and kept, never
+    // deleted, so it stays queryable with the reason.
+    if (!hasRecipient) {
+      const first = gate.blocked[0];
+      await ctx.runMutation(internal.emails.markBlockedByMessageId, {
+        messageId,
+        reason: first?.reason ?? BLOCK_REASONS.invalidAddress,
+        detail: describeRefusal(gate),
+      });
       return;
     }
 
@@ -578,15 +720,28 @@ export const scheduleEmailViaApi = internalAction({
     const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
     if (!mailbox) throw new Error("Mailbox not found");
 
-    // Verify recipient emails before scheduling
-    const schedApiVerification = await ctx.runAction(
-      internal.emailVerification.verifyRecipientsBeforeSend,
-      { emails: to }
-    );
-    if (!schedApiVerification.allValid) {
+    // Same courtesy screen as scheduleEmail above; sendScheduledEmail is the
+    // authority at dispatch time.
+    const schedApiGate = await evaluateForSend(ctx, {
+      userId: mailbox.userId,
+      domainId: mailbox.domainId,
+      emails: to,
+      path: "api",
+      mailboxId,
+      batchId,
+      allowInlineVerification: true,
+    });
+    if (schedApiGate.sendingPaused) {
       throw new Error(
-        `Invalid recipient(s): ${schedApiVerification.invalid.join(", ")}. Please remove or correct them before sending.`
+        `Sending is paused${schedApiGate.pausedReason ? `: ${schedApiGate.pausedReason}` : ""}.`
       );
+    }
+    if (
+      schedApiGate.blocked.length > 0 &&
+      schedApiGate.allowed.length === 0 &&
+      schedApiGate.held.length === 0
+    ) {
+      throw new Error(`No eligible recipients. ${describeRefusal(schedApiGate)}`);
     }
 
     // Email quota check
@@ -677,32 +832,62 @@ export const sendEmailViaApi = internalAction({
     subject: v.string(),
     html: v.string(),
     batchId: v.optional(v.string()),
+    // Which caller this is, for the block log. Defaults to the public API.
+    path: v.optional(v.union(v.literal("api"), v.literal("sequence"))),
   },
-  handler: async (ctx, { mailboxId, to, subject, html, batchId }) => {
+  handler: async (ctx, { mailboxId, to, subject, html, batchId, path }) => {
     const mailbox = await ctx.runQuery(internal.emails.getMailboxWithDomain, { mailboxId });
     if (!mailbox) throw new Error("Mailbox not found");
 
-    // Verify recipient emails before sending
-    const apiVerification = await ctx.runAction(
-      internal.emailVerification.verifyRecipientsBeforeSend,
-      { emails: to }
-    );
-    if (!apiVerification.allValid) {
+    // ── Eligibility gate ──
+    //
+    // Sequence steps reach SES through this function, and they call it without
+    // a batchId, so the old `if (batchId)` unsubscribe filter never ran for
+    // them: a sequence would keep mailing someone who had opted out until the
+    // sequence finished. The gate has no such conditional.
+    //
+    // `path` distinguishes the two callers in the block log, so it is possible
+    // to tell afterwards whether bad addresses arrived through the public API
+    // or through a sequence.
+    const gate = await evaluateForSend(ctx, {
+      userId: mailbox.userId,
+      domainId: mailbox.domainId,
+      emails: to,
+      path: path ?? "api",
+      mailboxId,
+      batchId,
+      // A single API send is interactive enough to wait for a first-time
+      // lookup; a sequence step is not, and passes allowInlineVerification
+      // false so the step is retried rather than delayed.
+      allowInlineVerification: (path ?? "api") === "api",
+    });
+
+    // A hold is temporary and a block is permanent, and the caller has to be
+    // able to tell them apart: a sequence retries the step on a hold and
+    // cancels the enrollment on a block. The public API path, which has a
+    // caller waiting on an HTTP response, gets an exception for the hold
+    // instead so the client can retry the request.
+    if (gate.sendingPaused || gate.held.length > 0) {
+      if ((path ?? "api") === "sequence") {
+        return { messageId: "held", blocked: gate.blocked, held: gate.held };
+      }
       throw new Error(
-        `Invalid recipient(s): ${apiVerification.invalid.join(", ")}. Please remove or correct them before sending.`
+        gate.sendingPaused
+          ? `Sending is paused${gate.pausedReason ? `: ${gate.pausedReason}` : ""}.`
+          : `Recipient verification is still pending. ${describeRefusal(gate)}`
       );
     }
 
-    // Filter out unsubscribed recipients (campaign emails)
-    if (batchId) {
-      const apiUnsubs = await ctx.runQuery(
-        internal.unsubscribe.checkUnsubscribedRecipients,
-        { domainId: mailbox.domainId, emails: to }
-      );
-      if (apiUnsubs.length > 0) {
-        to = to.filter((e) => !apiUnsubs.includes(e));
-        if (to.length === 0) return { messageId: "skipped-all-unsubscribed" };
-      }
+    const apiPermitted = new Set(gate.allowed);
+    to = to.filter((e) => apiPermitted.has(e.trim().toLowerCase()));
+    if (to.length === 0) {
+      // Not an error: a suppressed or unsubscribed recipient is an expected
+      // outcome, and the sequence caller treats a throw as a step failure.
+      return {
+        messageId: "blocked",
+        blocked: gate.blocked,
+        held: gate.held,
+      };
     }
 
     // Email quota check
