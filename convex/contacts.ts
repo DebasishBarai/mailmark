@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { query, internalMutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { contactBuckets, countCreated, countRemoved } from "./lib/counters";
+import { isPlausibleAddress } from "./lib/sendPolicy";
 
 export const listByUserInternal = internalQuery({
   args: { userId: v.id("users") },
@@ -50,6 +52,26 @@ export const upsert = internalMutation({
     } else {
       await ctx.db.insert("contacts", { userId, email, name });
       await countCreated(ctx, contactBuckets());
+
+      // Verify at ingestion, not at send.
+      //
+      // This is the cheapest possible moment to learn an address is dead: it
+      // is one lookup, it happens once, and the answer is cached long before
+      // any campaign needs it, so the send path never waits on the API. It is
+      // scheduled rather than awaited because this mutation runs inside
+      // inbound mail ingestion and the contacts API, neither of which should
+      // block on a third party.
+      //
+      // Only for new contacts. An address already in the table has either been
+      // verified already or will be picked up by the revalidation sweep, and
+      // re-verifying on every name update would pay for the same lookup twice.
+      if (isPlausibleAddress(email)) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.verification.verifyAddressesAsync,
+          { emails: [email], userId }
+        );
+      }
     }
   },
 });

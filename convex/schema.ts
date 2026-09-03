@@ -127,14 +127,45 @@ export default defineSchema({
     starred: v.boolean(),
     hasAttachments: v.boolean(),
     s3Key: v.string(),
-    // Delivery tracking: set when SES delivery notification is received
+    // Delivery tracking: set when SES delivery notification is received.
+    //
+    // "failed" is a permanent (hard) bounce and "bounced" a transient one:
+    // that mapping is set in app/api/ses-webhook/route.ts and is why the
+    // production snapshot shows 643 failed against 163 bounced. Only the
+    // permanent ones feed suppression.
+    //
+    // "complained" and "blocked" are new. Complaints used to be dropped for
+    // ordinary mail because there was no status to record them in, which cost
+    // us the strongest reputation signal SES gives. "blocked" marks a message
+    // the eligibility gate refused: the row is kept, never deleted, so a
+    // blocked send stays queryable alongside the reason.
     deliveryStatus: v.optional(v.union(
       v.literal("pending"),
       v.literal("delivered"),
       v.literal("failed"),
-      v.literal("bounced")
+      v.literal("bounced"),
+      v.literal("complained"),
+      v.literal("blocked")
     )),
     deliveredAt: v.optional(v.number()),
+    // What the receiving server actually said. Without these we can count
+    // failures but cannot tell a dead mailbox ("550 5.1.1 user unknown") from
+    // a policy rejection ("550 5.7.1 blocked"), which are opposite problems:
+    // the first means the list is stale, the second means our reputation is.
+    bounceType: v.optional(v.string()),
+    bounceSubType: v.optional(v.string()),
+    diagnosticCode: v.optional(v.string()),
+    bouncedAt: v.optional(v.number()),
+    complainedAt: v.optional(v.number()),
+    // Why the gate refused this message, mirroring the sendBlocks row.
+    blockedAt: v.optional(v.number()),
+    blockReason: v.optional(v.string()),
+    blockDetail: v.optional(v.string()),
+    // How many times a scheduled send has been held (verifier unreachable, a
+    // verification still in flight, the kill switch on). Bounded so a message
+    // cannot be re-armed forever.
+    holdCount: v.optional(v.number()),
+    lastHeldAt: v.optional(v.number()),
     // Open tracking: set when recipient loads the tracking pixel
     openedAt: v.optional(v.number()),
     // Batch ID: shared across all per-recipient emails sent in one compose action
@@ -275,6 +306,19 @@ export default defineSchema({
     // rather than a collect of every unsubscribe the domain has ever had.
     .index("by_domain_date", ["domainId", "unsubscribedAt"]),
 
+  // Cached per-address verification results.
+  //
+  // This table predates MillionVerifier: it held the outcome of a syntax check
+  // and an MX lookup, which is a check on the *domain*, not the mailbox. Every
+  // one of the 643 addresses that hard bounced with "mailbox does not exist"
+  // passed it, because their domains resolve and answer mail perfectly well.
+  // The DNS fields are kept (old rows still carry them, and a syntax failure is
+  // still worth short-circuiting on) but the field that now decides a send is
+  // `result`, which comes from MillionVerifier and speaks about the mailbox.
+  //
+  // Rows are never scoped to a user. An address either accepts mail or it does
+  // not, and that fact costs money to establish, so it is shared platform-wide.
+  // Suppression, which *is* a per-account judgement, lives in its own table.
   emailVerifications: defineTable({
     email: v.string(),
     isValid: v.boolean(),
@@ -282,8 +326,233 @@ export default defineSchema({
     mxValid: v.boolean(),
     reason: v.optional(v.string()),
     checkedAt: v.number(),
+    // MillionVerifier's verdict, verbatim, plus "error" for a lookup we could
+    // not complete. Optional because rows written by the old DNS-only path
+    // have no such verdict and must still validate.
+    result: v.optional(v.union(
+      v.literal("ok"),
+      v.literal("catch_all"),
+      v.literal("unknown"),
+      v.literal("invalid"),
+      v.literal("disposable"),
+      v.literal("error")
+    )),
+    // MillionVerifier's own sub-classification (e.g. "invalid_mx",
+    // "disposable", "role_account"), kept verbatim for diagnosis.
+    subResult: v.optional(v.string()),
+    // Which lookup produced this row. "dns" marks the legacy rows so a reader
+    // can tell a real mailbox check from the old domain-level guess.
+    provider: v.optional(v.union(
+      v.literal("millionverifier"),
+      v.literal("millionverifier_bulk"),
+      v.literal("dns")
+    )),
+    // Contact data decays at roughly 2% a month, so a result is a measurement
+    // with an age, not a fact. expiresAt is checkedAt plus the TTL that was in
+    // force when the row was written; the gate compares against it rather than
+    // recomputing, so shortening the TTL later does not silently revalidate
+    // the whole table at once.
+    expiresAt: v.optional(v.number()),
+    // Set while an async re-verification is in flight, so a hundred queued
+    // messages to the same stale address schedule one lookup rather than one
+    // each.
+    refreshStartedAt: v.optional(v.number()),
   })
+    .index("by_email", ["email"])
+    // Lets the revalidation sweep read only what has actually expired instead
+    // of scanning every address we have ever checked.
+    .index("by_expires_at", ["expiresAt"]),
+
+  // Addresses that must never be sent to again for a given account.
+  //
+  // This is the signal that outranks every other check in the gate. A hard
+  // bounce or a spam complaint is evidence from the receiving mail server
+  // itself, which beats any prediction a verification API can sell us, so a
+  // row here blocks a send even when a fresh "ok" verification exists.
+  //
+  // Scoped per user, not platform-wide: a complaint is a statement about one
+  // sender's relationship with one recipient, and one account's bad list must
+  // not silently censor another account's legitimate one.
+  //
+  // Transient bounces (mailbox full, greylisting, temporary server failure) do
+  // NOT belong here. They say nothing about whether the address exists, and
+  // suppressing on them would permanently discard valid recipients over a
+  // mailbox that was full for an afternoon.
+  suppressions: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    reason: v.union(
+      v.literal("hard_bounce"),
+      v.literal("complaint"),
+      v.literal("manual"),
+      v.literal("invalid"),
+      v.literal("disposable")
+    ),
+    createdAt: v.number(),
+    // The SES evidence that produced this row, kept so we can answer whether
+    // our failures are dead mailboxes or policy rejections. bounceSubType
+    // separates "General" from "Suppressed"/"OnAccountSuppressionList", and
+    // the SMTP diagnostic code carries the receiving server's own words
+    // ("550 5.1.1 user unknown" against "550 5.7.1 blocked").
+    bounceType: v.optional(v.string()),
+    bounceSubType: v.optional(v.string()),
+    diagnosticCode: v.optional(v.string()),
+    // Which SES message taught us this, for tracing back.
+    sesMessageId: v.optional(v.string()),
+    // Set when an operator deliberately lifts a suppression. The row is kept
+    // rather than deleted so the history of why an address was blocked, and
+    // who un-blocked it, survives.
+    releasedAt: v.optional(v.number()),
+    releasedReason: v.optional(v.string()),
+  })
+    .index("by_user_email", ["userId", "email"])
+    .index("by_user_created", ["userId", "createdAt"])
     .index("by_email", ["email"]),
+
+  // Every send the gate refused, and why.
+  //
+  // Blocked messages must stay queryable, and a refusal on the compose or API
+  // path has no row in the emails table to record itself against, so the
+  // decision is logged here regardless of which path made it. Nothing deletes
+  // from this table.
+  sendBlocks: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    // Which gate check refused. Mirrors BLOCK_REASONS in lib/sendPolicy.ts.
+    reason: v.string(),
+    // Human-readable detail: the diagnostic code behind a suppression, the
+    // MillionVerifier verdict behind a verification block.
+    detail: v.optional(v.string()),
+    // Which send path was refused, for working out where bad addresses enter.
+    path: v.union(
+      v.literal("compose"),
+      v.literal("scheduled"),
+      v.literal("api"),
+      v.literal("sequence")
+    ),
+    blockedAt: v.number(),
+    mailboxId: v.optional(v.id("mailboxes")),
+    // The outbox row this refusal belongs to, when there is one.
+    emailId: v.optional(v.id("emails")),
+    messageId: v.optional(v.string()),
+    batchId: v.optional(v.string()),
+  })
+    .index("by_user_blocked_at", ["userId", "blockedAt"])
+    .index("by_user_email", ["userId", "email"])
+    .index("by_email_id", ["emailId"])
+    .index("by_reason", ["reason", "blockedAt"]),
+
+  // The kill switch, and anything else that has to be changeable without a
+  // deploy. Singleton: one row, name = "global".
+  sendingControls: defineTable({
+    name: v.string(),
+    // The kill switch. When true every user-facing send path refuses at the
+    // gate and the message is held, not dropped: scheduled mail stays in the
+    // outbox with its job re-armed, so lifting the switch resumes the queue.
+    sendingPaused: v.boolean(),
+    pausedReason: v.optional(v.string()),
+    pausedAt: v.optional(v.number()),
+    pausedBy: v.optional(v.string()),
+    // Warmup is halted separately. It goes to platform-controlled mailboxes,
+    // carries no list risk, and stopping it mid-ramp costs domain reputation
+    // that takes weeks to rebuild, so "stop the queue while the backfill runs"
+    // should not stop it by default.
+    warmupPaused: v.optional(v.boolean()),
+    // Runtime overrides for lib/sendPolicy.ts. Absent means the code default.
+    // These exist so the catch-all decision can be flipped from the dashboard
+    // when a bounce rate starts climbing, rather than waiting for a deploy.
+    catchAllPolicy: v.optional(v.union(v.literal("allow"), v.literal("block"))),
+    unknownPolicy: v.optional(v.union(v.literal("allow"), v.literal("block"))),
+    onVerifierUnavailable: v.optional(
+      v.union(v.literal("hold"), v.literal("send"))
+    ),
+    verificationTtlDays: v.optional(v.number()),
+  }).index("by_name", ["name"]),
+
+  // State for the MillionVerifier bulk backfill.
+  //
+  // The single-address API is charged per lookup and the bulk endpoint is far
+  // cheaper per address, so the 22,024 addresses already queued go through
+  // bulk. One row per submitted file, plus one row (kind = "walk") holding the
+  // cursor for the outbox scan that collects them: the outbox is 40,000+ rows
+  // and a transaction may scan 32,000, so the scan is paged across many
+  // transactions and its position lives here.
+  verificationBatches: defineTable({
+    kind: v.union(v.literal("walk"), v.literal("file")),
+    // Identifies one backfill run, so a second run started by mistake cannot
+    // tally into the first one's state.
+    runId: v.string(),
+    status: v.union(
+      v.literal("collecting"),
+      v.literal("uploading"),
+      v.literal("processing"),
+      v.literal("applying"),
+      v.literal("done"),
+      v.literal("failed")
+    ),
+    // walk rows only: where the outbox scan has reached.
+    //
+    // The emails table is indexed by (mailboxId, folder) and there is no
+    // global "everything in the outbox" index, so the scan is two nested
+    // walks: a page of mailboxes at a time, and within each mailbox a page of
+    // its outbox at a time. Both positions have to survive between
+    // transactions, hence three cursors rather than one.
+    //
+    // mailboxCursor holds the literal "DONE" once the mailbox listing is
+    // exhausted, which is distinguishable from "not started" (undefined) in a
+    // way a null cursor is not.
+    mailboxCursor: v.optional(v.string()),
+    emailCursor: v.optional(v.string()),
+    currentMailboxId: v.optional(v.id("mailboxes")),
+    // Mailboxes from the current page that have not been walked yet, drained
+    // one per step.
+    mailboxQueue: v.optional(v.array(v.id("mailboxes"))),
+    // Addresses collected but not yet submitted. Bounded by BULK_BATCH_SIZE in
+    // verificationBackfill.ts and flushed to a file row when it fills, so this
+    // never grows towards the 16 MiB document read limit.
+    pending: v.optional(v.array(v.string())),
+    // file rows only: MillionVerifier's handle for the uploaded list, and how
+    // far applying its results has got.
+    fileId: v.optional(v.string()),
+    emails: v.optional(v.array(v.string())),
+    appliedCount: v.optional(v.number()),
+    total: v.optional(v.number()),
+    startedAt: v.number(),
+    updatedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+    // Counts for reporting: how the submitted addresses came back.
+    resultCounts: v.optional(v.any()),
+  })
+    .index("by_kind_status", ["kind", "status"])
+    .index("by_run", ["runId"])
+    .index("by_file_id", ["fileId"]),
+
+  // SES sending events that arrived before the message row they describe.
+  //
+  // sendEmail calls SES, then writes to S3, then inserts the emails row.
+  // A hard bounce from a dead mailbox comes back in well under a second, so
+  // the notification regularly lost that race, found no row to update, logged
+  // "no email found", and was dropped. That is how 15 messages have sat in
+  // pending since March. Events that cannot be matched are parked here and
+  // replayed instead of discarded.
+  pendingDeliveryEvents: defineTable({
+    sesMessageId: v.string(),
+    status: v.string(),
+    timestamp: v.number(),
+    reason: v.optional(v.string()),
+    bounceType: v.optional(v.string()),
+    bounceSubType: v.optional(v.string()),
+    diagnosticCode: v.optional(v.string()),
+    recipients: v.optional(v.array(v.string())),
+    receivedAt: v.number(),
+    attempts: v.number(),
+    // Set once the event has been matched to a message and applied. Kept
+    // rather than deleted so a replayed event can be traced.
+    resolvedAt: v.optional(v.number()),
+  })
+    .index("by_ses_message_id", ["sesMessageId"])
+    .index("by_resolved_received", ["resolvedAt", "receivedAt"]),
 
   // inboxPlacementTests: defineTable({
   //   userId: v.id("users"),

@@ -59,22 +59,48 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
 
       if (eventType === "Bounce") {
         const bounceType = message.bounce?.bounceType;
-        // Permanent bounces = failed, transient bounces = bounced (temporary)
+        // Permanent bounces = failed, transient bounces = bounced (temporary).
+        // This mapping is why the production snapshot reads 643 failed against
+        // 163 bounced: the 643 are hard bounces, and they are the ones that
+        // feed suppression.
         const status = bounceType === "Permanent" ? "failed" : "bounced";
         const reason =
           message.bounce?.bouncedRecipients?.[0]?.diagnosticCode ??
           [bounceType, message.bounce?.bounceSubType].filter(Boolean).join("/");
-        return await handleDeliveryNotification(message, status, reason);
+
+        // The per-recipient detail used to be thrown away here, which left
+        // nothing to suppress on: a bounce told us a *message* failed but not
+        // which address caused it. SES reports one bouncedRecipients entry per
+        // failed address, each with its own SMTP diagnostic code, so a message
+        // to five people where one address is dead names that one address.
+        return await handleDeliveryNotification(message, status, reason, {
+          bounceType,
+          bounceSubType: message.bounce?.bounceSubType,
+          recipients: (message.bounce?.bouncedRecipients ?? []).map(
+            (r: { emailAddress?: string; diagnosticCode?: string; status?: string }) => ({
+              email: r.emailAddress,
+              diagnosticCode: r.diagnosticCode,
+              smtpStatus: r.status,
+            })
+          ),
+        });
       }
 
-      // Complaints were dropped here entirely. They still are for ordinary
-      // mail, which has no "complained" delivery status to record, but warmup
-      // needs them: a complaint against a warmup send is a reputation event on
-      // the customer's own SES account.
+      // Complaints used to be recorded for warmup only, and dropped for
+      // ordinary mail because the emails table had no "complained" status to
+      // put them in. That threw away the strongest reputation signal SES
+      // gives: a complaint weighs far more heavily than a bounce with every
+      // mailbox provider, and AWS suspends accounts over the complaint rate as
+      // readily as over the bounce rate. Both are now recorded, and a
+      // complaint suppresses the address permanently.
       if (eventType === "Complaint") {
         const reason =
           message.complaint?.complaintFeedbackType ?? "complaint";
-        return await handleDeliveryNotification(message, "complained", reason);
+        return await handleDeliveryNotification(message, "complained", reason, {
+          recipients: (message.complaint?.complainedRecipients ?? []).map(
+            (r: { emailAddress?: string }) => ({ email: r.emailAddress })
+          ),
+        });
       }
 
       // Inbound mail is not ingested here any more.
@@ -146,10 +172,21 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
   }
 }
 
+type BounceDetail = {
+  bounceType?: string;
+  bounceSubType?: string;
+  recipients?: Array<{
+    email?: string;
+    diagnosticCode?: string;
+    smtpStatus?: string;
+  }>;
+};
+
 async function handleDeliveryNotification(
   message: Record<string, unknown>,
   status: "delivered" | "failed" | "bounced" | "complained",
-  reason?: string
+  reason?: string,
+  detail?: BounceDetail
 ) {
   const mail = message.mail as Record<string, unknown> | undefined;
   console.log("[DELIVERY] status:", status, "| mail present:", !!mail);
@@ -172,19 +209,62 @@ async function handleDeliveryNotification(
       ? deliveryTimestamp
       : new Date(deliveryTimestamp as string).getTime() || Date.now();
 
+  // The recipients SES named, with their own diagnostic codes. Only the
+  // addresses that actually failed appear here, which is what makes
+  // per-address suppression possible.
+  const recipients = (detail?.recipients ?? [])
+    .filter((r) => !!r.email)
+    .map((r) => ({
+      email: r.email!.toLowerCase(),
+      diagnosticCode: r.diagnosticCode,
+      smtpStatus: r.smtpStatus,
+    }));
+
   console.log("[DELIVERY] calling /trackDelivery with messageId:", messageId, "status:", status);
-  const trackRes = await fetch(
-    `${process.env.NEXT_PUBLIC_CONVEX_SITE_URL}/trackDelivery`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-webhook-secret": process.env.SES_WEBHOOK_SECRET!,
-      },
-      body: JSON.stringify({ messageId, status, timestamp, reason }),
+
+  try {
+    const trackRes = await fetch(
+      `${process.env.NEXT_PUBLIC_CONVEX_SITE_URL}/trackDelivery`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-webhook-secret": process.env.SES_WEBHOOK_SECRET!,
+        },
+        body: JSON.stringify({
+          messageId,
+          status,
+          timestamp,
+          reason,
+          bounceType: detail?.bounceType,
+          bounceSubType: detail?.bounceSubType,
+          recipients,
+        }),
+      }
+    );
+    const responseText = await trackRes.text();
+    console.log("[DELIVERY] /trackDelivery response status:", trackRes.status, responseText);
+
+    // Answer SNS with the same verdict rather than a blanket 200.
+    //
+    // This used to return success no matter what happened downstream, so a
+    // Convex error, a deploy, or a transient network failure silently threw
+    // the event away and SNS never retried it. A bounce lost that way is lost
+    // for good: the message stays pending forever and the address is never
+    // suppressed. Returning a 5xx lets SNS do what it is for.
+    if (!trackRes.ok) {
+      return NextResponse.json(
+        { error: "trackDelivery rejected the event" },
+        { status: 502 }
+      );
     }
-  );
-  console.log("[DELIVERY] /trackDelivery response status:", trackRes.status, await trackRes.text());
+  } catch (error) {
+    console.error("[DELIVERY] trackDelivery call failed:", error);
+    return NextResponse.json(
+      { error: "trackDelivery unreachable" },
+      { status: 502 }
+    );
+  }
 
   return NextResponse.json({ success: true });
 }

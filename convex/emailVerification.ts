@@ -74,21 +74,30 @@ export const verifyEmails = action({
   },
 });
 
-// Internal verify action used by sending paths (no Clerk auth needed)
-export const verifyRecipientsBeforeSend = internalAction({
-  args: { emails: v.array(v.string()) },
-  handler: async (ctx, { emails }): Promise<{
-    allValid: boolean;
-    invalid: string[];
-  }> => {
-    const results = await Promise.all(
-      emails.map((email) => verifyEmailInternal(ctx, email))
-    );
-
-    const invalid = results.filter((r) => !r.isValid).map((r) => r.email);
-    return { allValid: invalid.length === 0, invalid };
-  },
-});
+// Retired: the send paths now go through convex/sendGate.ts, which asks
+// MillionVerifier about the mailbox rather than DNS about the domain.
+//
+// This check could only establish that a domain resolves and accepts mail
+// somewhere. Every one of the 643 addresses that hard bounced with "mailbox
+// does not exist" passed it, because their domains are real and healthy; the
+// dead thing was the mailbox, which an MX record says nothing about. It also
+// ran an uncached DNS lookup per recipient inside the send path, which is
+// exactly the latency the new design keeps out of it.
+//
+// export const verifyRecipientsBeforeSend = internalAction({
+//   args: { emails: v.array(v.string()) },
+//   handler: async (ctx, { emails }): Promise<{
+//     allValid: boolean;
+//     invalid: string[];
+//   }> => {
+//     const results = await Promise.all(
+//       emails.map((email) => verifyEmailInternal(ctx, email))
+//     );
+//
+//     const invalid = results.filter((r) => !r.isValid).map((r) => r.email);
+//     return { allValid: invalid.length === 0, invalid };
+//   },
+// });
 
 // Shared verification logic
 async function verifyEmailInternal(

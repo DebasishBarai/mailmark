@@ -100,4 +100,45 @@ crons.daily(
   {}
 );
 
+// Every 5 minutes: replay SES sending events that arrived before the message
+// row they describe.
+//
+// sendEmail calls SES, then writes to S3, then inserts the row, and a hard
+// bounce from a dead mailbox comes back faster than that sequence completes.
+// The notification handler used to find no row, log, and drop the event, which
+// is how messages have sat in pending since March. They are parked now, and
+// this drains the parking lot.
+crons.interval(
+  "replay pending delivery events",
+  { minutes: 5 },
+  internal.emails.replayPendingDeliveryEventsBatch,
+  {}
+);
+
+// Every 15 minutes: check on bulk verification files awaiting results.
+//
+// flushBatch schedules its own poll, so this is the belt to that braces: a
+// scheduled job lost to a deploy would otherwise leave a paid-for file
+// permanently unapplied.
+crons.interval(
+  "poll bulk verification files",
+  { minutes: 15 },
+  internal.verificationBackfill.pollFiles,
+  {}
+);
+
+// Daily at 4:20 AM UTC: re-verify addresses whose verdict has expired.
+//
+// Contact data decays at roughly 2% a month, so at the 90 day TTL about a
+// ninetieth of the table comes due each day. Doing it daily keeps the spend
+// flat rather than arriving as one bill, and keeps the send path from ever
+// finding a stale result. Off the quarter hours the warmup crons occupy, and
+// after the nightly reconciles.
+crons.daily(
+  "revalidate expired verifications",
+  { hourUTC: 4, minuteUTC: 20 },
+  internal.verification.revalidateExpired,
+  {}
+);
+
 export default crons;

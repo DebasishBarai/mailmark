@@ -49,6 +49,11 @@ export const K = {
   emailsDelivered: "emails.delivered",
   emailsBounced: "emails.bounced",
   emailsFailed: "emails.failed",
+  // Complaints used to be dropped before they reached the database, so there
+  // was nothing to count. Blocked messages are new: a send the gate refused,
+  // kept as a row rather than deleted.
+  emailsComplained: "emails.complained",
+  emailsBlocked: "emails.blocked",
   emailsOpened: "emails.opened",
 
   domainsTotal: "domains.total",
@@ -107,6 +112,8 @@ export function emailBuckets(e: Doc<"emails">): string[] {
   if (e.deliveryStatus === "delivered") keys.push(K.emailsDelivered);
   if (e.deliveryStatus === "bounced") keys.push(K.emailsBounced);
   if (e.deliveryStatus === "failed") keys.push(K.emailsFailed);
+  if (e.deliveryStatus === "complained") keys.push(K.emailsComplained);
+  if (e.deliveryStatus === "blocked") keys.push(K.emailsBlocked);
   if (e.openedAt != null) keys.push(K.emailsOpened);
   return keys;
 }
@@ -350,6 +357,16 @@ export function applyEmailToTally(
     if (email.deliveryStatus === "delivered") tally.delivered += sign;
     else if (email.deliveryStatus === "failed") tally.failed += sign;
     else if (email.deliveryStatus === "bounced") tally.bounced += sign;
+    // A complaint is a failure the sender needs to see, and counting it as
+    // pending would hide it. It joins failed rather than getting its own
+    // per-mailbox figure, because the mailbox view's question is "did this
+    // reach anyone", and a complaint means it did but should not have.
+    else if (email.deliveryStatus === "complained") tally.failed += sign;
+    // Blocked is not pending: nothing was ever sent, and there is no
+    // notification coming. Counting it as pending is what would make the
+    // "stuck in pending" figure meaningless once the gate starts refusing
+    // sends.
+    else if (email.deliveryStatus === "blocked") { /* counted by folder only */ }
     else tally.pending += sign;
 
     if (email.openedAt) tally.opened += sign;

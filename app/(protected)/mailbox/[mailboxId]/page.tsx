@@ -241,7 +241,10 @@ export default function MailboxPage() {
   const toggleStar = useMutation(api.emails.toggleStar);
   const moveToFolder = useMutation(api.emails.moveToFolder);
   const sendEmail = useAction(api.ses.sendEmail);
-  const verifyEmailsAction = useAction(api.emailVerification.verifyEmails);
+  // The compose box now asks MillionVerifier about the mailbox rather than DNS
+  // about the domain. Same shape of answer, but it can actually tell that an
+  // address does not exist, which is the case that was bouncing.
+  const verifyEmailsAction = useAction(api.verification.verifyForCurrentUser);
   const scheduleEmailAction = useAction(api.ses.scheduleEmail);
   const createAndEnrollSequence = useAction(api.sequenceActions.createAndEnrollWithFirstSent);
   const mailboxSequences = useQuery(api.sequenceActions.getByMailbox, { mailboxId: mbId });

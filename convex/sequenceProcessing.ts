@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { HOLD_RETRY_MS } from "./lib/sendPolicy";
 
 function interpolate(template: string, fields: Record<string, string> | undefined): string {
   if (!fields) return template;
@@ -48,12 +49,39 @@ export const processStep = internalAction({
       const html = interpolate(step.html, enrollment.mergeFields as Record<string, string> | undefined);
 
       try {
-        await ctx.runAction(internal.ses.sendEmailViaApi, {
+        const sent = await ctx.runAction(internal.ses.sendEmailViaApi, {
           mailboxId: sequence.mailboxId,
           to: [enrollment.contactEmail],
           subject,
           html,
+          path: "sequence",
         });
+
+        // The gate refused this recipient: suppressed, unsubscribed, or a bad
+        // address. Advancing the enrollment would keep trying on every later
+        // step, so the enrollment is cancelled here instead. The reason is
+        // already recorded in sendBlocks.
+        if (sent?.messageId === "blocked") {
+          console.log(
+            `[processStep] recipient blocked for enrollment ${enrollmentId}, cancelling`
+          );
+          await ctx.runMutation(internal.sequences.completeEnrollment, {
+            enrollmentId,
+            status: "cancelled",
+          });
+          return;
+        }
+
+        // Held rather than sent: the kill switch is on, or a verification is
+        // still in flight. Retry this same step later rather than skipping it.
+        if (sent?.messageId === "held") {
+          await ctx.scheduler.runAfter(
+            HOLD_RETRY_MS,
+            internal.sequenceProcessing.processStep,
+            { enrollmentId, stepIndex }
+          );
+          return;
+        }
       } catch (error) {
         console.error(`Failed to send step ${stepIndex} for enrollment ${enrollmentId}:`, error);
         return;
