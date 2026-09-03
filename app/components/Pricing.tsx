@@ -9,6 +9,7 @@ const plans = [
     description: "Perfect for your first product's email.",
     features: [
       "1,000 emails / month",
+      "500 contacts",
       "1 custom domain",
       "3 mailboxes",
       "Full email UI",
@@ -27,6 +28,7 @@ const plans = [
     description: "For developers running several products at once.",
     features: [
       "25,000 emails / month",
+      "10,000 contacts",
       "5 custom domains",
       "Unlimited mailboxes",
       "Full email UI",
@@ -45,6 +47,7 @@ const plans = [
     description: "For a whole portfolio of products, with room to grow.",
     features: [
       "100,000 emails / month",
+      "50,000 contacts",
       "Unlimited domains",
       "Unlimited mailboxes",
       "Full email UI",

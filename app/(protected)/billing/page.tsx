@@ -25,6 +25,7 @@ const plans = [
     description: "Perfect for individuals getting started with custom domain email.",
     features: [
       "1,000 emails / month",
+      "500 contacts",
       "1 custom domain",
       "3 mailboxes",
       "Full email UI",
@@ -42,6 +43,7 @@ const plans = [
     description: "For growing teams that need more power and campaign tools.",
     features: [
       "25,000 emails / month",
+      "10,000 contacts",
       "5 custom domains",
       "Unlimited mailboxes",
       "Full email UI",
@@ -59,6 +61,7 @@ const plans = [
     description: "Unlimited scale with white-glove onboarding for your whole team.",
     features: [
       "100,000 emails / month",
+      "50,000 contacts",
       "Unlimited domains",
       "Unlimited mailboxes",
       "Full email UI",
@@ -84,6 +87,7 @@ function CheckIcon() {
 
 export default function BillingPage() {
   const status = useQuery(api.subscriptions.currentStatus);
+  const usage = useQuery(api.quotas.getUsageAndLimits);
   const createCheckout = useAction(api.subscriptions.createCheckoutSession);
   const cancelSubscription = useAction(api.subscriptions.cancelViaPolar);
   const [loading, setLoading] = useState<string | null>(null);
@@ -214,6 +218,50 @@ export default function BillingPage() {
           )}
         </div>
       </div>
+
+      {/* Usage against the plan.
+          Every limit in PLAN_LIMITS is shown here, so a user can see which one
+          they are close to without opening four different pages. A null limit
+          means unlimited on this plan and renders as a count with no bar. */}
+      {usage && (
+        <div className="mb-8 rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+          <div className="border-b border-gray-100 px-6 py-4 dark:border-gray-700/50">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white">Usage</h2>
+          </div>
+          <div className="grid gap-6 px-6 py-6 sm:grid-cols-2">
+            {[
+              { label: "Contacts", used: usage.usage.recipients, limit: usage.limits.recipients },
+              { label: "Emails this month", used: usage.usage.emailsSentThisMonth, limit: usage.limits.emailsPerMonth },
+              { label: "Domains", used: usage.usage.domains, limit: usage.limits.domains },
+              { label: "Mailboxes", used: usage.usage.mailboxes, limit: usage.limits.mailboxes },
+            ].map(({ label, used, limit }) => {
+              const pct = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+              const over = limit !== null && used > limit;
+              return (
+                <div key={label}>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {used.toLocaleString()}
+                      </span>
+                      {limit === null ? " / Unlimited" : ` / ${limit.toLocaleString()}`}
+                    </span>
+                  </div>
+                  {limit !== null && (
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
+                      <div
+                        className={`h-full rounded-full transition-all ${over ? "bg-amber-500" : "bg-violet-600"}`}
+                        style={{ width: `${Math.max(pct, 2)}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Plans - always shown so users can switch */}
       <div>
