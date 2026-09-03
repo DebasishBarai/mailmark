@@ -120,6 +120,37 @@ export const listForCurrentUser = query({
   },
 });
 
+/** The current user's address book, paginated, newest first.
+ *
+ *  Separate from listForCurrentUser above rather than replacing it: that one is
+ *  read whole by the mailbox view to resolve every display name in a thread
+ *  list, which genuinely needs all of them. This one backs the contacts page,
+ *  where the list is scrolled rather than looked up. */
+export const listPageForCurrentUser = query({
+  args: {
+    paginationOpts: v.object({
+      numItems: v.number(),
+      cursor: v.union(v.string(), v.null()),
+    }),
+  },
+  handler: async (ctx, { paginationOpts }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { page: [], isDone: true, continueCursor: "" };
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) return { page: [], isDone: true, continueCursor: "" };
+
+    return await ctx.db
+      .query("contacts")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .paginate(paginationOpts);
+  },
+});
+
 // ── contactCount backfill ───────────────────────────────────────────────────
 //
 // users.contactCount is maintained incrementally by upsert and deleteInternal

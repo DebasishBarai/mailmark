@@ -179,25 +179,33 @@ export const backfillSequenceRecipients = internalMutation({
   },
 });
 
-/** The current user's audience, newest first. */
+/** The current user's audience, newest first.
+ *
+ *  Paginated rather than collected: this is the one list in the app expected to
+ *  run to tens of thousands of rows (26,454 on the largest account at the time
+ *  of writing), so it must never be read whole. Same hand-rolled paginationOpts
+ *  shape as suppressions.listForCurrentUser. */
 export const listForCurrentUser = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit }) => {
+  args: {
+    paginationOpts: v.object({
+      numItems: v.number(),
+      cursor: v.union(v.string(), v.null()),
+    }),
+  },
+  handler: async (ctx, { paginationOpts }) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
+    if (!identity) return { page: [], isDone: true, continueCursor: "" };
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .unique();
-    if (!user) return [];
+    if (!user) return { page: [], isDone: true, continueCursor: "" };
 
-    // Bounded by default: an audience is the one list here that is expected to
-    // run to tens of thousands of rows, so this must never collect() it.
     return await ctx.db
       .query("recipients")
       .withIndex("by_user_id", (q) => q.eq("userId", user._id))
       .order("desc")
-      .take(limit ?? 100);
+      .paginate(paginationOpts);
   },
 });
