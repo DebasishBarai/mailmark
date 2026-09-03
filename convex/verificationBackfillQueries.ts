@@ -101,16 +101,35 @@ export const collectPage = internalMutation({
     // by taking another page of the mailbox listing.
     if (!currentMailboxId) {
       if (queue.length === 0 && mailboxCursor !== MAILBOXES_DONE) {
-        const mailboxPage = await ctx.db
-          .query("mailboxes")
-          .paginate({
-            cursor: mailboxCursor ?? null,
-            numItems: MAILBOX_PAGE,
-          });
-        queue = mailboxPage.page.map((m) => m._id);
-        mailboxCursor = mailboxPage.isDone
-          ? MAILBOXES_DONE
-          : mailboxPage.continueCursor;
+        // take(), not paginate().
+        //
+        // Convex allows one paginate() per transaction, and this function
+        // already spends it on the outbox read below. Calling it twice threw,
+        // which rolled the whole mutation back - including the patch that
+        // records progress - so the walk row sat at its initial state looking
+        // as though the step had never run at all. Every other walk in this
+        // codebase (platformStats) calls paginate exactly once; this was the
+        // only one that did not.
+        //
+        // The mailbox list is small enough not to need a real cursor, so it is
+        // walked by creation-time watermark instead, stored in mailboxCursor.
+        const after = mailboxCursor ? Number(mailboxCursor) : null;
+        const nextMailboxes = await (
+          after === null
+            ? ctx.db.query("mailboxes").withIndex("by_creation_time")
+            : ctx.db
+                .query("mailboxes")
+                .withIndex("by_creation_time", (q) =>
+                  q.gt("_creationTime", after)
+                )
+        ).take(MAILBOX_PAGE);
+
+        queue = nextMailboxes.map((m) => m._id);
+        // A short page means there are no more mailboxes after this one.
+        mailboxCursor =
+          nextMailboxes.length < MAILBOX_PAGE
+            ? MAILBOXES_DONE
+            : String(nextMailboxes[nextMailboxes.length - 1]._creationTime);
       }
 
       if (queue.length === 0) {

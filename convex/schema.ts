@@ -498,9 +498,12 @@ export default defineSchema({
     // its outbox at a time. Both positions have to survive between
     // transactions, hence three cursors rather than one.
     //
-    // mailboxCursor holds the literal "DONE" once the mailbox listing is
-    // exhausted, which is distinguishable from "not started" (undefined) in a
-    // way a null cursor is not.
+    // mailboxCursor is a creation-time watermark (the _creationTime of the
+    // last mailbox queued, as a string), or the literal "DONE" once the
+    // listing is exhausted - distinguishable from "not started" (undefined) in
+    // a way a null cursor is not. It is not a Convex pagination cursor:
+    // Convex permits one paginate() per transaction and the outbox read spends
+    // it, so the mailbox listing uses take() with this watermark instead.
     mailboxCursor: v.optional(v.string()),
     emailCursor: v.optional(v.string()),
     currentMailboxId: v.optional(v.id("mailboxes")),
