@@ -374,11 +374,13 @@ const ENDPOINTS: Endpoint[] = [
         description: "Schedule the email for a future time. Leave blank to send immediately.",
       },
     ],
-    returns: "For transactional: { messageId, status }. For campaign: { messageIds, batchId, status }. status is 'queued' or 'scheduled'.",
+    returns: "For transactional: { messageId, status }. For campaign: { messageIds, batchId, status }. status is 'queued' or 'scheduled'. When some recipients are refused, a campaign response also carries a blocked array.",
     notes: [
       "The from address must be an existing mailbox created under this API key's domain.",
       "For campaign sends, each recipient receives a separate individually tracked email.",
       "scheduledAt must be a future unix millisecond timestamp.",
+      "Recipients can be refused before sending: suppressed after a hard bounce or complaint, unsubscribed, or judged invalid or disposable by verification. If every recipient is refused the call returns 422 with a blocked array of { email, reason, message }, where reason is a stable code and message is the same thing in words. Retrying will not change the outcome.",
+      "For a campaign where only some recipients are refused, the call still returns 200: messageIds holds the ones that went out, and blocked lists the rest.",
     ],
     curlTemplate: (key, v) => {
       const body: Record<string, unknown> = {
@@ -1353,6 +1355,8 @@ export default function ApiDocsPage() {
               <h3 className="mt-8 text-base font-semibold text-gray-900 dark:text-white">Error responses</h3>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">All errors return a JSON body with an <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">error</code> field:</p>
               <CodeBlock code={`HTTP 401\n{\n  "error": "Invalid or revoked API key"\n}`} />
+              <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">A send refused for every recipient returns <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">422</code> and names them. This is a permanent outcome, not a transient failure, so it should not be retried:</p>
+              <CodeBlock code={`HTTP 422\n{\n  "error": "No eligible recipients.",\n  "blocked": [\n    {\n      "email": "user@example.com",\n      "reason": "invalid_address",\n      "message": "invalid address"\n    }\n  ]\n}`} />
             </section>
 
             {/* Authentication */}

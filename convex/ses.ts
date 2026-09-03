@@ -757,7 +757,12 @@ export const scheduleEmailViaApi = internalAction({
       schedApiGate.allowed.length === 0 &&
       schedApiGate.held.length === 0
     ) {
-      throw new Error(`No eligible recipients. ${describeRefusal(schedApiGate)}`);
+      // Reported, not thrown, and shaped like sendEmailViaApi's refusal so the
+      // HTTP route can answer both the same way. Throwing made this reach the
+      // caller as a 500 with a flattened string, which is wrong twice over: a
+      // refused recipient is the caller's problem to fix, not a server fault,
+      // and a 5xx is exactly what a client library retries.
+      return { messageId: "blocked" as const, blocked: schedApiGate.blocked };
     }
 
     // Email quota check
@@ -836,7 +841,7 @@ export const scheduleEmailViaApi = internalAction({
       batchId,
     });
 
-    return { messageId };
+    return { messageId, blocked: [] as { email: string; reason: string; detail?: string }[] };
   },
 });
 
@@ -1004,7 +1009,7 @@ export const sendEmailViaApi = internalAction({
       batchId,
     });
 
-    return { messageId };
+    return { messageId, blocked: [] as { email: string; reason: string; detail?: string }[] };
   },
 });
 

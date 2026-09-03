@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { describeReason } from "./lib/sendPolicy";
 
 // 1x1 transparent GIF pixel (base64-decoded bytes)
 const TRACKING_PIXEL = new Uint8Array([
@@ -751,6 +752,38 @@ http.route({
   }),
 });
 
+/**
+ * The response for recipients the send gate refused.
+ *
+ * 422, not 500. A refused recipient is a fact about the request, and the
+ * caller fixes it by sending to someone else; a 5xx says the server failed and
+ * invites every client library to retry an address that will never be
+ * accepted. It is also not a 200: an immediate send used to answer
+ * {"messageId":"blocked","status":"queued"} for a suppressed address, which
+ * told the caller their mail was on its way.
+ *
+ * `reason` stays the stable code, because that is what callers branch on;
+ * `message` is the same thing in words, so a log is readable without a lookup
+ * table.
+ */
+function blockedResponse(
+  blocked: Array<{ email: string; reason: string; detail?: string }>,
+  status = 422
+) {
+  return jsonResponse(
+    {
+      error: "No eligible recipients.",
+      blocked: blocked.map((b) => ({
+        email: b.email,
+        reason: b.reason,
+        message: describeReason(b.reason),
+        ...(b.detail ? { detail: b.detail } : {}),
+      })),
+    },
+    status
+  );
+}
+
 // ── Send Email ───────────────────────────────────────────────────────────────
 
 http.route({
@@ -800,7 +833,12 @@ http.route({
       const batchId = type === "campaign" ? `batch-${Date.now()}` : undefined;
 
       if (type === "campaign") {
+        // One refused recipient no longer abandons the batch. This loop used
+        // to return on the first failure, so recipients already scheduled were
+        // left scheduled while the caller was told the whole call had failed
+        // and given no way to learn which ones went out.
         const results: string[] = [];
+        const blocked: Array<{ email: string; reason: string; detail?: string }> = [];
         for (const recipient of toAddresses) {
           try {
             const r = await ctx.runAction(internal.ses.scheduleEmailViaApi, {
@@ -811,12 +849,32 @@ http.route({
               scheduledAt,
               batchId,
             });
-            results.push(r.messageId);
+            if (r.messageId === "blocked") blocked.push(...r.blocked);
+            else results.push(r.messageId);
           } catch (err) {
             return jsonResponse({ error: err instanceof Error ? err.message : "Failed" }, 500);
           }
         }
-        return jsonResponse({ messageIds: results, batchId, status: "scheduled" }, 200);
+        if (results.length === 0 && blocked.length > 0) return blockedResponse(blocked);
+        return jsonResponse(
+          {
+            messageIds: results,
+            batchId,
+            status: "scheduled",
+            // Only when there is something to say, so a clean send keeps the
+            // documented response shape exactly.
+            ...(blocked.length > 0
+              ? {
+                  blocked: blocked.map((b) => ({
+                    email: b.email,
+                    reason: b.reason,
+                    message: describeReason(b.reason),
+                  })),
+                }
+              : {}),
+          },
+          200
+        );
       }
 
       try {
@@ -827,6 +885,7 @@ http.route({
           html: htmlBody,
           scheduledAt,
         });
+        if (r.messageId === "blocked") return blockedResponse(r.blocked);
         return jsonResponse({ messageId: r.messageId, status: "scheduled" }, 200);
       } catch (err) {
         return jsonResponse({ error: err instanceof Error ? err.message : "Failed" }, 500);
@@ -837,6 +896,7 @@ http.route({
     if (type === "campaign") {
       const batchId = `batch-${Date.now()}`;
       const results: string[] = [];
+      const blocked: Array<{ email: string; reason: string; detail?: string }> = [];
       for (const recipient of toAddresses) {
         try {
           const r = await ctx.runAction(internal.ses.sendEmailViaApi, {
@@ -846,12 +906,33 @@ http.route({
             html: htmlBody,
             batchId,
           });
-          results.push(r.messageId);
+          // "blocked" is a refusal, not a message id. Pushing it into
+          // messageIds reported a send that never happened, and the caller had
+          // the literal string "blocked" where an id belonged.
+          if (r.messageId === "blocked") blocked.push(...r.blocked);
+          else results.push(r.messageId);
         } catch (err) {
           return jsonResponse({ error: err instanceof Error ? err.message : "Failed to send to " + recipient }, 500);
         }
       }
-      return jsonResponse({ messageIds: results, batchId, status: "queued" }, 200);
+      if (results.length === 0 && blocked.length > 0) return blockedResponse(blocked);
+      return jsonResponse(
+        {
+          messageIds: results,
+          batchId,
+          status: "queued",
+          ...(blocked.length > 0
+            ? {
+                blocked: blocked.map((b) => ({
+                  email: b.email,
+                  reason: b.reason,
+                  message: describeReason(b.reason),
+                })),
+              }
+            : {}),
+        },
+        200
+      );
     }
 
     try {
@@ -861,6 +942,7 @@ http.route({
         subject: subject as string,
         html: htmlBody,
       });
+      if (r.messageId === "blocked") return blockedResponse(r.blocked);
       return jsonResponse({ messageId: r.messageId, status: "queued" }, 200);
     } catch (err) {
       return jsonResponse({ error: err instanceof Error ? err.message : "Failed to send email" }, 500);
