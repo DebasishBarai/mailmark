@@ -128,6 +128,46 @@ export const HOLD_REASONS = {
   verifierNotConfigured: "verifier_not_configured",
 } as const;
 
+/**
+ * The same reasons in words, for showing someone.
+ *
+ * The codes above are stable because they are stored and queried on; this is
+ * the layer that keeps them out of the compose window, which was reporting
+ * refusals as "tom@example.com: invalid_address". A code is a fine thing to
+ * write to sendBlocks and a poor thing to hand a person mid-send.
+ *
+ * Phrased to complete "<address>: ...", and to say what the sender can act on:
+ * a catch-all or unknown verdict is a policy choice they can change in
+ * settings, while an invalid address is not.
+ */
+const REASON_TEXT: Record<string, string> = {
+  [BLOCK_REASONS.suppressedHardBounce]: "previously hard bounced",
+  [BLOCK_REASONS.suppressedComplaint]: "reported an earlier message as spam",
+  [BLOCK_REASONS.suppressedManual]: "on your suppression list",
+  [BLOCK_REASONS.unsubscribed]: "unsubscribed",
+  [BLOCK_REASONS.invalidAddress]: "invalid address",
+  [BLOCK_REASONS.disposableAddress]: "disposable address",
+  [BLOCK_REASONS.catchAllBlocked]:
+    "catch-all domain, which your sending policy blocks",
+  [BLOCK_REASONS.unknownBlocked]:
+    "could not be confirmed, and your sending policy blocks unconfirmed addresses",
+  [BLOCK_REASONS.malformedAddress]: "not a valid email address",
+  [BLOCK_REASONS.verifierUnavailable]: "the verifier could not be reached",
+  [BLOCK_REASONS.verifierNotConfigured]: "the verifier is not configured",
+  [HOLD_REASONS.sendingPaused]: "sending is paused",
+  [HOLD_REASONS.awaitingVerification]: "still being verified",
+};
+
+/**
+ * Wording for one reason code, falling back to the code itself.
+ *
+ * The fallback matters: a reason added to BLOCK_REASONS without a line here
+ * should read awkwardly, not disappear from the message.
+ */
+export function describeReason(reason: string): string {
+  return REASON_TEXT[reason] ?? reason;
+}
+
 /** Runtime overrides read from the sendingControls row. */
 export type PolicyOverrides = {
   catchAllPolicy?: "allow" | "block";
