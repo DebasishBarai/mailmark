@@ -6,7 +6,11 @@ import { query, mutation, internalMutation, internalQuery } from "./_generated/s
 import { applyUnsubscribeDelta, readDomainStats } from "./lib/counters";
 // The same normalization the token was minted with. If these two ever
 // disagreed, a legitimate legacy link would stop matching its own message.
-import { normalizeAddress } from "./lib/unsubscribeToken";
+import {
+  normalizeAddress,
+  buildUnsubscribeToken,
+  parseUnsubscribeToken,
+} from "./lib/unsubscribeToken";
 
 // ── Queries ──
 
@@ -367,6 +371,67 @@ export const checkUnsubscribedRecipients = internalQuery({
  * been removed) can no longer be unsubscribed from through its old link.
  * Newly sent mail carries a signed token and does not come through here.
  */
+/**
+ * Does this runtime have the HMAC we sign unsubscribe tokens with?
+ *
+ * Worth asking because the answer is not the same everywhere. Tokens are
+ * minted in ses.ts, which is "use node", and verified in http.ts, which is the
+ * Convex runtime. Node has WebCrypto for certain; this runtime is the one we
+ * cannot check from a laptop. If the two disagree, every campaign sent after
+ * UNSUBSCRIBE_SECRET is configured carries a signature nothing can verify.
+ *
+ * This query lives in the Convex runtime, same as the HTTP handlers, so what
+ * it reports is what they will do. Run it from the dashboard after setting the
+ * secret. Wanted:
+ *
+ *   { secretConfigured: true, hmacAvailable: true, signedTokensVerify: true }
+ *
+ * hmacAvailable false is not an outage: parseUnsubscribeToken falls back to
+ * checking a token against the message it names. It does mean the signature is
+ * decoration and every unsubscribe costs a read, which is worth knowing.
+ *
+ * Touches no data and takes no arguments.
+ */
+export const cryptoSelfTest = internalQuery({
+  args: {},
+  handler: async () => {
+    const messageId = "0000000000000-selftest";
+    const email = "self-test@example.com";
+    const domain = "example.com";
+
+    let token: string;
+    try {
+      token = await buildUnsubscribeToken({ messageId, email, domain });
+    } catch (error) {
+      return {
+        secretConfigured: !!process.env.UNSUBSCRIBE_SECRET,
+        hmacAvailable: false,
+        signedTokensVerify: false,
+        note: `minting threw: ${String(error)}`,
+      };
+    }
+
+    // buildUnsubscribeToken swallows a signing failure and returns the legacy
+    // shape, so the shape it returns is the answer: a v1 prefix means the HMAC
+    // ran.
+    const hmacAvailable = token.startsWith("v1.");
+    const parsed = await parseUnsubscribeToken(token);
+
+    return {
+      secretConfigured: !!process.env.UNSUBSCRIBE_SECRET,
+      hmacAvailable,
+      signedTokensVerify:
+        parsed.kind === "signed" &&
+        parsed.email === email &&
+        parsed.domain === domain,
+      note:
+        parsed.kind === "signed"
+          ? "signing and verification agree"
+          : `verification came back "${parsed.kind}": links fall back to the message-backed check`,
+    };
+  },
+});
+
 export const resolveLegacyToken = internalQuery({
   args: { messageId: v.string(), email: v.string() },
   handler: async (ctx, { messageId, email }) => {

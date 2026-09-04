@@ -89,12 +89,24 @@ function decodeText(value: string): string | null {
   }
 }
 
-/** Unset means "no signing key configured", which is a supported state: we
- *  fall back to legacy tokens, and those are verified against the sent
- *  message instead. Throwing here would take campaign sending down with it. */
-function getSecret(): string | null {
-  const secret = process.env.UNSUBSCRIBE_SECRET;
-  return secret && secret.length > 0 ? secret : null;
+/**
+ * Signing keys, newest first. Empty means none configured, which is a
+ * supported state: we fall back to legacy tokens, and those are verified
+ * against the sent message instead. Throwing here would take campaign sending
+ * down with it.
+ *
+ * UNSUBSCRIBE_SECRET_PREVIOUS exists so the key can be rotated without
+ * breaking mail that is already delivered. Tokens are minted with the first
+ * key and accepted against any, so a rotation is: move the old value to
+ * PREVIOUS, set the new one, and drop PREVIOUS once nothing signed with it is
+ * still in an inbox. Rotating without it invalidates the unsubscribe link in
+ * every campaign already sent, and those links are not ours to break.
+ */
+function getSecrets(): string[] {
+  return [
+    process.env.UNSUBSCRIBE_SECRET,
+    process.env.UNSUBSCRIBE_SECRET_PREVIOUS,
+  ].filter((secret): secret is string => !!secret && secret.length > 0);
 }
 
 async function sign(secret: string, payload: string): Promise<string> {
@@ -141,7 +153,7 @@ export async function buildUnsubscribeToken(args: {
   const encodedEmail = encodeText(normalizeAddress(args.email));
   const legacy = `${args.messageId}-${encodedEmail}`;
 
-  const secret = getSecret();
+  const secret = getSecrets()[0];
   if (!secret) return legacy;
 
   try {
@@ -201,19 +213,41 @@ async function readToken(token: string): Promise<ParsedUnsubscribeToken> {
     const parts = raw.split(".");
     if (parts.length !== 5) return { kind: "invalid" };
 
-    // A v1 token that arrives after the secret is removed cannot be checked,
-    // and an unverifiable token is not a token.
-    const secret = getSecret();
-    if (!secret) return { kind: "invalid" };
-
     const [, messageId, encodedEmail, encodedDomain, signature] = parts;
-    const expected = await sign(secret, parts.slice(0, 4).join("."));
-    if (!timingSafeEqual(signature, expected)) return { kind: "invalid" };
-
     const email = decodeText(encodedEmail);
     const domain = decodeText(encodedDomain);
     if (!email || !domain) return { kind: "invalid" };
-    return { kind: "signed", messageId, email, domain };
+
+    const payload = parts.slice(0, 4).join(".");
+    const secrets = getSecrets();
+    let checked = false;
+    for (const secret of secrets) {
+      let expected: string;
+      try {
+        expected = await sign(secret, payload);
+      } catch {
+        // HMAC is unavailable in this runtime. Minting happens in ses.ts under
+        // "use node", where WebCrypto is a given, but verification runs here in
+        // the Convex runtime, so the two can disagree: tokens get signed and
+        // then nothing can check them. Left to itself that rejects every
+        // unsubscribe link in every campaign sent after the secret was set.
+        break;
+      }
+      checked = true;
+      if (timingSafeEqual(signature, expected)) {
+        return { kind: "signed", messageId, email, domain };
+      }
+    }
+
+    // Every configured key was tried and none produced this signature, so the
+    // token was tampered with. It does not reach the fallback below.
+    if (checked) return { kind: "invalid" };
+
+    // No secret configured, or no HMAC to check it with. The signature is
+    // unreadable but the rest of the token is not, so fall back to proving it
+    // against the message it names, which is what a legacy token does. The
+    // domain is dropped: the message the recipient is found on decides it.
+    return { kind: "legacy", messageId, email };
   }
 
   // Legacy: `${Date.now()}-${random}-${base64url(email)}`. Split on the first
