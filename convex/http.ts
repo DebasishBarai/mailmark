@@ -2,6 +2,8 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { describeReason } from "./lib/sendPolicy";
+import { parseUnsubscribeToken } from "./lib/unsubscribeToken";
+import type { Id } from "./_generated/dataModel";
 
 // 1x1 transparent GIF pixel (base64-decoded bytes)
 const TRACKING_PIXEL = new Uint8Array([
@@ -361,6 +363,48 @@ http.route({
 
 // ── Inbox Placement: removed (users can test by sending to their own accounts)
 
+// ── Unsubscribe: token resolution ────────────────────────────────────────────
+//
+// Old: both handlers read `email` and `domain` off the request and opted that
+// address out, and neither one ever looked at the token. Any address on any
+// known sending domain could therefore be unsubscribed by anyone who typed the
+// URL, which silently blocks that sender's future mail to that person.
+//
+// Now the recipient and the domain come from the token and nothing else. A v1
+// token is signed, so it stands on its own; a legacy token (every campaign
+// delivered before this change) is checked against the message it names, which
+// only we could have sent. Either way the query string is no longer trusted:
+// see convex/lib/unsubscribeToken.ts.
+async function resolveUnsubscribeRequest(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  token: string
+): Promise<
+  | { ok: true; domainId: Id<"domains">; email: string }
+  | { ok: false; error: string }
+> {
+  const parsed = await parseUnsubscribeToken(token);
+
+  if (parsed.kind === "signed") {
+    const domain = await ctx.runQuery(internal.domains.getDomainByName, {
+      domain: parsed.domain,
+    });
+    if (!domain) return { ok: false, error: "Domain not found" };
+    return { ok: true, domainId: domain._id, email: parsed.email };
+  }
+
+  if (parsed.kind === "legacy") {
+    const resolved = await ctx.runQuery(internal.unsubscribe.resolveLegacyToken, {
+      messageId: parsed.messageId,
+      email: parsed.email,
+    });
+    if (!resolved) return { ok: false, error: "This unsubscribe link is not valid" };
+    return { ok: true, domainId: resolved.domainId, email: resolved.email };
+  }
+
+  return { ok: false, error: "This unsubscribe link is not valid" };
+}
+
 // ── Unsubscribe: GET handler (browser one-click / link click) ─────────────────
 // Renders a confirmation page and processes the unsubscribe
 http.route({
@@ -369,33 +413,30 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const url = new URL(request.url);
     const token = url.pathname.replace("/unsubscribe/", "");
-    const email = url.searchParams.get("email");
-    const domainName = url.searchParams.get("domain");
 
-    if (!email || !domainName) {
-      return new Response(unsubscribeHtml("Missing parameters", false), {
+    // Old: the address and the domain were taken from the query string and
+    // used as-is.
+    //
+    // const email = url.searchParams.get("email");
+    // const domainName = url.searchParams.get("domain");
+    // if (!email || !domainName) { ...400... }
+    // const domain = await ctx.runQuery(internal.domains.getDomainByName, { domain: domainName });
+    // if (!domain) { ...404... }
+    const resolved = await resolveUnsubscribeRequest(ctx, token);
+    if (!resolved.ok) {
+      return new Response(unsubscribeHtml(resolved.error, false), {
         status: 400,
         headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
 
-    // Look up domain
-    const domain = await ctx.runQuery(internal.domains.getDomainByName, { domain: domainName });
-    if (!domain) {
-      return new Response(unsubscribeHtml("Domain not found", false), {
-        status: 404,
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-      });
-    }
-
-    // Process unsubscribe
     await ctx.runMutation(internal.unsubscribe.processUnsubscribe, {
-      domainId: domain._id,
-      email: email.toLowerCase(),
+      domainId: resolved.domainId,
+      email: resolved.email,
       source: "link",
     });
 
-    return new Response(unsubscribeHtml(email, true), {
+    return new Response(unsubscribeHtml(resolved.email, true), {
       status: 200,
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
@@ -410,43 +451,32 @@ http.route({
     const url = new URL(request.url);
     const token = url.pathname.replace("/unsubscribe/", "");
 
-    // RFC 8058: body should contain List-Unsubscribe=One-Click
-    let email: string | null = null;
-    let domainName: string | null = null;
-
-    // Try to get from form body (mail clients send form-urlencoded)
+    // RFC 8058: the body is List-Unsubscribe=One-Click and carries nothing we
+    // need. It used to be read for `email` and `domain`, with the address
+    // decoded from the token only as a fallback; the token is now the sole
+    // source for both, so the body is drained and discarded.
+    //
+    // try {
+    //   const text = await request.text();
+    //   const params = new URLSearchParams(text);
+    //   email = params.get("email") ?? url.searchParams.get("email");
+    //   domainName = params.get("domain") ?? url.searchParams.get("domain");
+    // } catch { ... }
     try {
-      const text = await request.text();
-      const params = new URLSearchParams(text);
-      email = params.get("email") ?? url.searchParams.get("email");
-      domainName = params.get("domain") ?? url.searchParams.get("domain");
-    } catch {
-      email = url.searchParams.get("email");
-      domainName = url.searchParams.get("domain");
-    }
+      await request.text();
+    } catch { /* ignore */ }
 
-    // Try to decode email from the token (base64url after the messageId prefix)
-    if (!email && token.includes("-")) {
-      const parts = token.split("-");
-      const encoded = parts[parts.length - 1];
-      try {
-        email = Buffer.from(encoded, "base64url").toString("utf-8");
-      } catch { /* ignore */ }
-    }
-
-    if (!email || !domainName) {
-      // Try getting domain from referrer or just return success for RFC compliance
-      return new Response("", { status: 200 });
-    }
-
-    const domain = await ctx.runQuery(internal.domains.getDomainByName, { domain: domainName });
-    if (!domain) {
-      return new Response("", { status: 200 });
+    const resolved = await resolveUnsubscribeRequest(ctx, token);
+    if (!resolved.ok) {
+      // A mail client that gets a 2xx here tells the recipient they are
+      // unsubscribed, so a link we cannot verify has to fail loudly rather
+      // than return the old blanket 200.
+      return new Response(resolved.error, { status: 400 });
     }
 
     await ctx.runMutation(internal.unsubscribe.processUnsubscribe, {
-      domainId: domain._id,
-      email: email.toLowerCase(),
+      domainId: resolved.domainId,
+      email: resolved.email,
       source: "one-click",
     });
 
@@ -454,7 +484,20 @@ http.route({
   }),
 });
 
+/** The address reaches this page from a token, and before that from whatever
+ *  the sender put in the To header, so it is not ours to interpolate raw. When
+ *  the query string still fed this page it was a reflected XSS outright. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function unsubscribeHtml(emailOrError: string, success: boolean): string {
+  const safe = escapeHtml(emailOrError);
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${success ? "Unsubscribed" : "Error"}</title>
@@ -471,8 +514,8 @@ p{color:#6b7280;font-size:.875rem;line-height:1.5}</style></head>
 }</div>
 <h1>${success ? "You've been unsubscribed" : "Something went wrong"}</h1>
 <p>${success
-    ? `<strong>${emailOrError}</strong> has been removed from our mailing list. You will no longer receive campaign emails from this sender.`
-    : emailOrError
+    ? `<strong>${safe}</strong> has been removed from our mailing list. You will no longer receive campaign emails from this sender.`
+    : safe
 }</p></div></body></html>`;
 }
 

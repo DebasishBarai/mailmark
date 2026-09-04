@@ -4,6 +4,13 @@ import { query, mutation, internalMutation, internalQuery } from "./_generated/s
 // Doc was only used by the commented-out listForCurrentUser above.
 // import type { Doc } from "./_generated/dataModel";
 import { applyUnsubscribeDelta, readDomainStats } from "./lib/counters";
+// The same normalization the token was minted with. If these two ever
+// disagreed, a legitimate legacy link would stop matching its own message.
+import {
+  normalizeAddress,
+  buildUnsubscribeToken,
+  parseUnsubscribeToken,
+} from "./lib/unsubscribeToken";
 
 // ── Queries ──
 
@@ -330,13 +337,131 @@ export const checkUnsubscribedRecipients = internalQuery({
   },
 });
 
-export const getByToken = internalQuery({
-  args: { token: v.string() },
-  handler: async (ctx, { token }) => {
-    return await ctx.db
-      .query("unsubscribes")
-      .withIndex("by_token", (q) => q.eq("token", token))
-      .first();
+// Unused, and unusable for verifying an unsubscribe link: the token on an
+// `unsubscribes` row is minted by generateToken() when the row is inserted,
+// while the token in a delivered message is minted at send time by
+// lib/unsubscribeToken.ts. They were never the same value. Link verification
+// is resolveLegacyToken below plus the signature check in that library.
+//
+// export const getByToken = internalQuery({
+//   args: { token: v.string() },
+//   handler: async (ctx, { token }) => {
+//     return await ctx.db
+//       .query("unsubscribes")
+//       .withIndex("by_token", (q) => q.eq("token", token))
+//       .first();
+//   },
+// });
+
+/**
+ * Verify a legacy (unsigned) unsubscribe token against the message it names.
+ *
+ * Legacy tokens carry no signature, so on their own they prove nothing: the
+ * shape is `${messageId}-${base64url(email)}` and anyone can type one. What
+ * makes one trustworthy is that we sent that messageId to that address, which
+ * is a fact in the emails table. An attacker would have to know a real
+ * messageId of a message that actually went to the address they want opted
+ * out, and messageIds only ever leave here inside the message itself.
+ *
+ * Returns the domain the message was sent from, so the caller never has to
+ * trust a domain name off the query string either. Null means the token does
+ * not match a message we sent, and the request is refused.
+ *
+ * The tradeoff: a message whose emails row was never written (or has since
+ * been removed) can no longer be unsubscribed from through its old link.
+ * Newly sent mail carries a signed token and does not come through here.
+ */
+/**
+ * Does this runtime have the HMAC we sign unsubscribe tokens with?
+ *
+ * Worth asking because the answer is not the same everywhere. Tokens are
+ * minted in ses.ts, which is "use node", and verified in http.ts, which is the
+ * Convex runtime. Node has WebCrypto for certain; this runtime is the one we
+ * cannot check from a laptop. If the two disagree, every campaign sent after
+ * UNSUBSCRIBE_SECRET is configured carries a signature nothing can verify.
+ *
+ * This query lives in the Convex runtime, same as the HTTP handlers, so what
+ * it reports is what they will do. Run it from the dashboard after setting the
+ * secret. Wanted:
+ *
+ *   { secretConfigured: true, hmacAvailable: true, signedTokensVerify: true }
+ *
+ * hmacAvailable false is not an outage: parseUnsubscribeToken falls back to
+ * checking a token against the message it names. It does mean the signature is
+ * decoration and every unsubscribe costs a read, which is worth knowing.
+ *
+ * Touches no data and takes no arguments.
+ */
+export const cryptoSelfTest = internalQuery({
+  args: {},
+  handler: async () => {
+    const messageId = "0000000000000-selftest";
+    const email = "self-test@example.com";
+    const domain = "example.com";
+
+    let token: string;
+    try {
+      token = await buildUnsubscribeToken({ messageId, email, domain });
+    } catch (error) {
+      return {
+        secretConfigured: !!process.env.UNSUBSCRIBE_SECRET,
+        hmacAvailable: false,
+        signedTokensVerify: false,
+        note: `minting threw: ${String(error)}`,
+      };
+    }
+
+    // buildUnsubscribeToken swallows a signing failure and returns the legacy
+    // shape, so the shape it returns is the answer: a v1 prefix means the HMAC
+    // ran.
+    const hmacAvailable = token.startsWith("v1.");
+    const parsed = await parseUnsubscribeToken(token);
+
+    return {
+      secretConfigured: !!process.env.UNSUBSCRIBE_SECRET,
+      hmacAvailable,
+      signedTokensVerify:
+        parsed.kind === "signed" &&
+        parsed.email === email &&
+        parsed.domain === domain,
+      note:
+        parsed.kind === "signed"
+          ? "signing and verification agree"
+          : `verification came back "${parsed.kind}": links fall back to the message-backed check`,
+    };
+  },
+});
+
+export const resolveLegacyToken = internalQuery({
+  args: { messageId: v.string(), email: v.string() },
+  handler: async (ctx, { messageId, email }) => {
+    const normalized = normalizeAddress(email);
+
+    // by_message_id is not unique: a sender's own copy and an ingested copy can
+    // both carry the id, so take the row that actually addressed this person
+    // rather than whichever one sorts first. Bounded, because a messageId
+    // identifies one send.
+    const messages = await ctx.db
+      .query("emails")
+      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
+      .take(10);
+
+    const message = messages.find((candidate) =>
+      [
+        ...candidate.to,
+        ...(candidate.cc ?? []),
+        ...(candidate.bcc ?? []),
+      ].some((address) => normalizeAddress(address) === normalized)
+    );
+    if (!message) return null;
+
+    const mailbox = await ctx.db.get(message.mailboxId);
+    if (!mailbox) return null;
+
+    const domain = await ctx.db.get(mailbox.domainId);
+    if (!domain) return null;
+
+    return { domainId: domain._id, email: normalized };
   },
 });
 
