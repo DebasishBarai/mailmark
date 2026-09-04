@@ -161,7 +161,21 @@ function AffiliateDashboard({ affiliate }: { affiliate: NonNullable<ReturnType<t
     { initialNumItems: PAGE_SIZE }
   );
   const onLoadMore = useCallback(() => loadMore(PAGE_SIZE), [loadMore]);
-  const payouts = useQuery(api.affiliates.getMyPayouts) ?? [];
+  // Old: read every payout ever sent.
+  // const payouts = useQuery(api.affiliates.getMyPayouts) ?? [];
+  const {
+    results: payouts,
+    status: payoutStatus,
+    loadMore: loadMorePayouts,
+  } = usePaginatedQuery(
+    api.affiliates.getMyPayoutsPage,
+    {},
+    { initialNumItems: PAGE_SIZE }
+  );
+  const onLoadMorePayouts = useCallback(
+    () => loadMorePayouts(PAGE_SIZE),
+    [loadMorePayouts]
+  );
 
   const referralLink = `${APP_URL}/?ref=${affiliate!.code}`;
   // From the affiliate row, not the loaded page: the table is paginated now,
@@ -262,7 +276,11 @@ function AffiliateDashboard({ affiliate }: { affiliate: NonNullable<ReturnType<t
         <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-700">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Payout history</h3>
         </div>
-        {payouts.length === 0 ? (
+        {payoutStatus === "LoadingFirstPage" ? (
+          <p className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+            Loading...
+          </p>
+        ) : payouts.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
             No payouts yet. Minimum threshold is $50.
           </p>
@@ -290,6 +308,10 @@ function AffiliateDashboard({ affiliate }: { affiliate: NonNullable<ReturnType<t
             </tbody>
           </table>
         )}
+        <LoadMoreSentinel
+          onLoadMore={onLoadMorePayouts}
+          status={payoutStatus}
+        />
       </div>
     </div>
   );

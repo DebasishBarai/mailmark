@@ -138,30 +138,60 @@ export const getMyReferralsPage = query({
   },
 });
 
-/** Get the current user's payout history */
-export const getMyPayouts = query({
-  args: {},
-  handler: async (ctx) => {
+// Old: collect every payout the affiliate has ever been sent. Payouts are
+// monthly, so this grew slowly rather than sharply, but it grew without a
+// ceiling all the same. Replaced by getMyPayoutsPage below.
+//
+// /** Get the current user's payout history */
+// export const getMyPayouts = query({
+//   args: {},
+//   handler: async (ctx) => {
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) return [];
+////     const user = await ctx.db
+//       .query("users")
+//       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+//       .unique();
+//     if (!user) return [];
+////     const affiliate = await ctx.db
+//       .query("affiliates")
+//       .withIndex("by_userId", (q) => q.eq("userId", user._id))
+//       .first();
+//     if (!affiliate) return [];
+////     return await ctx.db
+//       .query("affiliatePayouts")
+//       .withIndex("by_affiliateId", (q) => q.eq("affiliateId", affiliate._id))
+//       .order("desc")
+//       .collect();
+//   },
+// });
+//
+/** The current user's payout history, newest first, one page at a time. */
+export const getMyPayoutsPage = query({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    const empty = { page: [], isDone: true, continueCursor: "" };
+
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
+    if (!identity) return empty;
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .unique();
-    if (!user) return [];
+    if (!user) return empty;
 
     const affiliate = await ctx.db
       .query("affiliates")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
       .first();
-    if (!affiliate) return [];
+    if (!affiliate) return empty;
 
     return await ctx.db
       .query("affiliatePayouts")
       .withIndex("by_affiliateId", (q) => q.eq("affiliateId", affiliate._id))
       .order("desc")
-      .collect();
+      .paginate(paginationOpts);
   },
 });
 
