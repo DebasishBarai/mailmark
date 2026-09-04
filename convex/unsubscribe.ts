@@ -330,15 +330,80 @@ export const checkUnsubscribedRecipients = internalQuery({
   },
 });
 
-export const getByToken = internalQuery({
-  args: { token: v.string() },
-  handler: async (ctx, { token }) => {
-    return await ctx.db
-      .query("unsubscribes")
-      .withIndex("by_token", (q) => q.eq("token", token))
-      .first();
+// Unused, and unusable for verifying an unsubscribe link: the token on an
+// `unsubscribes` row is minted by generateToken() when the row is inserted,
+// while the token in a delivered message is minted at send time by
+// lib/unsubscribeToken.ts. They were never the same value. Link verification
+// is resolveLegacyToken below plus the signature check in that library.
+//
+// export const getByToken = internalQuery({
+//   args: { token: v.string() },
+//   handler: async (ctx, { token }) => {
+//     return await ctx.db
+//       .query("unsubscribes")
+//       .withIndex("by_token", (q) => q.eq("token", token))
+//       .first();
+//   },
+// });
+
+/**
+ * Verify a legacy (unsigned) unsubscribe token against the message it names.
+ *
+ * Legacy tokens carry no signature, so on their own they prove nothing: the
+ * shape is `${messageId}-${base64url(email)}` and anyone can type one. What
+ * makes one trustworthy is that we sent that messageId to that address, which
+ * is a fact in the emails table. An attacker would have to know a real
+ * messageId of a message that actually went to the address they want opted
+ * out, and messageIds only ever leave here inside the message itself.
+ *
+ * Returns the domain the message was sent from, so the caller never has to
+ * trust a domain name off the query string either. Null means the token does
+ * not match a message we sent, and the request is refused.
+ *
+ * The tradeoff: a message whose emails row was never written (or has since
+ * been removed) can no longer be unsubscribed from through its old link.
+ * Newly sent mail carries a signed token and does not come through here.
+ */
+export const resolveLegacyToken = internalQuery({
+  args: { messageId: v.string(), email: v.string() },
+  handler: async (ctx, { messageId, email }) => {
+    const normalized = email.toLowerCase().trim();
+
+    // by_message_id is not unique: a sender's own copy and an ingested copy can
+    // both carry the id, so take the row that actually addressed this person
+    // rather than whichever one sorts first. Bounded, because a messageId
+    // identifies one send.
+    const messages = await ctx.db
+      .query("emails")
+      .withIndex("by_message_id", (q) => q.eq("messageId", messageId))
+      .take(10);
+
+    const message = messages.find((candidate) =>
+      [
+        ...candidate.to,
+        ...(candidate.cc ?? []),
+        ...(candidate.bcc ?? []),
+      ].some((address) => extractAddress(address) === normalized)
+    );
+    if (!message) return null;
+
+    const mailbox = await ctx.db.get(message.mailboxId);
+    if (!mailbox) return null;
+
+    const domain = await ctx.db.get(mailbox.domainId);
+    if (!domain) return null;
+
+    return { domainId: domain._id, email: normalized };
   },
 });
+
+/** Recipients are usually stored bare, but a header value can arrive as
+ *  `Name <addr@example.com>`, and a comparison against the raw string would
+ *  then miss. */
+function extractAddress(value: string): string {
+  const angled = value.match(/<([^>]+)>/);
+  return (angled ? angled[1] : value).toLowerCase().trim();
+}
 
 export const processUnsubscribe = internalMutation({
   args: {
