@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { query, mutation, action, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { countChanged, countCreated, sequenceBuckets } from "./lib/counters";
@@ -99,25 +100,58 @@ export const getById = query({
   },
 });
 
-export const listEnrollments = query({
-  args: { sequenceId: v.id("sequences") },
-  handler: async (ctx, { sequenceId }) => {
+// Old: collect every enrollment on the sequence. A sequence enrolled from a
+// CSV holds thousands of them, and the panel that reads this only ever shows
+// a screen at a time. Replaced by listEnrollmentsPage below.
+//
+// export const listEnrollments = query({
+//   args: { sequenceId: v.id("sequences") },
+//   handler: async (ctx, { sequenceId }) => {
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) return [];
+////     const user = await ctx.db
+//       .query("users")
+//       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+//       .unique();
+//     if (!user) return [];
+////     const sequence = await ctx.db.get(sequenceId);
+//     if (!sequence || sequence.userId !== user._id) return [];
+////     return await ctx.db
+//       .query("sequenceEnrollments")
+//       .withIndex("by_sequence_id", (q) => q.eq("sequenceId", sequenceId))
+//       .collect();
+//   },
+// });
+//
+/** Enrollments on one sequence, newest first, one page at a time.
+ *
+ *  A CSV driven sequence carries thousands of these, so the panel reads them a
+ *  page at a time rather than all at once. */
+export const listEnrollmentsPage = query({
+  args: {
+    sequenceId: v.id("sequences"),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, { sequenceId, paginationOpts }) => {
+    const empty = { page: [], isDone: true, continueCursor: "" };
+
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
+    if (!identity) return empty;
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .unique();
-    if (!user) return [];
+    if (!user) return empty;
 
     const sequence = await ctx.db.get(sequenceId);
-    if (!sequence || sequence.userId !== user._id) return [];
+    if (!sequence || sequence.userId !== user._id) return empty;
 
     return await ctx.db
       .query("sequenceEnrollments")
       .withIndex("by_sequence_id", (q) => q.eq("sequenceId", sequenceId))
-      .collect();
+      .order("desc")
+      .paginate(paginationOpts);
   },
 });
 

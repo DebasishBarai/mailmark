@@ -1,43 +1,147 @@
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+// Doc was only used by the commented-out listForCurrentUser above.
+// import type { Doc } from "./_generated/dataModel";
 import { applyUnsubscribeDelta, readDomainStats } from "./lib/counters";
 
 // ── Queries ──
 
-export const listForCurrentUser = query({
-  args: {},
-  handler: async (ctx) => {
+// Old: walk every domain and collect every unsubscribe it has ever had,
+// then sort the lot in memory. Unsubscribes only accumulate, so that read grew
+// without bound. Replaced by listPageForCurrentUser below, which pages.
+//
+// export const listForCurrentUser = query({
+//   args: {},
+//   handler: async (ctx) => {
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) return [];
+////     const user = await ctx.db
+//       .query("users")
+//       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+//       .unique();
+//     if (!user) return [];
+////     const domains = await ctx.db
+//       .query("domains")
+//       .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+//       .collect();
+////     const results: (Doc<"unsubscribes"> & { domainName: string })[] = [];
+//     for (const domain of domains) {
+//       const unsubs = await ctx.db
+//         .query("unsubscribes")
+//         .withIndex("by_domain_id", (q) => q.eq("domainId", domain._id))
+//         .collect();
+////       for (const unsub of unsubs) {
+//         results.push({
+//           ...unsub,
+//           domainName: domain.domain,
+//         });
+//       }
+//     }
+////     return results.sort((a, b) => b.unsubscribedAt - a.unsubscribedAt);
+//   },
+// });
+//
+/** The current user's unsubscribes, newest first, one page at a time.
+ *
+ *  Unsubscribes hang off domains rather than users, so there is no single index
+ *  to page over: the list is a merge across the user's domains. Each domain
+ *  contributes at most one page from by_domain_date, the pages are merged, and
+ *  the top numItems are returned. A read is therefore bounded by domains times
+ *  page size rather than by how many people have ever opted out.
+ *
+ *  The cursor is the (unsubscribedAt, _id) of the last row returned, which is
+ *  what the merge sorts on, so it survives rows arriving in between. The one
+ *  soft spot is a single domain holding more than a page of unsubscribes
+ *  recorded in the same millisecond, which the bulk paths do not produce. */
+type MergeCursor = { ts: number; id: string };
+
+function decodeCursor(cursor: string | null): MergeCursor | null {
+  if (!cursor) return null;
+  try {
+    const parsed = JSON.parse(cursor) as MergeCursor;
+    return typeof parsed?.ts === "number" && typeof parsed?.id === "string"
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Newest first: later timestamp wins, and _id breaks ties the same way the
+ *  by_domain_date index does when read in descending order. */
+function newestFirst(
+  a: { unsubscribedAt: number; _id: string },
+  b: { unsubscribedAt: number; _id: string }
+) {
+  if (a.unsubscribedAt !== b.unsubscribedAt)
+    return b.unsubscribedAt - a.unsubscribedAt;
+  return a._id < b._id ? 1 : a._id > b._id ? -1 : 0;
+}
+
+export const listPageForCurrentUser = query({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    const empty = { page: [], isDone: true, continueCursor: "" };
+
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
+    if (!identity) return empty;
 
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .unique();
-    if (!user) return [];
+    if (!user) return empty;
 
     const domains = await ctx.db
       .query("domains")
       .withIndex("by_user_id", (q) => q.eq("userId", user._id))
       .collect();
+    if (domains.length === 0) return empty;
 
-    const results: (Doc<"unsubscribes"> & { domainName: string })[] = [];
-    for (const domain of domains) {
-      const unsubs = await ctx.db
-        .query("unsubscribes")
-        .withIndex("by_domain_id", (q) => q.eq("domainId", domain._id))
-        .collect();
+    const numItems = Math.max(1, paginationOpts.numItems);
+    const after = decodeCursor(paginationOpts.cursor);
 
-      for (const unsub of unsubs) {
-        results.push({
-          ...unsub,
-          domainName: domain.domain,
-        });
-      }
-    }
+    // One page too many per domain: the extra row is what tells us whether
+    // anything is left without a second read.
+    const perDomain = await Promise.all(
+      domains.map(async (domain) => {
+        const rows = await ctx.db
+          .query("unsubscribes")
+          .withIndex("by_domain_date", (q) =>
+            after
+              ? q.eq("domainId", domain._id).lte("unsubscribedAt", after.ts)
+              : q.eq("domainId", domain._id)
+          )
+          .order("desc")
+          .take(numItems + 1);
 
-    return results.sort((a, b) => b.unsubscribedAt - a.unsubscribedAt);
+        const cursorRow = after
+          ? { unsubscribedAt: after.ts, _id: after.id }
+          : null;
+
+        return rows
+          .filter((row) => !cursorRow || newestFirst(row, cursorRow) > 0)
+          .map((row) => ({ ...row, domainName: domain.domain }));
+      })
+    );
+
+    const merged = perDomain.flat().sort(newestFirst);
+    const page = merged.slice(0, numItems);
+    const last = page[page.length - 1];
+
+    // Every domain was asked for numItems + 1, so a merge that came back within
+    // numItems means no domain was truncated and there is nothing further.
+    const isDone = merged.length <= numItems;
+
+    return {
+      page,
+      isDone,
+      continueCursor:
+        isDone || !last
+          ? ""
+          : JSON.stringify({ ts: last.unsubscribedAt, id: last._id }),
+    };
   },
 });
 

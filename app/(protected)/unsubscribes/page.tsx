@@ -1,12 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useCallback, useState } from "react";
+import { usePaginatedQuery, useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import LoadMoreSentinel from "../../components/LoadMoreSentinel";
+
+const PAGE_SIZE = 50;
 
 export default function UnsubscribesPage() {
-  const unsubscribes = useQuery(api.unsubscribe.listForCurrentUser) ?? [];
+  // Old: one query that collected every unsubscribe across every domain.
+  // const unsubscribes = useQuery(api.unsubscribe.listForCurrentUser) ?? [];
+  const {
+    results: unsubscribes,
+    status: unsubStatus,
+    loadMore,
+  } = usePaginatedQuery(
+    api.unsubscribe.listPageForCurrentUser,
+    {},
+    { initialNumItems: PAGE_SIZE }
+  );
   const stats = useQuery(api.unsubscribe.getStats);
   const domains = useQuery(api.domains.listForCurrentUser) ?? [];
   const addManual = useMutation(api.unsubscribe.addManual);
@@ -27,6 +40,8 @@ export default function UnsubscribesPage() {
           u.domainName.includes(searchQuery.toLowerCase())
       )
     : unsubscribes;
+
+  const onLoadMore = useCallback(() => loadMore(PAGE_SIZE), [loadMore]);
 
   const handleAdd = async () => {
     if (!addEmail.trim() || !addDomainId) return;
@@ -124,7 +139,9 @@ export default function UnsubscribesPage() {
         <div className="rounded-2xl border border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800">
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-700">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Unsubscribed Emails ({filteredUnsubs.length})
+              Unsubscribed Emails ({searchQuery
+                ? filteredUnsubs.length
+                : (stats?.total ?? filteredUnsubs.length)})
             </h2>
             <input
               type="text"
@@ -135,13 +152,17 @@ export default function UnsubscribesPage() {
             />
           </div>
 
-          {filteredUnsubs.length === 0 ? (
+          {unsubStatus === "LoadingFirstPage" ? (
+            <p className="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+              Loading...
+            </p>
+          ) : filteredUnsubs.length === 0 ? (
             <div className="px-6 py-12 text-center">
               <svg className="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 9v.906a2.25 2.25 0 01-1.183 1.981l-6.478 3.488M2.25 9v.906a2.25 2.25 0 001.183 1.981l6.478 3.488m8.839 2.51l-4.66-2.51m0 0l-1.023-.55a2.25 2.25 0 00-2.134 0l-1.022.55m0 0l-4.661 2.51" />
               </svg>
               <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                {searchQuery ? "No matching unsubscribes found." : "No unsubscribes yet. Recipients who opt out will appear here."}
+                {searchQuery ? "No matching unsubscribes in the rows loaded so far." : "No unsubscribes yet. Recipients who opt out will appear here."}
               </p>
             </div>
           ) : (
@@ -173,6 +194,7 @@ export default function UnsubscribesPage() {
                   </button>
                 </div>
               ))}
+              <LoadMoreSentinel onLoadMore={onLoadMore} status={unsubStatus} />
             </div>
           )}
         </div>
