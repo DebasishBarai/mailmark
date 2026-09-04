@@ -215,7 +215,7 @@ export default function MailboxPage() {
     folder: activeFolder,
     paginationOpts: { numItems: 50, cursor: pageCursors[currentPage] ?? null },
   });
-  const emails = paginatedResult?.page ?? [];
+  const emails = useMemo(() => paginatedResult?.page ?? [], [paginatedResult]);
   const totalCount = useQuery(api.emails.countByFolder, {
     mailboxId: mbId,
     folder: activeFolder,
@@ -227,10 +227,42 @@ export default function MailboxPage() {
   // });
   // const unreadCount = inboxEmails?.filter((e: Doc<"emails">) => !e.read).length ?? 0;
   const unreadCount = useQuery(api.emails.countUnreadByMailbox, { mailboxId: mbId }) ?? 0;
-  const contacts = useQuery(api.contacts.listForCurrentUser);
+  // Old: read the entire address book to resolve the names on one screen. That
+  // is a full table scan per mailbox open, and it grows with the account while
+  // the page it feeds always shows the same fifty rows.
+  // const contacts = useQuery(api.contacts.listForCurrentUser);
+  // // Build a lookup map: raw email → display name
+  // const contactNameMap = new Map<string, string>();
+  // contacts?.forEach((c) => contactNameMap.set(c.email, c.name));
+
+  // Now: ask only for the addresses on this page of mail. Keyed off a sorted
+  // string so the query args keep their identity between renders and the
+  // lookup only re-runs when the addresses themselves change.
+  const visibleAddressKey = useMemo(() => {
+    const seen = new Set<string>();
+    for (const email of emails) {
+      for (const addr of [email.from, ...email.to, ...(email.cc ?? [])]) {
+        // A "Name <addr>" string carries its own name and never reaches the
+        // map, so only bare addresses are worth asking about.
+        if (addr && !addr.includes("<")) seen.add(addr.toLowerCase().trim());
+      }
+    }
+    return [...seen].sort().join(",");
+  }, [emails]);
+
+  const nameLookupArgs = useMemo(
+    () => (visibleAddressKey ? { emails: visibleAddressKey.split(",") } : ("skip" as const)),
+    [visibleAddressKey]
+  );
+  const contactNames = useQuery(api.contacts.namesByEmails, nameLookupArgs);
   // Build a lookup map: raw email → display name
-  const contactNameMap = new Map<string, string>();
-  contacts?.forEach((c) => contactNameMap.set(c.email, c.name));
+  const contactNameMap = useMemo(
+    () =>
+      new Map<string, string>(
+        (contactNames ?? []).map((c) => [c.email, c.name] as [string, string])
+      ),
+    [contactNames]
+  );
   const senderGroups = useQuery(api.senderGroups.list, { mailboxId: mbId });
   const createSenderGroup = useMutation(api.senderGroups.create);
   const updateSenderGroup = useMutation(api.senderGroups.update);

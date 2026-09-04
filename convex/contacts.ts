@@ -121,6 +121,53 @@ export const listForCurrentUser = query({
   },
 });
 
+/** Display names for a named set of addresses.
+ *
+ *  The mailbox used to read the whole address book through
+ *  listForCurrentUser just to turn a "from" line into a name. That is a table
+ *  scan for every mailbox open, and it grows with the account while the thing
+ *  it feeds never does: one screen of mail shows fifty rows. This takes the
+ *  addresses actually on screen and looks up only those, over by_user_email.
+ *
+ *  Addresses are lowercased to match how upsert stores them. The cap is a
+ *  backstop, not an expected limit: a page of fifty mails with every to and cc
+ *  counted lands well under it. */
+const MAX_NAME_LOOKUPS = 300;
+
+export const namesByEmails = query({
+  args: { emails: v.array(v.string()) },
+  handler: async (ctx, { emails }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) return [];
+
+    const wanted = [...new Set(emails.map((e) => e.toLowerCase().trim()))]
+      .filter((e) => e.length > 0)
+      .slice(0, MAX_NAME_LOOKUPS);
+
+    const found = await Promise.all(
+      wanted.map(async (email) => {
+        const contact = await ctx.db
+          .query("contacts")
+          .withIndex("by_user_email", (q) =>
+            q.eq("userId", user._id).eq("email", email)
+          )
+          .first();
+        return contact ? { email, name: contact.name } : null;
+      })
+    );
+
+    return found.filter(
+      (row): row is { email: string; name: string } => row !== null
+    );
+  },
+});
+
 /** The current user's address book, paginated, newest first.
  *
  *  Separate from listForCurrentUser above rather than replacing it: that one is
