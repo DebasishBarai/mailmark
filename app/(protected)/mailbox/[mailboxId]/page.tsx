@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useQuery, useMutation, useAction } from "convex/react";
+import { usePaginatedQuery, useQuery, useMutation, useAction } from "convex/react";
 import { sendErrorMessage } from "@/lib/sendErrors";
 import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
@@ -12,6 +12,9 @@ import { Users } from "lucide-react";
 import { marked } from "marked";
 import { resolveMergeFields, extractMergeFields } from "@/lib/mergeFields";
 import { parseCSV, detectEmailColumn } from "@/lib/csvParser";
+import LoadMoreSentinel from "../../../components/LoadMoreSentinel";
+
+const ENROLLMENTS_PAGE_SIZE = 50;
 import MergeFieldToolbar from "./components/MergeFieldToolbar";
 import MergePreview from "./components/MergePreview";
 import EmailBodyFrame from "./components/EmailBodyFrame";
@@ -287,9 +290,27 @@ export default function MailboxPage() {
   const cancelEnrollment = useMutation(api.sequenceActions.cancelEnrollment);
   const [expandedSequenceId, setExpandedSequenceId] = useState<Id<"sequences"> | null>(null);
   const [selectedEnrollmentIds, setSelectedEnrollmentIds] = useState<Set<string>>(new Set());
-  const sequenceEnrollments = useQuery(
-    api.sequenceActions.listEnrollments,
-    expandedSequenceId ? { sequenceId: expandedSequenceId } : "skip"
+  // Old: read every enrollment on the sequence at once.
+  // const sequenceEnrollments = useQuery(
+  //   api.sequenceActions.listEnrollments,
+  //   expandedSequenceId ? { sequenceId: expandedSequenceId } : "skip"
+  // );
+  const {
+    results: sequenceEnrollments,
+    status: enrollmentStatus,
+    loadMore: loadMoreEnrollments,
+  } = usePaginatedQuery(
+    api.sequenceActions.listEnrollmentsPage,
+    expandedSequenceId ? { sequenceId: expandedSequenceId } : "skip",
+    { initialNumItems: ENROLLMENTS_PAGE_SIZE }
+  );
+  const onLoadMoreEnrollments = useCallback(
+    () => loadMoreEnrollments(ENROLLMENTS_PAGE_SIZE),
+    [loadMoreEnrollments]
+  );
+  const loadedActiveEnrollments = useMemo(
+    () => sequenceEnrollments.filter((e) => e.status === "active"),
+    [sequenceEnrollments]
   );
   const cancelScheduledEmailMutation = useMutation(api.emails.cancelScheduledEmail);
   const fetchEmailBody = useAction(api.ses.fetchEmailBody);
@@ -2267,7 +2288,10 @@ export default function MailboxPage() {
               <div>
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                    Enrollments {sequenceEnrollments ? `(${sequenceEnrollments.length})` : ""}
+                    Enrollments{" "}
+                    {enrollmentStatus === "LoadingFirstPage"
+                      ? ""
+                      : `(${sequenceEnrollments.length}${enrollmentStatus === "Exhausted" ? "" : "+"})`}
                   </h3>
                   {selectedEnrollmentIds.size > 0 && (
                     <button
@@ -2286,7 +2310,7 @@ export default function MailboxPage() {
                     </button>
                   )}
                 </div>
-                {!sequenceEnrollments ? (
+                {enrollmentStatus === "LoadingFirstPage" ? (
                   <div className="py-8 text-center text-sm text-gray-400">Loading enrollments...</div>
                 ) : sequenceEnrollments.length === 0 ? (
                   <div className="py-8 text-center text-sm text-gray-400">No contacts enrolled yet</div>
@@ -2295,10 +2319,10 @@ export default function MailboxPage() {
                     <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                       <input
                         type="checkbox"
-                        checked={selectedEnrollmentIds.size === sequenceEnrollments.filter(e => e.status === "active").length && sequenceEnrollments.filter(e => e.status === "active").length > 0}
+                        checked={selectedEnrollmentIds.size === loadedActiveEnrollments.length && loadedActiveEnrollments.length > 0}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedEnrollmentIds(new Set(sequenceEnrollments.filter(en => en.status === "active").map(en => en._id)));
+                            setSelectedEnrollmentIds(new Set(loadedActiveEnrollments.map(en => en._id)));
                           } else {
                             setSelectedEnrollmentIds(new Set());
                           }
@@ -2306,7 +2330,7 @@ export default function MailboxPage() {
                         className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                       />
                       <span className="text-xs text-gray-500 dark:text-gray-400">
-                        Select all active ({sequenceEnrollments.filter(e => e.status === "active").length})
+                        Select all active in loaded rows ({loadedActiveEnrollments.length})
                       </span>
                     </div>
                     <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
@@ -2351,6 +2375,10 @@ export default function MailboxPage() {
                           )}
                         </div>
                       ))}
+                      <LoadMoreSentinel
+                        onLoadMore={onLoadMoreEnrollments}
+                        status={enrollmentStatus}
+                      />
                     </div>
                   </div>
                 )}
