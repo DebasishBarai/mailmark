@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { AddDomainModal } from "../../components/AddDomainModal";
 import RollingCounter from "../../components/RollingCounter";
+import ContactLimitWarning from "../../components/ContactLimitWarning";
 
 export default function DashboardPage() {
   const domains = useQuery(api.domains.listForCurrentUser);
@@ -41,6 +42,10 @@ export default function DashboardPage() {
           Welcome back. Here&apos;s an overview of your email platform.
         </p>
       </div>
+
+      {/* Warns when the account is over the contact allowance for its plan.
+          Renders nothing while the usage query loads or when inside the limit. */}
+      <ContactLimitWarning />
 
       {/* Stats grid */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
