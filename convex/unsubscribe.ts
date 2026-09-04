@@ -4,6 +4,9 @@ import { query, mutation, internalMutation, internalQuery } from "./_generated/s
 // Doc was only used by the commented-out listForCurrentUser above.
 // import type { Doc } from "./_generated/dataModel";
 import { applyUnsubscribeDelta, readDomainStats } from "./lib/counters";
+// The same normalization the token was minted with. If these two ever
+// disagreed, a legitimate legacy link would stop matching its own message.
+import { normalizeAddress } from "./lib/unsubscribeToken";
 
 // ── Queries ──
 
@@ -367,7 +370,7 @@ export const checkUnsubscribedRecipients = internalQuery({
 export const resolveLegacyToken = internalQuery({
   args: { messageId: v.string(), email: v.string() },
   handler: async (ctx, { messageId, email }) => {
-    const normalized = email.toLowerCase().trim();
+    const normalized = normalizeAddress(email);
 
     // by_message_id is not unique: a sender's own copy and an ingested copy can
     // both carry the id, so take the row that actually addressed this person
@@ -383,7 +386,7 @@ export const resolveLegacyToken = internalQuery({
         ...candidate.to,
         ...(candidate.cc ?? []),
         ...(candidate.bcc ?? []),
-      ].some((address) => extractAddress(address) === normalized)
+      ].some((address) => normalizeAddress(address) === normalized)
     );
     if (!message) return null;
 
@@ -396,14 +399,6 @@ export const resolveLegacyToken = internalQuery({
     return { domainId: domain._id, email: normalized };
   },
 });
-
-/** Recipients are usually stored bare, but a header value can arrive as
- *  `Name <addr@example.com>`, and a comparison against the raw string would
- *  then miss. */
-function extractAddress(value: string): string {
-  const angled = value.match(/<([^>]+)>/);
-  return (angled ? angled[1] : value).toLowerCase().trim();
-}
 
 export const processUnsubscribe = internalMutation({
   args: {

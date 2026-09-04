@@ -26,28 +26,53 @@
  *                message: see unsubscribe.resolveLegacyToken.
  *
  * Both runtimes have to build these: ses.ts is "use node", http.ts is the
- * Convex runtime. So this file sticks to WebCrypto and atob/btoa, and does not
- * reach for Buffer.
+ * Convex runtime. So no Buffer, and no atob/btoa either: nothing under convex/
+ * uses those today, and this is not the code path to find out on. base64url is
+ * done by hand below. WebCrypto is already proven here, by the sha256Hex the
+ * REST API authenticates every request with.
  */
 
 const SIGNED_PREFIX = "v1";
 
+const ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+/** Unpadded base64url. Padding is what "=" is for, and "=" has to be escaped
+ *  in a URL, so tokens carry none and the decoder infers length from the
+ *  bits it has. */
 function encodeBase64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b0 = bytes[i];
+    const b1 = bytes[i + 1];
+    const b2 = bytes[i + 2];
+    out += ALPHABET[b0 >> 2];
+    out += ALPHABET[((b0 & 0b11) << 4) | ((b1 ?? 0) >> 4)];
+    if (b1 === undefined) break;
+    out += ALPHABET[((b1 & 0b1111) << 2) | ((b2 ?? 0) >> 6)];
+    if (b2 === undefined) break;
+    out += ALPHABET[b2 & 0b111111];
+  }
+  return out;
 }
 
 function decodeBase64Url(value: string): Uint8Array | null {
-  try {
-    const padded = value.replace(/-/g, "+").replace(/_/g, "/");
-    const binary = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4));
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes;
-  } catch {
-    return null;
+  const out: number[] = [];
+  let bits = 0;
+  let bitCount = 0;
+  for (let i = 0; i < value.length; i++) {
+    const index = ALPHABET.indexOf(value[i]);
+    // Any character outside the alphabet means this is not a token we minted,
+    // padding and whitespace included.
+    if (index < 0) return null;
+    bits = (bits << 6) | index;
+    bitCount += 6;
+    if (bitCount >= 8) {
+      bitCount -= 8;
+      out.push((bits >> bitCount) & 0xff);
+    }
   }
+  return new Uint8Array(out);
 }
 
 function encodeText(value: string): string {
@@ -109,17 +134,41 @@ export async function buildUnsubscribeToken(args: {
   email: string;
   domain: string;
 }): Promise<string> {
-  const secret = getSecret();
-  const encodedEmail = encodeText(args.email.toLowerCase().trim());
-  if (!secret) return `${args.messageId}-${encodedEmail}`;
+  // A To header can arrive as `Name <addr@example.com>`, and the address is
+  // what has to end up on the unsubscribes row: sendGate looks the recipient
+  // up by bare address, so a row keyed on the display form would never match
+  // and the opt-out would quietly do nothing.
+  const encodedEmail = encodeText(normalizeAddress(args.email));
+  const legacy = `${args.messageId}-${encodedEmail}`;
 
-  const payload = [
-    SIGNED_PREFIX,
-    args.messageId,
-    encodedEmail,
-    encodeText(args.domain.toLowerCase().trim()),
-  ].join(".");
-  return `${payload}.${await sign(secret, payload)}`;
+  const secret = getSecret();
+  if (!secret) return legacy;
+
+  try {
+    const payload = [
+      SIGNED_PREFIX,
+      args.messageId,
+      encodedEmail,
+      // Verbatim, not lowercased: domains are stored exactly as the user typed
+      // them when adding one (nothing in domainActions or insertDomain folds
+      // case) and domains.getDomainByName is an exact index lookup. Normalizing
+      // here would miss every domain that was added with a capital in it.
+      encodeText(args.domain),
+    ].join(".");
+    return `${payload}.${await sign(secret, payload)}`;
+  } catch {
+    // Signing is the only thing here that can fail, and it is not worth a
+    // failed send: fall back to the legacy shape, which the handler still
+    // accepts by checking it against the message it names.
+    return legacy;
+  }
+}
+
+/** The bare address, lowercased: `Name <a@b.com>` and `a@b.com` have to reach
+ *  the unsubscribes table as the same value. */
+export function normalizeAddress(value: string): string {
+  const angled = value.match(/<([^>]+)>/);
+  return (angled ? angled[1] : value).toLowerCase().trim();
 }
 
 export type ParsedUnsubscribeToken =
@@ -134,6 +183,17 @@ export type ParsedUnsubscribeToken =
 export async function parseUnsubscribeToken(
   token: string
 ): Promise<ParsedUnsubscribeToken> {
+  try {
+    return await readToken(token);
+  } catch {
+    // An unverifiable token is not a token. Failing closed here costs one
+    // unsubscribe link; failing open would reopen the hole this file exists
+    // to close.
+    return { kind: "invalid" };
+  }
+}
+
+async function readToken(token: string): Promise<ParsedUnsubscribeToken> {
   const raw = token.trim().replace(/\/+$/, "");
   if (!raw) return { kind: "invalid" };
 
