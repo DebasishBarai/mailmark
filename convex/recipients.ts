@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { internalMutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { recordRecipients, recordRecipientsForMailbox } from "./lib/recipients";
@@ -183,15 +184,20 @@ export const backfillSequenceRecipients = internalMutation({
  *
  *  Paginated rather than collected: this is the one list in the app expected to
  *  run to tens of thousands of rows (26,454 on the largest account at the time
- *  of writing), so it must never be read whole. Same hand-rolled paginationOpts
- *  shape as suppressions.listForCurrentUser. */
+ *  of writing), so it must never be read whole. Takes Convex's own
+ *  paginationOpts so the contacts page can drive it with usePaginatedQuery. */
 export const listForCurrentUser = query({
-  args: {
-    paginationOpts: v.object({
-      numItems: v.number(),
-      cursor: v.union(v.string(), v.null()),
-    }),
-  },
+  // Convex's own validator rather than the hand-rolled object it used to be:
+  // usePaginatedQuery on the client only points at queries that take this exact
+  // shape, and that is what accumulates pages behind the contacts scroll. It is
+  // a superset of the old {numItems, cursor}, so existing callers are unaffected.
+  // args: {
+  //   paginationOpts: v.object({
+  //     numItems: v.number(),
+  //     cursor: v.union(v.string(), v.null()),
+  //   }),
+  // },
+  args: { paginationOpts: paginationOptsValidator },
   handler: async (ctx, { paginationOpts }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return { page: [], isDone: true, continueCursor: "" };

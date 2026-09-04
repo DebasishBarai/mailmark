@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
 /**
@@ -32,26 +32,84 @@ function formatDate(ms: number) {
   });
 }
 
+/**
+ * Bottom-of-list sentinel, in place of the old "Load more" button.
+ *
+ * The next page is requested as soon as the sentinel enters view, and the
+ * rootMargin means that happens a little before the reader actually reaches the
+ * bottom, so the rows are usually there by the time they get to them. The
+ * observer only runs while the status is CanLoadMore, which keeps a single pass
+ * through the sentinel from queueing two pages: once a page is in flight the
+ * status is LoadingMore and the effect has torn the observer down. If the new
+ * page is still short enough to leave the sentinel on screen the effect re-runs
+ * and fires again, which is how a short viewport keeps filling itself.
+ */
+function LoadMoreSentinel({
+  onLoadMore,
+  status,
+}: {
+  onLoadMore: () => void;
+  status: "LoadingFirstPage" | "CanLoadMore" | "LoadingMore" | "Exhausted";
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const canLoadMore = status === "CanLoadMore";
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || !canLoadMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          observer.disconnect();
+          onLoadMore();
+        }
+      },
+      { rootMargin: "400px 0px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [onLoadMore, canLoadMore]);
+
+  if (status === "Exhausted" || status === "LoadingFirstPage") return null;
+
+  return (
+    <div
+      ref={ref}
+      className="border-t border-gray-100 px-6 py-4 text-center dark:border-gray-700"
+    >
+      <span className="text-sm text-gray-400 dark:text-gray-500">
+        Loading more...
+      </span>
+    </div>
+  );
+}
+
 export default function ContactsPage() {
   const [tab, setTab] = useState<"audience" | "book">("audience");
   const [search, setSearch] = useState("");
 
-  // Hand-rolled paginationOpts, like the suppressions page: these queries take
-  // a plain object rather than Convex's own validator, so usePaginatedQuery
-  // cannot be pointed at them. Growing numItems and re-reading is fine here.
-  const [audienceLimit, setAudienceLimit] = useState(PAGE_SIZE);
-  const [bookLimit, setBookLimit] = useState(PAGE_SIZE);
-
-  const audience = useQuery(api.recipients.listForCurrentUser, {
-    paginationOpts: { numItems: audienceLimit, cursor: null },
-  });
-  const book = useQuery(api.contacts.listPageForCurrentUser, {
-    paginationOpts: { numItems: bookLimit, cursor: null },
-  });
+  // usePaginatedQuery holds every page it has fetched and appends the next one
+  // by cursor, so rows already on screen stay put while the next fifty arrive.
+  // That is what the scroll needs: re-reading a wider page each time, as this
+  // did before, blanked the list mid-scroll and re-read every earlier row.
+  const {
+    results: audienceRows,
+    status: audienceStatus,
+    loadMore: loadMoreAudience,
+  } = usePaginatedQuery(api.recipients.listForCurrentUser, {}, { initialNumItems: PAGE_SIZE });
+  const {
+    results: bookRows,
+    status: bookStatus,
+    loadMore: loadMoreBook,
+  } = usePaginatedQuery(api.contacts.listPageForCurrentUser, {}, { initialNumItems: PAGE_SIZE });
   const usage = useQuery(api.quotas.getUsageAndLimits);
 
-  const audienceRows = audience?.page ?? [];
-  const bookRows = book?.page ?? [];
+  const onLoadMoreAudience = useCallback(
+    () => loadMoreAudience(PAGE_SIZE),
+    [loadMoreAudience]
+  );
+  const onLoadMoreBook = useCallback(() => loadMoreBook(PAGE_SIZE), [loadMoreBook]);
 
   const needle = search.trim().toLowerCase();
   const filteredAudience = needle
@@ -158,7 +216,7 @@ export default function ContactsPage() {
           </div>
 
           {tab === "audience" ? (
-            audience === undefined ? (
+            audienceStatus === "LoadingFirstPage" ? (
               <p className="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
                 Loading...
               </p>
@@ -185,6 +243,8 @@ export default function ContactsPage() {
                     </div>
                   ))}
                 </div>
+                {/* Replaced by the sentinel below: the next page now loads when
+                    the bottom of the list comes into view.
                 {!audience.isDone && (
                   <div className="border-t border-gray-100 px-6 py-4 text-center dark:border-gray-700">
                     <button
@@ -195,9 +255,14 @@ export default function ContactsPage() {
                     </button>
                   </div>
                 )}
+                */}
+                <LoadMoreSentinel
+                  onLoadMore={onLoadMoreAudience}
+                  status={audienceStatus}
+                />
               </>
             )
-          ) : book === undefined ? (
+          ) : bookStatus === "LoadingFirstPage" ? (
             <p className="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
               Loading...
             </p>
@@ -229,6 +294,7 @@ export default function ContactsPage() {
                   </div>
                 ))}
               </div>
+              {/* Replaced by the sentinel below, same as the contacts tab.
               {!book.isDone && (
                 <div className="border-t border-gray-100 px-6 py-4 text-center dark:border-gray-700">
                   <button
@@ -239,6 +305,11 @@ export default function ContactsPage() {
                   </button>
                 </div>
               )}
+              */}
+              <LoadMoreSentinel
+                onLoadMore={onLoadMoreBook}
+                status={bookStatus}
+              />
             </>
           )}
         </div>
