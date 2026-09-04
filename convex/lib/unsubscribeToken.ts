@@ -264,3 +264,84 @@ async function readToken(token: string): Promise<ParsedUnsubscribeToken> {
   if (!email || !email.includes("@")) return { kind: "invalid" };
   return { kind: "legacy", messageId, email };
 }
+
+// ── Link, header and footer construction ───────────────────────────────────
+// Moved here from ses.ts: these are pure string builders over a token, and
+// keeping them beside it makes the one-recipient rule testable.
+
+// Generate unsubscribe headers and footer for RFC 8058 compliance
+// (Gmail/Yahoo 2024 one-click unsubscribe requirement)
+//
+// Old: two URIs that differed only in whether they carried ?email=&domain=,
+// because the handlers used to read the recipient out of the query string. The
+// token now carries the recipient and the domain in signed form, so there is
+// one URI, it is the same for the click and the POST, and the address no
+// longer travels in a query string where referrers and proxy logs can see it.
+//
+// function buildUnsubscribeHeaders(unsubUrl: string, unsubPostUrl: string): string[] {
+//   return [
+//     `List-Unsubscribe: <${unsubUrl}>, <${unsubPostUrl}>`,
+//     `List-Unsubscribe-Post: List-Unsubscribe=One-Click`,
+//   ];
+// }
+function buildUnsubscribeHeaders(unsubUrl: string): string[] {
+  return [
+    `List-Unsubscribe: <${unsubUrl}>`,
+    `List-Unsubscribe-Post: List-Unsubscribe=One-Click`,
+  ];
+}
+
+/** The one unsubscribe URL for a message: signed, so the handler can trust the
+ *  recipient and domain it names without consulting the request. */
+async function buildUnsubscribeUrl(
+  convexSiteUrl: string,
+  messageId: string,
+  email: string,
+  domain: string
+): Promise<string> {
+  const token = await buildUnsubscribeToken({ messageId, email, domain });
+  return `${convexSiteUrl}/unsubscribe/${token}`;
+}
+
+/**
+ * Unsubscribe headers for a message, plus the visible footer when it is bulk.
+ *
+ * Every message gets the RFC 8058 headers now, not just campaigns, so the
+ * recipient's own mail client offers its Unsubscribe button on ordinary
+ * correspondence too. The visible footer stays on bulk mail: a one-to-one
+ * reply should not end in a marketing opt-out line.
+ *
+ * A link names exactly one recipient, so it is only built for a message that
+ * has exactly one. On a message to several people there is no single "you" to
+ * unsubscribe, and a header naming the first To would let any recipient opt
+ * out somebody else. Campaign and sequence sends are one message per
+ * recipient, so they always qualify.
+ */
+export async function buildUnsubscribeParts(args: {
+  convexSiteUrl: string;
+  messageId: string;
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  domain: string;
+  isBulk: boolean;
+}): Promise<{ headers: string[]; footer: string }> {
+  const recipients = [...args.to, ...(args.cc ?? []), ...(args.bcc ?? [])];
+  const recipient = recipients.length === 1 ? recipients[0] : "";
+  if (!recipient) return { headers: [], footer: "" };
+
+  const unsubUrl = await buildUnsubscribeUrl(
+    args.convexSiteUrl,
+    args.messageId,
+    recipient,
+    args.domain
+  );
+  return {
+    headers: buildUnsubscribeHeaders(unsubUrl),
+    footer: args.isBulk ? buildUnsubscribeFooter(unsubUrl) : "",
+  };
+}
+
+function buildUnsubscribeFooter(unsubUrl: string): string {
+  return `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#9ca3af;font-family:sans-serif">If you no longer wish to receive these emails, <a href="${unsubUrl}" style="color:#7c3aed;text-decoration:underline">unsubscribe here</a>.</div>`;
+}

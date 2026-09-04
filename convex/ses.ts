@@ -12,7 +12,7 @@ import { v, ConvexError } from "convex/values";
 import { action, internalAction, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { PLAN_LIMITS } from "./quotas";
-import { buildUnsubscribeToken } from "./lib/unsubscribeToken";
+import { buildUnsubscribeParts } from "./lib/unsubscribeToken";
 import { Id } from "./_generated/dataModel";
 import { SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { PutObjectCommand, GetObjectCommand, HeadObjectCommand, CopyObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
@@ -40,43 +40,10 @@ async function clientsForMailboxResult(
   return getPlatformAwsClients();
 }
 
-// Generate unsubscribe headers and footer for RFC 8058 compliance
-// (Gmail/Yahoo 2024 one-click unsubscribe requirement)
-//
-// Old: two URIs that differed only in whether they carried ?email=&domain=,
-// because the handlers used to read the recipient out of the query string. The
-// token now carries the recipient and the domain in signed form, so there is
-// one URI, it is the same for the click and the POST, and the address no
-// longer travels in a query string where referrers and proxy logs can see it.
-//
-// function buildUnsubscribeHeaders(unsubUrl: string, unsubPostUrl: string): string[] {
-//   return [
-//     `List-Unsubscribe: <${unsubUrl}>, <${unsubPostUrl}>`,
-//     `List-Unsubscribe-Post: List-Unsubscribe=One-Click`,
-//   ];
-// }
-function buildUnsubscribeHeaders(unsubUrl: string): string[] {
-  return [
-    `List-Unsubscribe: <${unsubUrl}>`,
-    `List-Unsubscribe-Post: List-Unsubscribe=One-Click`,
-  ];
-}
-
-/** The one unsubscribe URL for a message: signed, so the handler can trust the
- *  recipient and domain it names without consulting the request. */
-async function buildUnsubscribeUrl(
-  convexSiteUrl: string,
-  messageId: string,
-  email: string,
-  domain: string
-): Promise<string> {
-  const token = await buildUnsubscribeToken({ messageId, email, domain });
-  return `${convexSiteUrl}/unsubscribe/${token}`;
-}
-
-function buildUnsubscribeFooter(unsubUrl: string): string {
-  return `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#9ca3af;font-family:sans-serif">If you no longer wish to receive these emails, <a href="${unsubUrl}" style="color:#7c3aed;text-decoration:underline">unsubscribe here</a>.</div>`;
-}
+// Unsubscribe headers, footer and link building moved to
+// lib/unsubscribeToken.ts, next to the token they are built from, so the
+// one-recipient rule and the header/footer gating can be unit tested. They are
+// pure string builders; nothing about them needed the Node runtime.
 
 function rewriteLinksForClickTracking(html: string, siteUrl: string, messageId: string): string {
   let linkIndex = 0;
@@ -272,13 +239,22 @@ export const sendEmail = action({
       ? `<img src="${convexSiteUrl}/track/open/${messageId}.gif" width="1" height="1" style="display:none" alt="" />`
       : "";
 
-    // Build unsubscribe headers and footer for campaign emails (RFC 8058 / Gmail & Yahoo 2024 compliance)
-    const isCampaign = !!batchId;
+    // Unsubscribe (RFC 8058 / Gmail & Yahoo 2024): headers on every message,
+    // footer on bulk only. Previously both were gated on batchId, so a
+    // recipient of ordinary mail from a Mailmark domain had no way to opt out
+    // even though sendGate would have honoured it.
+    const isBulk = !!batchId;
     const appUrl = process.env.APP_URL ?? "";
-    const recipientEmail = to[0] ?? "";
-    const unsubUrl = await buildUnsubscribeUrl(convexSiteUrl, messageId, recipientEmail, mailbox.domain);
-    const unsubHeaders = isCampaign ? buildUnsubscribeHeaders(unsubUrl) : [];
-    const unsubFooter = isCampaign ? buildUnsubscribeFooter(unsubUrl) : "";
+    const { headers: unsubHeaders, footer: unsubFooter } =
+      await buildUnsubscribeParts({
+        convexSiteUrl,
+        messageId,
+        to,
+        cc,
+        bcc,
+        domain: mailbox.domain,
+        isBulk,
+      });
     const bodyWithClickTracking = emailFolder === "sent"
       ? rewriteLinksForClickTracking(body + unsubFooter, convexSiteUrl, messageId)
       : body + unsubFooter;
@@ -509,10 +485,29 @@ export const scheduleEmail = action({
     // Inject click tracking and open tracking pixel
     const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? "";
     const trackingPixel = `<img src="${convexSiteUrl}/track/open/${messageId}.gif" width="1" height="1" style="display:none" alt="" />`;
-    const bodyWithTracking = rewriteLinksForClickTracking(body, convexSiteUrl, messageId) + trackingPixel;
+
+    // This path had no unsubscribe of any kind, headers or footer, so a
+    // scheduled campaign went out without the one-click header its immediate
+    // equivalent carried. The MIME is built here and stored in S3 for
+    // sendScheduledEmail to dispatch later, so the link has to be minted now,
+    // against the messageId insertScheduled records.
+    const schedIsBulk = !!batchId;
+    const { headers: schedUnsubHeaders, footer: schedUnsubFooter } =
+      await buildUnsubscribeParts({
+        convexSiteUrl,
+        messageId,
+        to,
+        cc,
+        bcc,
+        domain: mailbox.domain,
+        isBulk: schedIsBulk,
+      });
+    const bodyWithTracking =
+      rewriteLinksForClickTracking(body + schedUnsubFooter, convexSiteUrl, messageId) +
+      trackingPixel;
 
     const rawEmail = hasAttachments
-      ? buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, bodyWithTracking, attachments!, cc, bcc)
+      ? buildRawMimeEmail(fromAddress, to, subject, messageId, mailbox.domain, bodyWithTracking, attachments!, cc, bcc, schedUnsubHeaders)
       : [
           `From: ${fromAddress}`,
           `To: ${to.join(", ")}`,
@@ -521,6 +516,7 @@ export const scheduleEmail = action({
           `Subject: ${subject}`,
           `Date: ${new Date(scheduledAt).toUTCString()}`,
           `Message-ID: <${messageId}@${mailbox.domain}>`,
+          ...schedUnsubHeaders,
           `Content-Type: text/html; charset=UTF-8`,
           "",
           bodyWithTracking,
@@ -810,12 +806,16 @@ export const scheduleEmailViaApi = internalAction({
     const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? "";
     const trackingPixel = `<img src="${convexSiteUrl}/track/open/${messageId}.gif" width="1" height="1" style="display:none" alt="" />`;
 
-    // Unsubscribe headers + footer for campaign emails
-    const sIsCampaign = !!batchId;
-    const sRecipient = to[0] ?? "";
-    const sUnsubUrl = await buildUnsubscribeUrl(convexSiteUrl, messageId, sRecipient, mailbox.domain);
-    const sUnsubHeaders = sIsCampaign ? buildUnsubscribeHeaders(sUnsubUrl) : [];
-    const sUnsubFooter = sIsCampaign ? buildUnsubscribeFooter(sUnsubUrl) : "";
+    // Unsubscribe: headers on every message, footer on bulk only.
+    const sIsBulk = !!batchId;
+    const { headers: sUnsubHeaders, footer: sUnsubFooter } =
+      await buildUnsubscribeParts({
+        convexSiteUrl,
+        messageId,
+        to,
+        domain: mailbox.domain,
+        isBulk: sIsBulk,
+      });
     const bodyWithTracking = rewriteLinksForClickTracking(html + sUnsubFooter, convexSiteUrl, messageId) + trackingPixel;
 
     const rawEmail = [
@@ -968,12 +968,16 @@ export const sendEmailViaApi = internalAction({
     const convexSiteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL ?? "";
     const trackingPixel = `<img src="${convexSiteUrl}/track/open/${messageId}.gif" width="1" height="1" style="display:none" alt="" />`;
 
-    // Unsubscribe headers + footer for campaign emails
-    const apiIsCampaign = !!batchId;
-    const apiRecipient = to[0] ?? "";
-    const apiUnsubUrl = await buildUnsubscribeUrl(convexSiteUrl, messageId, apiRecipient, mailbox.domain);
-    const apiUnsubHeaders = apiIsCampaign ? buildUnsubscribeHeaders(apiUnsubUrl) : [];
-    const apiUnsubFooter = apiIsCampaign ? buildUnsubscribeFooter(apiUnsubUrl) : "";
+    // Unsubscribe: headers on every message, footer on bulk only.
+    const apiIsBulk = !!batchId;
+    const { headers: apiUnsubHeaders, footer: apiUnsubFooter } =
+      await buildUnsubscribeParts({
+        convexSiteUrl,
+        messageId,
+        to,
+        domain: mailbox.domain,
+        isBulk: apiIsBulk,
+      });
     const bodyWithTracking = rewriteLinksForClickTracking(html + apiUnsubFooter, convexSiteUrl, messageId) + trackingPixel;
 
     const rawEmail = [
