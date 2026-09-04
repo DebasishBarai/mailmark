@@ -43,8 +43,9 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Warns when the account is over the contact allowance for its plan.
-          Renders nothing while the usage query loads or when inside the limit. */}
+      {/* Contact allowance notice: a blue heads up from 80% of the plan limit,
+          amber once past it. Renders nothing while the usage query loads, on an
+          unlimited plan, or while the account is well inside its allowance. */}
       <ContactLimitWarning />
 
       {/* Stats grid */}
