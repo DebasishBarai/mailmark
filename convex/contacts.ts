@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { query, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { contactBuckets, countCreated, countRemoved } from "./lib/counters";
@@ -127,12 +128,17 @@ export const listForCurrentUser = query({
  *  list, which genuinely needs all of them. This one backs the contacts page,
  *  where the list is scrolled rather than looked up. */
 export const listPageForCurrentUser = query({
-  args: {
-    paginationOpts: v.object({
-      numItems: v.number(),
-      cursor: v.union(v.string(), v.null()),
-    }),
-  },
+  // Convex's own validator rather than the hand-rolled object it used to be:
+  // usePaginatedQuery on the client only points at queries that take this exact
+  // shape, and that is what accumulates pages behind the contacts scroll. It is
+  // a superset of the old {numItems, cursor}, so existing callers are unaffected.
+  // args: {
+  //   paginationOpts: v.object({
+  //     numItems: v.number(),
+  //     cursor: v.union(v.string(), v.null()),
+  //   }),
+  // },
+  args: { paginationOpts: paginationOptsValidator },
   handler: async (ctx, { paginationOpts }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return { page: [], isDone: true, continueCursor: "" };
