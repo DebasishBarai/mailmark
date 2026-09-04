@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useCallback, useState } from "react";
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import LoadMoreSentinel from "../../components/LoadMoreSentinel";
+
+const PAGE_SIZE = 50;
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== "undefined" ? window.location.origin : "");
 
@@ -146,11 +149,25 @@ function CopyButton({ text }: { text: string }) {
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 function AffiliateDashboard({ affiliate }: { affiliate: NonNullable<ReturnType<typeof useQuery<typeof api.affiliates.getMyAffiliate>>> }) {
-  const referrals = useQuery(api.affiliates.getMyReferrals) ?? [];
+  // Old: read every referral just to fill a table and two stat tiles.
+  // const referrals = useQuery(api.affiliates.getMyReferrals) ?? [];
+  const {
+    results: referrals,
+    status: referralStatus,
+    loadMore,
+  } = usePaginatedQuery(
+    api.affiliates.getMyReferralsPage,
+    {},
+    { initialNumItems: PAGE_SIZE }
+  );
+  const onLoadMore = useCallback(() => loadMore(PAGE_SIZE), [loadMore]);
   const payouts = useQuery(api.affiliates.getMyPayouts) ?? [];
 
   const referralLink = `${APP_URL}/?ref=${affiliate!.code}`;
-  const activeReferrals = referrals.filter((r) => r.status === "active").length;
+  // From the affiliate row, not the loaded page: the table is paginated now,
+  // and these two tiles are meant to be totals.
+  const totalReferrals = affiliate!.totalReferrals ?? 0;
+  const activeReferrals = affiliate!.activeReferrals ?? 0;
   const unpaidCents = affiliate!.totalEarnedCents - affiliate!.totalPaidCents;
 
   return (
@@ -188,7 +205,7 @@ function AffiliateDashboard({ affiliate }: { affiliate: NonNullable<ReturnType<t
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-4">
         {[
-          { label: "Total referrals", value: referrals.length },
+          { label: "Total referrals", value: totalReferrals },
           { label: "Active subscribers", value: activeReferrals },
           { label: "Total earned", value: `$${(affiliate!.totalEarnedCents / 100).toFixed(2)}` },
           { label: "Pending payout", value: `$${(unpaidCents / 100).toFixed(2)}` },
@@ -205,7 +222,11 @@ function AffiliateDashboard({ affiliate }: { affiliate: NonNullable<ReturnType<t
         <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-700">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Referrals</h3>
         </div>
-        {referrals.length === 0 ? (
+        {referralStatus === "LoadingFirstPage" ? (
+          <p className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+            Loading...
+          </p>
+        ) : referrals.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
             No referrals yet. Share your link to get started.
           </p>
@@ -233,6 +254,7 @@ function AffiliateDashboard({ affiliate }: { affiliate: NonNullable<ReturnType<t
             </tbody>
           </table>
         )}
+        <LoadMoreSentinel onLoadMore={onLoadMore} status={referralStatus} />
       </div>
 
       {/* Payouts table */}

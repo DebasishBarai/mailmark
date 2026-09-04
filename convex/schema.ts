@@ -267,6 +267,12 @@ export default defineSchema({
     audienceDescription: v.string(),
     totalEarnedCents: v.number(),
     totalPaidCents: v.number(),
+    // Denormalised referral counts, so the affiliate dashboard can show real
+    // totals without reading every referral row. Optional because rows written
+    // before they existed carry nothing; treat undefined as 0 and run
+    // startAffiliateCountBackfill to fill them in.
+    totalReferrals: v.optional(v.number()),
+    activeReferrals: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_code", ["code"]),
