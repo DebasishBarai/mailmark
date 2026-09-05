@@ -78,6 +78,36 @@ export default defineSchema({
     // the referenced AWS account's credentials and bucket. When undefined the
     // platform's shared AWS account is used (legacy behavior).
     awsAccountId: v.optional(v.id("awsAccounts")),
+
+    // ── The per-domain sending brake ──
+    //
+    // The sendingControls kill switch is platform-wide and admin-only: one bad
+    // list on one domain should not stop every account on the platform, and
+    // waiting for an operator to notice is how a complaint rate reaches the
+    // level AWS acts on. These fields are the per-domain equivalent, set
+    // automatically by convex/reputationGuard.ts when this domain's recent
+    // complaint or bounce rate crosses the thresholds in lib/reputation.ts.
+    //
+    // Set means the gate holds every send from this domain, exactly as the
+    // global switch does: scheduled mail stays in the outbox with its job
+    // re-armed and sequence enrollments stay active, so lifting the brake
+    // resumes the queue rather than requiring it to be rebuilt.
+    sendingPausedAt: v.optional(v.number()),
+    sendingPausedReason: v.optional(v.string()),
+    // The rates that tripped it, as fractions, kept so the dashboard can say
+    // what the numbers were at the moment of the pause rather than what they
+    // have since decayed to.
+    sendingPausedComplaintRate: v.optional(v.number()),
+    sendingPausedBounceRate: v.optional(v.number()),
+    // When the owner last lifted the brake. Kept after the pause fields are
+    // cleared so a domain that keeps tripping is visible as such.
+    sendingResumedAt: v.optional(v.number()),
+    // Debounce for the guard. Each complaint schedules an evaluation, and a
+    // bad campaign produces complaints in bursts, so without this a single
+    // send could queue hundreds of identical seven-day walks over the same
+    // domain. Written in the same transaction that schedules the check, so
+    // concurrent complaints serialize on this document and only one wins.
+    reputationCheckedAt: v.optional(v.number()),
   })
     .index("by_user_id", ["userId"])
     .index("by_domain", ["domain"])

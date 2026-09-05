@@ -1530,6 +1530,11 @@ http.route({
 
 // ── Bounce Stats API ───────────────────────────────────────────────────────
 
+/** A percentage to two decimals, and 0 rather than NaN on an empty window. */
+function rate(part: number, whole: number): number {
+  return whole > 0 ? Math.round((part / whole) * 10000) / 100 : 0;
+}
+
 http.route({
   path: "/v1/bounces",
   method: "GET",
@@ -1560,8 +1565,16 @@ http.route({
         delivered: stats.delivered,
         bounced: stats.bounced,
         failed: stats.failed,
-        bounceRate: stats.totalSent > 0 ? Math.round((stats.bounced / stats.totalSent) * 10000) / 100 : 0,
-        complaintRate: stats.totalSent > 0 ? Math.round((stats.failed / stats.totalSent) * 10000) / 100 : 0,
+        complained: stats.complained,
+        // Old: bounceRate counted only soft bounces and complaintRate was the
+        // hard bounce count under the wrong name, so a caller watching these
+        // two numbers was watching one number split in half and neither of
+        // them was the complaint rate.
+        //
+        // bounceRate: ... stats.bounced / stats.totalSent ...,
+        // complaintRate: ... stats.failed / stats.totalSent ...,
+        bounceRate: rate(stats.bounced + stats.failed, stats.totalSent),
+        complaintRate: rate(stats.complained, stats.totalSent),
       }, 200);
     }
 
@@ -1583,8 +1596,9 @@ http.route({
           delivered: stats.delivered,
           bounced: stats.bounced,
           failed: stats.failed,
-          bounceRate: stats.totalSent > 0 ? Math.round((stats.bounced / stats.totalSent) * 10000) / 100 : 0,
-          complaintRate: stats.totalSent > 0 ? Math.round((stats.failed / stats.totalSent) * 10000) / 100 : 0,
+          complained: stats.complained,
+          bounceRate: rate(stats.bounced + stats.failed, stats.totalSent),
+          complaintRate: rate(stats.complained, stats.totalSent),
         };
       })
     );

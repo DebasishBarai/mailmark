@@ -94,8 +94,26 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
       // readily as over the bounce rate. Both are now recorded, and a
       // complaint suppresses the address permanently.
       if (eventType === "Complaint") {
-        const reason =
-          message.complaint?.complaintFeedbackType ?? "complaint";
+        const feedbackType: string | undefined =
+          message.complaint?.complaintFeedbackType;
+
+        // "not-spam" is the opposite of a complaint. Gmail and Yahoo send it
+        // through the same feedback loop when a recipient pulls a message
+        // *out* of their spam folder, which is the strongest positive signal
+        // a mailbox provider ever gives us. Recorded as a complaint it would
+        // suppress that recipient permanently and inflate the very rate this
+        // is all meant to bring down, so it is logged and dropped instead.
+        //
+        // Old: every Complaint notification became a complaint.
+        // const reason = message.complaint?.complaintFeedbackType ?? "complaint";
+        if (feedbackType === "not-spam") {
+          console.log(
+            "[SNS] ignoring not-spam feedback (recipient rescued the message from spam)"
+          );
+          return NextResponse.json({ success: true, ignored: "not-spam" });
+        }
+
+        const reason = feedbackType ?? "complaint";
         return await handleDeliveryNotification(message, "complained", reason, {
           recipients: (message.complaint?.complainedRecipients ?? []).map(
             (r: { emailAddress?: string }) => ({ email: r.emailAddress })

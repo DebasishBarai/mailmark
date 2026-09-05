@@ -27,6 +27,25 @@ crons.interval(
   {}
 );
 
+// Every 6 hours: re-measure complaint and bounce rates, and stop any domain
+// that has crossed the thresholds in convex/lib/reputation.ts.
+//
+// Deliberately infrequent. Every complaint and every hard bounce already
+// schedules a measurement of its own domain as it arrives, and those are the
+// only two events that can push a rate upward, so a spike is caught within
+// seconds without this. What the sweep covers is the notification that never
+// reached us because SNS dropped it, and a domain whose sending volume fell
+// away underneath a fixed number of complaints. Each pass walks the sent
+// folder of every mailbox on every verified domain, so running it hourly would
+// cost twenty-four of those walks a day to catch what the send path has
+// already caught.
+crons.interval(
+  "reputation guard sweep",
+  { hours: 6 },
+  internal.reputationGuard.evaluateAllDomains,
+  {}
+);
+
 // Every hour: re-check domains still waiting on SES verification.
 // Domain status used to refresh only when the owner clicked "Verify DNS",
 // so a domain SES verified an hour after the last click stayed unverified

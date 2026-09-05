@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, internalQuery, internalMutation } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { readSendingState } from "./sendingControls";
 import { findSuppression } from "./suppressions";
 import {
@@ -31,9 +32,12 @@ import {
  * interactive path, wait for one.
  *
  * Check order matters and is fixed:
- *   1. kill switch      — an operator halt outranks everything
+ *   1. kill switch      — an operator halt outranks everything, and so does
+ *                         the per-domain reputation brake, which reports
+ *                         itself through the same two fields
  *   2. suppression      — the receiving server's own verdict, per goal 1
- *   3. unsubscribe      — the recipient's own instruction
+ *   3. unsubscribe      — the recipient's own instruction, honoured across
+ *                         every domain the account owns
  *   4. verification     — our prediction, the weakest of the four
  */
 
@@ -75,9 +79,23 @@ export const evaluateRecipients = internalQuery({
     const policy = effectivePolicy(state.overrides);
     const now = Date.now();
 
+    // The per-domain brake, set by convex/reputationGuard.ts when this
+    // domain's complaint or bounce rate crosses the threshold. It reports
+    // itself through the same two fields as the platform kill switch, so every
+    // caller that already handles a paused send handles this one too: the
+    // message is held, the outbox job re-arms, and nothing is dropped.
+    const domain = await ctx.db.get(args.domainId);
+    const domainPaused = domain?.sendingPausedAt != null;
+
+    const sendingPaused = state.sendingPaused || domainPaused;
+    const pausedReason = state.sendingPaused
+      ? state.pausedReason
+      : (domain?.sendingPausedReason ??
+        (domainPaused ? "Sending from this domain is paused" : undefined));
+
     const result: GateResult = {
-      sendingPaused: state.sendingPaused,
-      pausedReason: state.pausedReason,
+      sendingPaused,
+      pausedReason,
       allowed: [],
       blocked: [],
       held: [],
@@ -87,7 +105,7 @@ export const evaluateRecipients = internalQuery({
     // The kill switch stops the whole message rather than being decided per
     // recipient: there is nothing address-specific about it, and holding the
     // message whole is what lets the queue resume where it stopped.
-    if (state.sendingPaused) {
+    if (sendingPaused) {
       for (const raw of args.emails) {
         result.held.push({
           email: normalizeAddress(raw),
@@ -95,6 +113,28 @@ export const evaluateRecipients = internalQuery({
         });
       }
       return result;
+    }
+
+    // Every domain this account owns, read once rather than per recipient.
+    //
+    // An opt-out is checked against all of them, not just the sending domain.
+    // Unsubscribes hang off a domain, so somebody who used the unsubscribe
+    // link in a message from one of an account's domains stayed perfectly
+    // mailable from its others, and the next campaign from a sibling domain
+    // reached them anyway. From the recipient's side the unsubscribe simply
+    // did not work, and the button they reach for after that is the one that
+    // reports spam. Suppression has always been account-wide for the same
+    // reason; this brings the recipient's own instruction in line with it.
+    const accountDomainIds = (
+      await ctx.db
+        .query("domains")
+        .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+        .collect()
+    ).map((d) => d._id);
+    // Defensive: an account whose domain rows have gone missing should still
+    // have its opt-outs honoured on the domain it is sending from.
+    if (!accountDomainIds.some((id) => id === args.domainId)) {
+      accountDomainIds.push(args.domainId);
     }
 
     // De-duplicate first: a compose with the same address in To and Cc should
@@ -138,13 +178,26 @@ export const evaluateRecipients = internalQuery({
 
       // 3. Unsubscribe. Previously consulted only when a batchId was set,
       // which left every sequence step and every scheduled send free to mail
-      // people who had opted out.
-      const unsubscribed = await ctx.db
-        .query("unsubscribes")
-        .withIndex("by_domain_email", (q) =>
-          q.eq("domainId", args.domainId).eq("email", email)
-        )
-        .first();
+      // people who had opted out. Now checked across every domain the account
+      // owns, per the comment on accountDomainIds above.
+      //
+      // Old, single domain:
+      // const unsubscribed = await ctx.db
+      //   .query("unsubscribes")
+      //   .withIndex("by_domain_email", (q) =>
+      //     q.eq("domainId", args.domainId).eq("email", email)
+      //   )
+      //   .first();
+      let unsubscribed: Doc<"unsubscribes"> | null = null;
+      for (const domainId of accountDomainIds) {
+        unsubscribed = await ctx.db
+          .query("unsubscribes")
+          .withIndex("by_domain_email", (q) =>
+            q.eq("domainId", domainId).eq("email", email)
+          )
+          .first();
+        if (unsubscribed) break;
+      }
       if (unsubscribed) {
         result.blocked.push({
           email,

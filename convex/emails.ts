@@ -17,6 +17,7 @@ import { recordRecipientsForMailbox } from "./lib/recipients";
 import { internal } from "./_generated/api";
 import { suppress } from "./suppressions";
 import { isPermanentBounce } from "./lib/sendPolicy";
+import { maybeScheduleEvaluation } from "./reputationGuard";
 import type { MutationCtx } from "./_generated/server";
 
 export const getMailboxWithDomain = internalQuery({
@@ -876,6 +877,10 @@ export const getBounceStatsForDomain = internalQuery({
     let delivered = 0;
     let bounced = 0;
     let failed = 0;
+    // Complaints were never counted here, which is why /v1/bounces reported
+    // `failed` (hard bounces) under the name complaintRate. They are their own
+    // figure now: a spam report and a dead mailbox are opposite problems.
+    let complained = 0;
     let opened = 0;
     let clicked = 0;
     let replied = 0;
@@ -903,13 +908,23 @@ export const getBounceStatsForDomain = internalQuery({
         if (email.deliveryStatus === "delivered") delivered++;
         else if (email.deliveryStatus === "bounced") bounced++;
         else if (email.deliveryStatus === "failed") failed++;
+        else if (email.deliveryStatus === "complained") complained++;
         if (email.openedAt) opened++;
         if (email.clickedLinks && email.clickedLinks.length > 0) clicked++;
         if (email.repliedAt) replied++;
       }
     }
 
-    return { totalSent, delivered, bounced, failed, opened, clicked, replied };
+    return {
+      totalSent,
+      delivered,
+      bounced,
+      failed,
+      complained,
+      opened,
+      clicked,
+      replied,
+    };
   },
 });
 
@@ -1224,6 +1239,14 @@ async function applyDeliveryEvent(
     });
     suppressed++;
   }
+
+  // Suppression protects the one address that complained. It does nothing for
+  // the rest of the list behind it, which is where a complaint rate actually
+  // comes from: the same campaign, the same source, the same lack of consent.
+  // Re-measure the domain so the brake in reputationGuard can stop the rest
+  // before the rate reaches the level AWS acts on. Debounced in there, so a
+  // burst of complaints from one send costs a single measurement.
+  await maybeScheduleEvaluation(ctx, mailbox.domainId);
 
   return { matched: true, suppressed };
 }

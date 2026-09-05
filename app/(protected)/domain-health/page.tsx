@@ -1,7 +1,10 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
+import type { DomainBrakeStatus } from "../../../convex/reputationGuard";
 
 function ScoreBadge({ score }: { score: number }) {
   const color =
@@ -51,8 +54,120 @@ function ReputationBadge({ status }: { status: string }) {
   );
 }
 
+/**
+ * The per-domain sending brake, when it is on.
+ *
+ * Deliberately loud and at the top of the card: a paused domain is sending
+ * nothing, and the only thing that lifts it is the owner reading why and
+ * fixing the list behind it.
+ */
+function SendingPausedBanner({
+  domainId,
+  reason,
+  pausedAt,
+  complaintRate,
+  bounceRate,
+}: {
+  domainId: Id<"domains">;
+  reason: string | null;
+  pausedAt: number | null;
+  complaintRate: number | null;
+  bounceRate: number | null;
+}) {
+  const resume = useMutation(api.reputationGuard.resumeDomain);
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <div className="border-b border-red-100 bg-red-50 px-6 py-4 dark:border-red-900/50 dark:bg-red-900/20">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+            Sending paused
+          </p>
+          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+            {reason ?? "This domain is over its reputation limits."}
+          </p>
+          <p className="mt-2 text-xs text-red-500 dark:text-red-400">
+            {pausedAt ? `Paused ${new Date(pausedAt).toLocaleString()}. ` : ""}
+            {complaintRate != null ? `Complaints ${complaintRate}%. ` : ""}
+            {bounceRate != null ? `Bounces ${bounceRate}%. ` : ""}
+            Scheduled mail and sequences are held, not cancelled, and will
+            resume where they stopped.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            if (
+              !window.confirm(
+                "Resume sending from this domain? Complaint rates come down by fixing the list, not by waiting: resuming with the same recipients will trip the brake again."
+              )
+            ) {
+              return;
+            }
+            setBusy(true);
+            try {
+              await resume({ domainId });
+            } finally {
+              setBusy(false);
+            }
+          }}
+          className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50 dark:border-red-800 dark:bg-transparent dark:text-red-300 dark:hover:bg-red-900/40"
+        >
+          {busy ? "Resuming..." : "Resume sending"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Stop this domain by hand, for the case where the sender already knows a
+ * campaign went to the wrong list. Waiting for the complaints to prove it is
+ * waiting for the damage the brake exists to prevent.
+ */
+function PauseSendingButton({ domainId }: { domainId: Id<"domains"> }) {
+  const pause = useMutation(api.reputationGuard.pauseDomain);
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        if (
+          !window.confirm(
+            "Pause sending from this domain? Scheduled mail and sequences are held, not cancelled, and resume where they stopped."
+          )
+        ) {
+          return;
+        }
+        setBusy(true);
+        try {
+          await pause({ domainId });
+        } finally {
+          setBusy(false);
+        }
+      }}
+      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+    >
+      {busy ? "Pausing..." : "Pause sending"}
+    </button>
+  );
+}
+
 export default function DomainHealthPage() {
   const domainData = useQuery(api.domainHealthQueries.latestForCurrentUser) ?? [];
+  // Annotated rather than inferred: `useQuery(...) ?? []` is a union of two
+  // array types, and mapping over that union leaves TypeScript unable to pick
+  // an element type, so the Map below ends up keyed to `{}`.
+  const reputation: DomainBrakeStatus[] =
+    useQuery(api.reputationGuard.statusForCurrentUser) ?? [];
+  // Keyed by domain so each card can ask about its own domain in one lookup.
+  const brakeByDomain = new Map<string, DomainBrakeStatus>(
+    reputation.map((r) => [r.domainId as string, r])
+  );
 
   return (
     <div className="min-h-full bg-gray-50 p-6 dark:bg-gray-900 md:p-10">
@@ -113,6 +228,20 @@ export default function DomainHealthPage() {
                     <ScoreBadge score={item.latestCheck.overallScore} />
                   )}
                 </div>
+
+                {brakeByDomain.get(item.domainId as string)?.sendingPaused && (
+                  <SendingPausedBanner
+                    domainId={item.domainId}
+                    reason={brakeByDomain.get(item.domainId as string)!.pausedReason}
+                    pausedAt={brakeByDomain.get(item.domainId as string)!.pausedAt}
+                    complaintRate={
+                      brakeByDomain.get(item.domainId as string)!.pausedComplaintRate
+                    }
+                    bounceRate={
+                      brakeByDomain.get(item.domainId as string)!.pausedBounceRate
+                    }
+                  />
+                )}
 
                 {item.latestCheck ? (
                   <div className="px-6 py-5">
@@ -178,11 +307,17 @@ export default function DomainHealthPage() {
                           <ReputationBadge status={item.latestCheck.reputationStatus} />
                         </div>
                       </div>
-                      <div className="ml-auto text-right">
-                        <p className="text-xs text-gray-400 dark:text-gray-500">Last checked</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(item.latestCheck.checkedAt).toLocaleString()}
-                        </p>
+                      <div className="ml-auto flex items-center gap-4">
+                        {!brakeByDomain.get(item.domainId as string)
+                          ?.sendingPaused && (
+                          <PauseSendingButton domainId={item.domainId} />
+                        )}
+                        <div className="text-right">
+                          <p className="text-xs text-gray-400 dark:text-gray-500">Last checked</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {new Date(item.latestCheck.checkedAt).toLocaleString()}
+                          </p>
+                        </div>
                       </div>
                     </div>
 

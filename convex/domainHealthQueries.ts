@@ -131,8 +131,28 @@ export const getEmailStatsForMailboxes = internalQuery({
         .collect();
 
       totalSent += recent.length;
-      bounced += recent.filter((e) => e.deliveryStatus === "bounced").length;
-      complained += recent.filter((e) => e.deliveryStatus === "failed").length;
+
+      // Old: "bounced" counted only the transient bounces, and "complained"
+      // counted the hard bounces, because "failed" is what the SNS route maps
+      // a Permanent bounce to. So the complaint rate on the dashboard, in the
+      // health score below, and in the /v1/bounces API was never a complaint
+      // rate at all: it was the hard bounce rate wearing a complaint's label,
+      // and actual spam reports were counted nowhere. A rate nothing measures
+      // is a rate nobody can bring down.
+      //
+      // bounced += recent.filter((e) => e.deliveryStatus === "bounced").length;
+      // complained += recent.filter((e) => e.deliveryStatus === "failed").length;
+      //
+      // Now: bounces are hard and soft together, which is what SES's own
+      // bounce rate counts, and complaints are the "complained" status the
+      // Complaint notification actually writes.
+      for (const e of recent) {
+        if (e.deliveryStatus === "bounced" || e.deliveryStatus === "failed") {
+          bounced++;
+        } else if (e.deliveryStatus === "complained") {
+          complained++;
+        }
+      }
     }
 
     return { totalSent, bounced, complained };
