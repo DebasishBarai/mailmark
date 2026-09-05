@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { query, internalQuery, internalMutation } from "./_generated/server";
 import { readSendingState } from "./sendingControls";
 import { findSuppression } from "./suppressions";
@@ -68,6 +69,96 @@ const evaluateArgs = {
  *
  * Reads only: safe to call from any path, and it never triggers a paid lookup.
  */
+/**
+ * Why is this address allowed, or not, from this mailbox?
+ *
+ * The gate reads unsubscribes by (domainId, email), so a row that exists but
+ * hangs off a different domain document is invisible to it while still showing
+ * on the unsubscribes page, which renders the domain by name. That is the one
+ * failure this query is here to make visible: it repeats the gate's own lookup
+ * and then checks every other domain the account owns, so a row on the wrong
+ * one shows up as found-elsewhere rather than as nothing at all.
+ *
+ * Read only, touches nothing. Run it from the dashboard with the mailboxId out
+ * of the mailbox URL (/mailbox/<id>) and the recipient address.
+ */
+export const explainRecipient = internalQuery({
+  args: { mailboxId: v.id("mailboxes"), email: v.string() },
+  handler: async (ctx, { mailboxId, email }) => {
+    const normalized = normalizeAddress(email);
+
+    const mailbox = await ctx.db.get(mailboxId);
+    if (!mailbox) return { error: "No mailbox with that id", normalized };
+    const domain = await ctx.db.get(mailbox.domainId);
+
+    // Exactly the lookup evaluateRecipients performs.
+    const gateSees = await ctx.db
+      .query("unsubscribes")
+      .withIndex("by_domain_email", (q) =>
+        q.eq("domainId", mailbox.domainId).eq("email", normalized)
+      )
+      .first();
+
+    // The same address on any other domain this account owns. Bounded by how
+    // many domains they have.
+    const domains = await ctx.db
+      .query("domains")
+      .withIndex("by_user_id", (q) => q.eq("userId", mailbox.userId))
+      .collect();
+
+    const foundOnDomains: Array<{
+      domainId: Id<"domains">;
+      domainName: string;
+      isTheSendingDomain: boolean;
+      source: string;
+      unsubscribedAt: string;
+    }> = [];
+    for (const candidate of domains) {
+      const row = await ctx.db
+        .query("unsubscribes")
+        .withIndex("by_domain_email", (q) =>
+          q.eq("domainId", candidate._id).eq("email", normalized)
+        )
+        .first();
+      if (row) {
+        foundOnDomains.push({
+          domainId: candidate._id,
+          domainName: candidate.domain,
+          isTheSendingDomain: candidate._id === mailbox.domainId,
+          source: row.source,
+          unsubscribedAt: new Date(row.unsubscribedAt).toISOString(),
+        });
+      }
+    }
+
+    // Duplicate domain rows sharing a name are what put an unsubscribe on a
+    // document the sending mailbox does not point at.
+    const sameNameDomains = domains
+      .filter((d) => d.domain === domain?.domain)
+      .map((d) => d._id);
+
+    const suppression = await findSuppression(ctx, mailbox.userId, normalized);
+
+    return {
+      normalized,
+      sendingFrom: mailbox.fullAddress,
+      sendingDomainId: mailbox.domainId,
+      sendingDomainName: domain?.domain ?? null,
+      duplicateDomainRowsWithThisName: sameNameDomains.length,
+      gateWouldBlockAsUnsubscribed: !!gateSees,
+      foundOnDomains,
+      suppressed: suppression
+        ? { reason: suppression.reason }
+        : null,
+      verdict: gateSees
+        ? "Blocked: the gate sees this unsubscribe."
+        : foundOnDomains.length > 0
+          ? "NOT blocked: the unsubscribe is recorded against a different domain document than the one this mailbox sends from."
+          : "NOT blocked: no unsubscribe row exists for this address on any domain this account owns.",
+    };
+  },
+});
+
 export const evaluateRecipients = internalQuery({
   args: evaluateArgs,
   handler: async (ctx, args): Promise<GateResult> => {
