@@ -10,7 +10,7 @@ import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { useSidebar } from "../../../components/SidebarContext";
 import { Users } from "lucide-react";
 import { marked } from "marked";
-import { resolveMergeFields, extractMergeFields } from "@/lib/mergeFields";
+import { resolveMergeFields, extractMergeFields, escapeHtml } from "@/lib/mergeFields";
 import { parseCSV, detectEmailColumn } from "@/lib/csvParser";
 import LoadMoreSentinel from "../../../components/LoadMoreSentinel";
 
@@ -768,7 +768,10 @@ export default function MailboxPage() {
     } else if (composeContentType === "html") {
       bodyHtml = composeBody;
     } else {
-      bodyHtml = composeBody.replace(/\n/g, "<br>");
+      // Plain text: no Markdown or HTML is interpreted, so escape the body and
+      // only turn newlines into line breaks.
+      // bodyHtml = composeBody.replace(/\n/g, "<br>");
+      bodyHtml = escapeHtml(composeBody).replace(/\n/g, "<br>");
     }
     const signaturePart = composeSignature
       ? `<br><br>-- <br>${marked.parse(composeSignature) as string}`
@@ -779,11 +782,15 @@ export default function MailboxPage() {
 
   const previewHtml = useMemo(() => {
     if (!showPreview || composeContentType === "plain") return "";
-    if (composeContentType === "markdown") {
-      return marked.parse(composeBody) as string;
-    }
-    return composeBody;
-  }, [composeBody, composeContentType, showPreview]);
+    const html =
+      composeContentType === "markdown"
+        ? (marked.parse(composeBody) as string)
+        : composeBody;
+    // When merge data is loaded, show the preview for the recipient currently
+    // selected in the merge preview instead of leaving raw {Field} tokens.
+    const fields = mergeRecipients[mergePreviewIndex]?.fields;
+    return fields ? resolveMergeFields(html, fields) : html;
+  }, [composeBody, composeContentType, showPreview, mergeRecipients, mergePreviewIndex]);
 
   const resetComposeState = () => {
     setShowCompose(false);
@@ -948,7 +955,9 @@ export default function MailboxPage() {
       if (hasMergeData) {
         for (const recipient of mergeRecipients) {
           const personalizedSubject = resolveMergeFields(composeSubject, recipient.fields);
-          const personalizedBody = resolveMergeFields(fullBody, recipient.fields);
+          const personalizedBody = resolveMergeFields(fullBody, recipient.fields, {
+            escapeValues: composeContentType === "plain",
+          });
           await sendEmail({
             mailboxId: mbId,
             to: [recipient.email],
@@ -1043,7 +1052,9 @@ export default function MailboxPage() {
       if (hasMergeData) {
         for (const recipient of mergeRecipients) {
           const personalizedSubject = resolveMergeFields(composeSubject, recipient.fields);
-          const personalizedBody = resolveMergeFields(fullBody, recipient.fields);
+          const personalizedBody = resolveMergeFields(fullBody, recipient.fields, {
+            escapeValues: composeContentType === "plain",
+          });
           await scheduleEmailAction({
             mailboxId: mbId,
             to: [recipient.email],
@@ -2831,6 +2842,7 @@ export default function MailboxPage() {
                   onChangeIndex={setMergePreviewIndex}
                   subject={composeSubject}
                   body={composeBody}
+                  contentType={composeContentType}
                 />
               )}
               {/* Markdown/HTML preview panel */}
@@ -2842,6 +2854,9 @@ export default function MailboxPage() {
                     </span>
                     <span className="text-[10px] text-gray-400 dark:text-gray-500">
                       {composeContentType === "markdown" ? "Rendered from Markdown" : "Raw HTML"}
+                      {hasMergeData && mergeRecipients[mergePreviewIndex]
+                        ? ` \u00b7 ${mergeRecipients[mergePreviewIndex].email}`
+                        : ""}
                     </span>
                   </div>
                   <div
