@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { marked } from "marked";
-import { resolveMergeFields } from "@/lib/mergeFields";
+import { resolveMergeFields, escapeHtml } from "@/lib/mergeFields";
 import type { MergeRecipient } from "./MergeImport";
 
 interface MergePreviewProps {
@@ -35,13 +35,16 @@ export default function MergePreview({
   // this order keeps `**{Company}**` bold instead of leaking literal asterisks.
   const resolvedBodyHtml = useMemo(() => {
     if (!fields) return "";
+    const isPlain = contentType === "plain";
     const html =
       contentType === "markdown"
         ? (marked.parse(body) as string)
         : contentType === "html"
           ? body
-          : body.replace(/\n/g, "<br>");
-    return resolveMergeFields(html, fields);
+          // Plain text interprets neither Markdown nor HTML: escape it so tags
+          // and ** show up literally, exactly as the recipient will see them.
+          : escapeHtml(body).replace(/\n/g, "<br>");
+    return resolveMergeFields(html, fields, { escapeValues: isPlain });
   }, [body, contentType, fields]);
 
   // const resolvedBody = useMemo(

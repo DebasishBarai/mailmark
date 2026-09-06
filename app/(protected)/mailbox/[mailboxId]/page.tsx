@@ -10,7 +10,7 @@ import { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { useSidebar } from "../../../components/SidebarContext";
 import { Users } from "lucide-react";
 import { marked } from "marked";
-import { resolveMergeFields, extractMergeFields } from "@/lib/mergeFields";
+import { resolveMergeFields, extractMergeFields, escapeHtml } from "@/lib/mergeFields";
 import { parseCSV, detectEmailColumn } from "@/lib/csvParser";
 import LoadMoreSentinel from "../../../components/LoadMoreSentinel";
 
@@ -768,7 +768,10 @@ export default function MailboxPage() {
     } else if (composeContentType === "html") {
       bodyHtml = composeBody;
     } else {
-      bodyHtml = composeBody.replace(/\n/g, "<br>");
+      // Plain text: no Markdown or HTML is interpreted, so escape the body and
+      // only turn newlines into line breaks.
+      // bodyHtml = composeBody.replace(/\n/g, "<br>");
+      bodyHtml = escapeHtml(composeBody).replace(/\n/g, "<br>");
     }
     const signaturePart = composeSignature
       ? `<br><br>-- <br>${marked.parse(composeSignature) as string}`
@@ -952,7 +955,9 @@ export default function MailboxPage() {
       if (hasMergeData) {
         for (const recipient of mergeRecipients) {
           const personalizedSubject = resolveMergeFields(composeSubject, recipient.fields);
-          const personalizedBody = resolveMergeFields(fullBody, recipient.fields);
+          const personalizedBody = resolveMergeFields(fullBody, recipient.fields, {
+            escapeValues: composeContentType === "plain",
+          });
           await sendEmail({
             mailboxId: mbId,
             to: [recipient.email],
@@ -1047,7 +1052,9 @@ export default function MailboxPage() {
       if (hasMergeData) {
         for (const recipient of mergeRecipients) {
           const personalizedSubject = resolveMergeFields(composeSubject, recipient.fields);
-          const personalizedBody = resolveMergeFields(fullBody, recipient.fields);
+          const personalizedBody = resolveMergeFields(fullBody, recipient.fields, {
+            escapeValues: composeContentType === "plain",
+          });
           await scheduleEmailAction({
             mailboxId: mbId,
             to: [recipient.email],
