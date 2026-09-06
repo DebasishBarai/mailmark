@@ -779,11 +779,15 @@ export default function MailboxPage() {
 
   const previewHtml = useMemo(() => {
     if (!showPreview || composeContentType === "plain") return "";
-    if (composeContentType === "markdown") {
-      return marked.parse(composeBody) as string;
-    }
-    return composeBody;
-  }, [composeBody, composeContentType, showPreview]);
+    const html =
+      composeContentType === "markdown"
+        ? (marked.parse(composeBody) as string)
+        : composeBody;
+    // When merge data is loaded, show the preview for the recipient currently
+    // selected in the merge preview instead of leaving raw {Field} tokens.
+    const fields = mergeRecipients[mergePreviewIndex]?.fields;
+    return fields ? resolveMergeFields(html, fields) : html;
+  }, [composeBody, composeContentType, showPreview, mergeRecipients, mergePreviewIndex]);
 
   const resetComposeState = () => {
     setShowCompose(false);
@@ -2831,6 +2835,7 @@ export default function MailboxPage() {
                   onChangeIndex={setMergePreviewIndex}
                   subject={composeSubject}
                   body={composeBody}
+                  contentType={composeContentType}
                 />
               )}
               {/* Markdown/HTML preview panel */}
@@ -2842,6 +2847,9 @@ export default function MailboxPage() {
                     </span>
                     <span className="text-[10px] text-gray-400 dark:text-gray-500">
                       {composeContentType === "markdown" ? "Rendered from Markdown" : "Raw HTML"}
+                      {hasMergeData && mergeRecipients[mergePreviewIndex]
+                        ? ` \u00b7 ${mergeRecipients[mergePreviewIndex].email}`
+                        : ""}
                     </span>
                   </div>
                   <div
