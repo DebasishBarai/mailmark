@@ -8,8 +8,7 @@ import {
   decidePageResponse,
   markdownRewritePath,
 } from "./lib/http/pageNegotiation";
-import { notAcceptableMarkdown } from "./lib/markdown";
-import { findRoute } from "./lib/site/routes";
+import { notAcceptableMarkdown } from "./lib/http/notAcceptable";
 
 const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)",
@@ -86,15 +85,13 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   if (decision.kind === "html") {
+    // Only public pages reach here, so both headers are true of the response:
+    // it has a Markdown variant, and it varies by Accept.
     const response = withVary(NextResponse.next());
-    const route = findRoute(decision.path);
-    if (route) {
-      // Point agents at the Markdown variant of the page they just fetched.
-      response.headers.append(
-        "Link",
-        `<${req.nextUrl.origin}${route.path === "/" ? "" : route.path}.md>; rel="alternate"; type="text/markdown"`
-      );
-    }
+    response.headers.append(
+      "Link",
+      `<${req.nextUrl.origin}${decision.path === "/" ? "/index" : decision.path}.md>; rel="alternate"; type="text/markdown"`
+    );
     return response;
   }
 

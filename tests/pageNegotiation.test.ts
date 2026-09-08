@@ -35,6 +35,46 @@ describe("isNegotiablePath", () => {
     }
   });
 
+  test("the signed-in application is not", () => {
+    for (const path of [
+      "/dashboard",
+      "/dashboard/anything",
+      "/domains/abc123",
+      "/mailbox/abc123",
+      "/admin/domains",
+      "/settings",
+      "/developer",
+      "/billing",
+      "/warming",
+      "/audience",
+      "/affiliate",
+      "/suppressions",
+      "/unsubscribes",
+      "/domain-health",
+      "/sign-in",
+      "/sign-up",
+    ]) {
+      expect(isNegotiablePath(path), `${path} must be passed through`).toBe(false);
+    }
+  });
+
+  test("a route whose name merely starts with an app route's is still a page", () => {
+    // "/affiliate-program" is a public page; "/affiliate" is the dashboard.
+    expect(isNegotiablePath("/affiliate-program")).toBe(true);
+  });
+
+  test("the generated social images and icons are not", () => {
+    for (const path of [
+      "/blog/why-emails-land-in-spam/opengraph-image",
+      "/blog/why-emails-land-in-spam/twitter-image",
+      "/icon",
+      "/apple-icon",
+      "/manifest",
+    ]) {
+      expect(isNegotiablePath(path), `${path} must be passed through`).toBe(false);
+    }
+  });
+
   test("files served as themselves are not", () => {
     for (const path of ["/sitemap.xml", "/llms.txt", "/openapi.json", "/favicon.ico"]) {
       expect(isNegotiablePath(path)).toBe(false);
@@ -100,12 +140,50 @@ describe("decidePageResponse", () => {
     expect(markdownRewritePath((decision as { path: string }).path)).toBe("/md");
   });
 
-  test("a client that accepts nothing we have gets a 406", () => {
+  test("a client that accepts nothing we have gets a 406, on a published page", () => {
     expect(decidePageResponse(request({ accept: "application/json" })).kind).toBe(
       "notAcceptable"
     );
     expect(decidePageResponse(request({ accept: "application/pdf" })).kind).toBe(
       "notAcceptable"
+    );
+  });
+
+  test("but never on a URL that is not a published page", () => {
+    // The regression this guards: a social crawler fetching a generated card
+    // with `Accept: image/*`, and any app route asked for as JSON, used to be
+    // refused with a 406.
+    for (const pathname of [
+      "/blog/why-emails-land-in-spam/opengraph-image",
+      "/settings",
+      "/developer",
+      "/this-page-does-not-exist",
+    ]) {
+      for (const accept of ["image/webp,image/*", "application/json", "application/pdf"]) {
+        expect(
+          decidePageResponse(request({ pathname, accept })).kind,
+          `${accept} on ${pathname}`
+        ).toBe("passthrough");
+      }
+    }
+  });
+
+  test("an image request for a published page is refused, not mis-served", () => {
+    // /docs has no image representation, so a 406 is the honest answer there.
+    expect(decidePageResponse(request({ accept: "image/png" })).kind).toBe("notAcceptable");
+  });
+
+  test("an unknown path is only rewritten when Markdown was asked for by name", () => {
+    const unknown = { pathname: "/this-page-does-not-exist" };
+    expect(decidePageResponse(request({ ...unknown, accept: "text/markdown" }))).toMatchObject({
+      kind: "markdown",
+      path: "/this-page-does-not-exist",
+    });
+    expect(decidePageResponse(request({ ...unknown, accept: "text/html" })).kind).toBe(
+      "passthrough"
+    );
+    expect(decidePageResponse(request({ ...unknown, accept: "*/*" })).kind).toBe(
+      "passthrough"
     );
   });
 
@@ -119,6 +197,9 @@ describe("decidePageResponse", () => {
       "passthrough"
     );
     expect(decidePageResponse(request({ pathname: "/api/ref" })).kind).toBe("passthrough");
+    expect(
+      decidePageResponse(request({ pathname: "/settings", accept: "text/markdown" })).kind
+    ).toBe("passthrough");
   });
 
   test("HEAD is negotiated like GET", () => {

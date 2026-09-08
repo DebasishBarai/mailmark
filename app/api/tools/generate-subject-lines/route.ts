@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     const textBlock = message.content.find((b) => b.type === "text");
     if (!textBlock || textBlock.type !== "text") {
       return apiError({
-        code: "upstream_error",
+        code: "internal_error",
         message: "Failed to generate subject lines. Please try again.",
         hint: "The model returned no text block. Retry the request.",
       });
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
       subjectLines = JSON.parse(textBlock.text);
     } catch {
       return apiError({
-        code: "upstream_error",
+        code: "internal_error",
         message: "Failed to parse results. Please try again.",
         hint: "The model returned text that was not the expected JSON array. Retry the request.",
       });
@@ -142,14 +142,14 @@ export async function POST(request: NextRequest) {
     });
   } catch {
     return apiError({
-      code: "upstream_error",
+      code: "internal_error",
       message: "Failed to generate subject lines. Please try again.",
       hint: "The generation service failed. Retry with backoff; if it persists, contact support@mailmark.dev.",
     });
   }
 }
 
-// Anything but POST gets a JSON 405 with an Allow header instead of the empty
-// body Next.js would return.
+// A GET here is a mistake worth explaining, so it answers with a JSON 405 and
+// an Allow header instead of the empty body Next.js would return. OPTIONS is
+// left to Next, which answers it correctly for CORS preflights.
 export const GET = methodNotAllowed(["POST"]);
-export const OPTIONS = methodNotAllowed(["POST"]);

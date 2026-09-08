@@ -15,10 +15,16 @@ import {
   routesInSection,
   type SiteRoute,
 } from "../site/routes";
+import { notAcceptableMarkdown } from "../http/notAcceptable";
 import { docsMarkdown } from "./pages/docs";
 import { apiMarkdown } from "./pages/api";
 import { guidesMarkdown } from "./pages/guides";
 import { siteMarkdown } from "./pages/site";
+
+// Re-exported so callers keep one import for the Markdown surface, while the
+// middleware imports it straight from lib/http/notAcceptable and leaves the
+// corpus out of its bundle.
+export { notAcceptableMarkdown };
 
 export interface MarkdownDocument {
   path: string;
@@ -157,18 +163,6 @@ export function notFoundMarkdown(pathname: string): string {
 Any page on this site is available as Markdown: send \`Accept: text/markdown\`, or append \`.md\` to the URL.
 
 ${siteIndexMarkdown()}
-`;
-}
-
-/** The body of a 406, naming what this URL can be served as. */
-export function notAcceptableMarkdown(pathname: string, offers: readonly string[]): string {
-  return `# 406 - Not Acceptable
-
-\`${normalizePath(pathname)}\` cannot be served in any of the media types you asked for.
-
-Available representations: ${offers.map((o) => `\`${o}\``).join(", ")}.
-
-Send \`Accept: text/html\` for the page, or \`Accept: text/markdown\` for its Markdown variant.
 `;
 }
 

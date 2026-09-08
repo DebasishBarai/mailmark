@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ results, summary });
 }
 
-// Anything but POST gets a JSON 405 with an Allow header instead of the empty
-// body Next.js would return.
+// A GET here is a mistake worth explaining, so it answers with a JSON 405 and
+// an Allow header instead of the empty body Next.js would return. OPTIONS is
+// left to Next, which answers it correctly for CORS preflights.
 export const GET = methodNotAllowed(["POST"]);
-export const OPTIONS = methodNotAllowed(["POST"]);

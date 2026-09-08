@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "bun test",
+    "typecheck": "tsc --noEmit && tsc -p tests",
     "remotion": "bunx remotion studio remotion/index.ts",
     "remotion:render": "bunx remotion render remotion/index.ts MailmarkPromo out/mailmark-promo.mp4"
   },
@@ -39,6 +40,7 @@
   "devDependencies": {
     "@remotion/cli": "^4.0.435",
     "@tailwindcss/postcss": "^4",
+    "@types/bun": "^1.4.2",
     "@types/mailparser": "^3.4.6",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.0",
