@@ -51,6 +51,13 @@ const jsonLd = {
 };
 
 export const metadata: Metadata = {
+  // The canonical URL keeps every listing of this page pointing at one
+  // address on www, instead of splitting signals across variants.
+  alternates: {
+    canonical: "https://www.mailmark.dev/tools/ses-savings-calculator",
+    // The same page as Markdown, for agents that read it that way.
+    types: { "text/markdown": "https://www.mailmark.dev/tools/ses-savings-calculator.md" },
+  },
   title: "SES Savings Calculator - Compare Email Costs",
   description:
     "Calculate how much you could save by switching from Mailchimp, SendGrid, Instantly, or other email providers to Mailmark powered by AWS SES.",

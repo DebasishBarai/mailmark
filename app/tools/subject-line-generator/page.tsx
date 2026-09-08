@@ -51,6 +51,13 @@ const jsonLd = {
 };
 
 export const metadata: Metadata = {
+  // The canonical URL keeps every listing of this page pointing at one
+  // address on www, instead of splitting signals across variants.
+  alternates: {
+    canonical: "https://www.mailmark.dev/tools/subject-line-generator",
+    // The same page as Markdown, for agents that read it that way.
+    types: { "text/markdown": "https://www.mailmark.dev/tools/subject-line-generator.md" },
+  },
   title: "Free Cold Email Subject Line Generator - AI Powered",
   description:
     "Tired of your cold emails getting ignored? Generate high-converting subject lines with AI. Tailored to your industry and offer. Free, instant, no signup.",

@@ -59,6 +59,13 @@ const jsonLd = {
 };
 
 export const metadata: Metadata = {
+  // The canonical URL keeps every listing of this page pointing at one
+  // address on www, instead of splitting signals across variants.
+  alternates: {
+    canonical: "https://www.mailmark.dev/tools/email-deliverability-checker",
+    // The same page as Markdown, for agents that read it that way.
+    types: { "text/markdown": "https://www.mailmark.dev/tools/email-deliverability-checker.md" },
+  },
   title: "Free Email Deliverability Test - Are Your Emails Landing in Spam?",
   description:
     "Struggling with low open rates? Your emails might be landing in spam. Test your domain's email deliverability for free and get actionable fixes to reach the inbox.",

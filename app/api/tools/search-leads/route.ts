@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiError, methodNotAllowed } from "../../../../lib/http/apiError";
 import { auth } from "@clerk/nextjs/server";
 
 const rateLimit = new Map<string, { count: number; resetAt: number }>();
@@ -61,29 +62,32 @@ function estimateCompanySize(count?: number): string {
 export async function POST(request: NextRequest) {
   const apiKey = process.env.APOLLO_API_KEY;
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "Service temporarily unavailable." },
-      { status: 503 }
-    );
+    // Old shape: NextResponse.json({ error: "..." }, { status }).
+    // apiError keeps `error` and adds code / hint / documentation_url.
+    return apiError({
+      code: "service_unavailable",
+      message: "Service temporarily unavailable.",
+      hint: "Lead search needs an APOLLO_API_KEY on the server. Try again later.",
+    });
   }
 
   const { userId } = await auth();
   if (!userId) {
-    return NextResponse.json(
-      { error: "Authentication required." },
-      { status: 401 }
-    );
+    return apiError({
+      code: "unauthorized",
+      message: "Authentication required.",
+      hint: "Sign in at https://www.mailmark.dev and retry; this endpoint uses your session, not an API key.",
+    });
   }
 
   const { allowed, remaining } = checkRateLimit(userId);
   if (!allowed) {
-    return NextResponse.json(
-      {
-        error: "Daily search limit reached. Upgrade your plan for more searches.",
-        searchesRemaining: 0,
-      },
-      { status: 429 }
-    );
+    return apiError({
+      code: "rate_limited",
+      message: "Daily search limit reached. Upgrade your plan for more searches.",
+      hint: "The per-account daily quota resets 24 hours after your first search.",
+      details: { searchesRemaining: 0 },
+    });
   }
 
   let body: {
@@ -95,10 +99,11 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid request body." },
-      { status: 400 }
-    );
+    return apiError({
+      code: "invalid_request",
+      message: "Invalid request body.",
+      hint: 'Send a JSON body with Content-Type: application/json, e.g. {"industry":"SaaS","title":"CTO"}.',
+    });
   }
 
   const apolloParams: Record<string, unknown> = {
@@ -141,10 +146,11 @@ export async function POST(request: NextRequest) {
     if (!res.ok) {
       const errorText = await res.text();
       console.error("Apollo API error:", res.status, errorText);
-      return NextResponse.json(
-        { error: "Failed to search leads. Please try again." },
-        { status: 502 }
-      );
+      return apiError({
+        code: "upstream_error",
+        message: "Failed to search leads. Please try again.",
+        hint: "The lead data provider rejected the request. Retry with backoff.",
+      });
     }
 
     const data = await res.json();
@@ -171,9 +177,15 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error("Apollo API request failed:", err);
-    return NextResponse.json(
-      { error: "Failed to search leads. Please try again." },
-      { status: 502 }
-    );
+    return apiError({
+      code: "upstream_error",
+      message: "Failed to search leads. Please try again.",
+      hint: "The lead data provider could not be reached. Retry with backoff.",
+    });
   }
 }
+
+// A GET here is a mistake worth explaining, so it answers with a JSON 405 and
+// an Allow header instead of the empty body Next.js would return. OPTIONS is
+// left to Next, which answers it correctly for CORS preflights.
+export const GET = methodNotAllowed(["POST"]);

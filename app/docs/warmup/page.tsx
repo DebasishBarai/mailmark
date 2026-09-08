@@ -4,6 +4,13 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
+  // The canonical URL keeps every listing of this page pointing at one
+  // address on www, instead of splitting signals across variants.
+  alternates: {
+    canonical: "https://www.mailmark.dev/docs/warmup",
+    // The same page as Markdown, for agents that read it that way.
+    types: { "text/markdown": "https://www.mailmark.dev/docs/warmup.md" },
+  },
   title: "Email Warmup",
   description:
     "Gradually build your domain's sending reputation with Mailmark's automated email warmup. Learn how warmup works, speed options, health scores, and best practices.",

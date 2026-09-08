@@ -1,0 +1,10 @@
+{
+  "//": "The tests are excluded from the root tsconfig so the production build never type-checks them; this config type-checks them on demand with `bunx tsc -p tests`.",
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["bun"],
+    "noEmit": true
+  },
+  "include": ["../lib/**/*.ts", "../app/**/*.ts", "../convex/**/*.ts", "./**/*.ts"],
+  "exclude": ["../node_modules"]
+}

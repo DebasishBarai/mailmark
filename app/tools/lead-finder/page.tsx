@@ -43,6 +43,13 @@ const jsonLd = {
 };
 
 export const metadata: Metadata = {
+  // The canonical URL keeps every listing of this page pointing at one
+  // address on www, instead of splitting signals across variants.
+  alternates: {
+    canonical: "https://www.mailmark.dev/tools/lead-finder",
+    // The same page as Markdown, for agents that read it that way.
+    types: { "text/markdown": "https://www.mailmark.dev/tools/lead-finder.md" },
+  },
   title: "Free B2B Lead Finder - Find Cold Email Leads",
   description:
     "Stop wasting hours searching for leads. Find verified B2B contacts by industry, job title, and company size. Export and start emailing in minutes.",

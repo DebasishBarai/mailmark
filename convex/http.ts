@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { describeReason } from "./lib/sendPolicy";
 import { parseUnsubscribeToken } from "./lib/unsubscribeToken";
 import type { Id } from "./_generated/dataModel";
+import { jsonResponse } from "./lib/apiResponse";
 
 // 1x1 transparent GIF pixel (base64-decoded bytes)
 const TRACKING_PIXEL = new Uint8Array([
@@ -527,13 +528,6 @@ async function sha256Hex(input: string): Promise<string> {
   return Array.from(new Uint8Array(hashBuffer))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
-}
-
-function jsonResponse(body: unknown, status: number) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }
 
 async function authenticate(ctx: any, request: Request) {
@@ -1850,5 +1844,27 @@ http.route({
     });
   }),
 });
+
+// ─── Fallback: JSON 404 for any unrouted path ───────────────────────────────
+// Convex resolves exact paths first, then the longest matching pathPrefix, so
+// a "/" prefix only runs when nothing else matched. Without it an unknown path
+// answered with the plain-text body "No HttpAction routed for /x", which an API
+// client cannot parse.
+
+const notFoundHandler = httpAction(async (_ctx, request) => {
+  const { pathname } = new URL(request.url);
+  return jsonResponse(
+    {
+      error: `No API endpoint at ${pathname}.`,
+      path: pathname,
+      openapi_url: "https://www.mailmark.dev/openapi.json",
+    },
+    404
+  );
+});
+
+for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"] as const) {
+  http.route({ pathPrefix: "/", method, handler: notFoundHandler });
+}
 
 export default http;

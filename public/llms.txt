@@ -210,10 +210,10 @@ Email quota resets at the start of each calendar month.
 ## Getting Started
 
 ### Sign Up
-Visit https://mailmark.dev/sign-up. Sign up with email or Google account. No credit card required.
+Visit https://www.mailmark.dev/sign-up. Sign up with email or Google account. No credit card required.
 
 ### Quick Start (4 steps)
-1. Create a Mailmark account at mailmark.dev/sign-up
+1. Create a Mailmark account at www.mailmark.dev/sign-up
 2. Go to Dashboard → Domains → Add domain. Follow the DNS instructions.
 3. Go to Dashboard → Mailboxes → Create a mailbox (e.g. hello@yourdomain.com)
 4. Send your first email from the composer, the REST API, or the npm SDK
@@ -944,7 +944,7 @@ const stats = await client.getCampaignStats({ type: 'all' });
 Mailmark runs a **30% recurring commission** affiliate program.
 
 ### How It Works
-1. Apply at https://mailmark.dev/affiliate-program - applications reviewed within 48 hours
+1. Apply at https://www.mailmark.dev/affiliate-program - applications reviewed within 48 hours
 2. Get your unique referral link and marketing assets (banners, email copy, social posts)
 3. Earn 30% of every payment made by referred customers - every month, for the lifetime of their account
 
@@ -969,37 +969,37 @@ Mailmark runs a **30% recurring commission** affiliate program.
 Mailmark offers seven free tools that require no signup. These tools help businesses improve their email deliverability, reduce costs, write better cold emails, find B2B leads, clean email lists, test for spam, and create professional signatures.
 
 ### Email Deliverability Checker
-**URL**: https://mailmark.dev/tools/email-deliverability-checker
+**URL**: https://www.mailmark.dev/tools/email-deliverability-checker
 
 Test your domain's email deliverability instantly. Checks SPF, DKIM (15 common selectors), DMARC, MX records, and blacklist status across 5 major DNSBLs. Returns an overall health score (0-100) with actionable recommendations. Rate limited to 10 checks per hour per IP. No signup required.
 
 ### SES Savings Calculator
-**URL**: https://mailmark.dev/tools/ses-savings-calculator
+**URL**: https://www.mailmark.dev/tools/ses-savings-calculator
 
 Compare the cost of your current email provider (Mailchimp, SendGrid, Instantly, Lemlist, Mailgun, Postmark, Brevo, or raw SES) against Mailmark pricing at any volume from 1,000 to 500,000 emails per month. Pure frontend tool with instant side-by-side cost comparison.
 
 ### Cold Email Subject Line Generator
-**URL**: https://mailmark.dev/tools/subject-line-generator
+**URL**: https://www.mailmark.dev/tools/subject-line-generator
 
 AI-powered subject line generator for cold email outreach. Enter your industry, what you are offering, and your preferred tone (Casual, Professional, Direct, Friendly, or Urgent). Generates 8 subject lines with tips on why each one works. Powered by Claude. Rate limited to 5 generations per day per IP. No signup required.
 
 ### B2B Lead Finder
-**URL**: https://mailmark.dev/tools/lead-finder
+**URL**: https://www.mailmark.dev/tools/lead-finder
 
 Search for B2B contacts by industry, job title, company size, and country. Unauthenticated users see a preview with blurred results and are prompted to sign in. Authenticated users get real leads from the Apollo.io People Search API with full email addresses. Rate limited to 5 searches per day per authenticated user.
 
 ### Email List Validator
-**URL**: https://mailmark.dev/tools/email-list-validator
+**URL**: https://www.mailmark.dev/tools/email-list-validator
 
 Validate up to 100 email addresses at once. Checks syntax, MX records (DNS-based mail server verification), disposable email detection (30+ known disposable providers), role-based address detection (info@, admin@, support@, etc.), and free provider flagging (Gmail, Yahoo, Outlook, etc.). Returns each email as Valid, Risky, or Invalid with a detailed reason. Supports CSV upload and CSV export of results. Completely free, no signup required, no usage limits.
 
 ### Email Spam Score Tester
-**URL**: https://mailmark.dev/tools/spam-score-tester
+**URL**: https://www.mailmark.dev/tools/spam-score-tester
 
 Test your email subject line and body for spam risk before sending. Checks for spam trigger words (80+ common phrases), excessive capitalization, punctuation abuse, subject line length, link density, body content length, unsubscribe link presence, and personalization tokens. Returns a spam risk score (0-100) with per-check breakdown and recommendations. Pure frontend tool, completely free, no signup required.
 
 ### Email Signature Generator
-**URL**: https://mailmark.dev/tools/email-signature-generator
+**URL**: https://www.mailmark.dev/tools/email-signature-generator
 
 Create professional HTML email signatures with a live preview. Fill in your name, title, company, phone, email, website, social links, and headshot URL. Choose from 3 styles (Professional, Modern, Minimal) and 8+ accent colors. Copy the generated HTML or plain text with one click. Compatible with Gmail, Outlook, Apple Mail, and Thunderbird. Pure frontend tool, completely free, no signup required, no watermark.
 
@@ -1046,43 +1046,58 @@ All further sends are blocked until the next calendar month (when the quota rese
 
 | Page | URL |
 |---|---|
-| Homepage | https://mailmark.dev |
-| Sign up | https://mailmark.dev/sign-up |
-| Sign in | https://mailmark.dev/sign-in |
-| Dashboard | https://mailmark.dev/dashboard |
-| Documentation home | https://mailmark.dev/docs |
-| Getting started | https://mailmark.dev/docs/getting-started |
-| Domain setup guide | https://mailmark.dev/docs/domain-setup |
-| BYO-AWS guide | https://mailmark.dev/docs/byo-aws |
-| Settings (AWS accounts) | https://mailmark.dev/settings |
-| Mailboxes guide | https://mailmark.dev/docs/mailboxes |
-| Email campaigns guide | https://mailmark.dev/docs/email-campaigns |
-| API reference | https://mailmark.dev/docs/api |
-| Troubleshooting | https://mailmark.dev/docs/troubleshooting |
-| Pricing | https://mailmark.dev/#pricing |
-| Billing (dashboard) | https://mailmark.dev/billing |
-| Email warmup | https://mailmark.dev/warming |
-| Developer (API keys) | https://mailmark.dev/developer |
-| Affiliate program | https://mailmark.dev/affiliate-program |
-| Blog | https://mailmark.dev/blog |
-| About | https://mailmark.dev/about |
-| Careers | https://mailmark.dev/careers |
-| Contact | https://mailmark.dev/contact |
-| Privacy policy | https://mailmark.dev/privacy |
-| Terms of service | https://mailmark.dev/terms |
-| Security | https://mailmark.dev/security |
-| Email deliverability guide | https://mailmark.dev/guides/email-deliverability |
-| DNS setup guide | https://mailmark.dev/guides/dns-setup |
-| Free tools | https://mailmark.dev/tools |
-| Email deliverability checker | https://mailmark.dev/tools/email-deliverability-checker |
-| SES savings calculator | https://mailmark.dev/tools/ses-savings-calculator |
-| Subject line generator | https://mailmark.dev/tools/subject-line-generator |
-| Lead finder | https://mailmark.dev/tools/lead-finder |
-| Email list validator | https://mailmark.dev/tools/email-list-validator |
-| Spam score tester | https://mailmark.dev/tools/spam-score-tester |
-| Email signature generator | https://mailmark.dev/tools/email-signature-generator |
-| System status | https://mailmark.dev/status |
+| Homepage | https://www.mailmark.dev |
+| Sign up | https://www.mailmark.dev/sign-up |
+| Sign in | https://www.mailmark.dev/sign-in |
+| Dashboard | https://www.mailmark.dev/dashboard |
+| Documentation home | https://www.mailmark.dev/docs |
+| Getting started | https://www.mailmark.dev/docs/getting-started |
+| Domain setup guide | https://www.mailmark.dev/docs/domain-setup |
+| BYO-AWS guide | https://www.mailmark.dev/docs/byo-aws |
+| Settings (AWS accounts) | https://www.mailmark.dev/settings |
+| Mailboxes guide | https://www.mailmark.dev/docs/mailboxes |
+| Email campaigns guide | https://www.mailmark.dev/docs/email-campaigns |
+| API reference | https://www.mailmark.dev/docs/api |
+| Troubleshooting | https://www.mailmark.dev/docs/troubleshooting |
+| Pricing | https://www.mailmark.dev/#pricing |
+| Billing (dashboard) | https://www.mailmark.dev/billing |
+| Email warmup | https://www.mailmark.dev/warming |
+| Developer (API keys) | https://www.mailmark.dev/developer |
+| Affiliate program | https://www.mailmark.dev/affiliate-program |
+| Blog | https://www.mailmark.dev/blog |
+| About | https://www.mailmark.dev/about |
+| Careers | https://www.mailmark.dev/careers |
+| Contact | https://www.mailmark.dev/contact |
+| Privacy policy | https://www.mailmark.dev/privacy |
+| Terms of service | https://www.mailmark.dev/terms |
+| Security | https://www.mailmark.dev/security |
+| Email deliverability guide | https://www.mailmark.dev/guides/email-deliverability |
+| DNS setup guide | https://www.mailmark.dev/guides/dns-setup |
+| Free tools | https://www.mailmark.dev/tools |
+| Email deliverability checker | https://www.mailmark.dev/tools/email-deliverability-checker |
+| SES savings calculator | https://www.mailmark.dev/tools/ses-savings-calculator |
+| Subject line generator | https://www.mailmark.dev/tools/subject-line-generator |
+| Lead finder | https://www.mailmark.dev/tools/lead-finder |
+| Email list validator | https://www.mailmark.dev/tools/email-list-validator |
+| Spam score tester | https://www.mailmark.dev/tools/spam-score-tester |
+| Email signature generator | https://www.mailmark.dev/tools/email-signature-generator |
+| System status | https://www.mailmark.dev/status |
 | REST API base URL | https://api.mailmark.dev |
+| OpenAPI description | https://www.mailmark.dev/openapi.json |
+| Sitemap | https://www.mailmark.dev/sitemap.xml |
+| Markdown index | https://www.mailmark.dev/md |
+
+---
+
+## Machine-Readable Endpoints
+
+For agents and other automated clients:
+
+- **OpenAPI 3.1 description**: `https://www.mailmark.dev/openapi.json` (also `/api/openapi.json` and `/api/openapi.yaml`). It covers the authenticated REST API on `api.mailmark.dev` and the free tool endpoints on `www.mailmark.dev`.
+- **Markdown variants**: every public page is served as Markdown to a client that sends `Accept: text/markdown`, or by appending `.md` to the URL (for example `https://www.mailmark.dev/docs/api.md`; the home page's alias is `https://www.mailmark.dev/index.md`). Responses carry `Vary: Accept`. `https://www.mailmark.dev/md` lists every page that has one.
+- **Sitemap**: `https://www.mailmark.dev/sitemap.xml`.
+- **Errors**: every JSON error carries `error` (human-readable), `code` (stable identifier), `message`, `hint` (how to resolve it), `status`, and `documentation_url`.
+- **Unknown paths**: return a real HTTP 404 with recovery links; a 404 requested as Markdown comes back as Markdown.
 
 ---
 

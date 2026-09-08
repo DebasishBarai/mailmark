@@ -4,6 +4,13 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 
 export const metadata: Metadata = {
+  // The canonical URL keeps every listing of this page pointing at one
+  // address on www, instead of splitting signals across variants.
+  alternates: {
+    canonical: "https://www.mailmark.dev/guides/email-deliverability",
+    // The same page as Markdown, for agents that read it that way.
+    types: { "text/markdown": "https://www.mailmark.dev/guides/email-deliverability.md" },
+  },
   title: "Email Deliverability Guide",
   description:
     "A comprehensive guide to improving your email deliverability covering authentication, sender reputation, list hygiene, and content best practices.",

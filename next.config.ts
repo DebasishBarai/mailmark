@@ -35,6 +35,40 @@ const nextConfig: NextConfig = {
           { key: "Access-Control-Allow-Origin", value: "https://www.mailmark.dev" },
           { key: "Access-Control-Allow-Methods", value: "GET, POST, PATCH, DELETE, OPTIONS" },
           { key: "Access-Control-Allow-Headers", value: "Authorization, Content-Type" },
+          // RFC 8631: point API clients at the machine-readable description of
+          // what they are talking to.
+          {
+            key: "Link",
+            value: '<https://www.mailmark.dev/openapi.json>; rel="service-desc"; type="application/json"',
+          },
+        ],
+      },
+      {
+        // Every public page is served as HTML or as Markdown depending on
+        // Accept (https://acceptmarkdown.com), so the response varies by that
+        // header: without it a CDN can hand cached HTML to an agent that asked
+        // for Markdown, or the reverse.
+        //
+        // The RSC router headers are repeated here because this rule replaces
+        // the Vary the framework writes rather than adding to it, and dropping
+        // them would let a CDN serve a React payload as a document.
+        source: "/:path*",
+        headers: [
+          {
+            key: "Vary",
+            value:
+              "Accept, RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch, Accept-Encoding",
+          },
+        ],
+      },
+      {
+        // The same pointer for the tool endpoints served from www.
+        source: "/api/:path*",
+        headers: [
+          {
+            key: "Link",
+            value: '<https://www.mailmark.dev/openapi.json>; rel="service-desc"; type="application/json"',
+          },
         ],
       },
     ];

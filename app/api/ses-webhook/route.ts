@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiError } from "../../../lib/http/apiError";
 
 export async function POST(req: NextRequest) {
   const snsMessageType = req.headers.get("x-amz-sns-message-type");
@@ -12,7 +13,13 @@ export async function POST(req: NextRequest) {
   // Legacy: direct webhook calls with secret header
   const secret = req.headers.get("x-webhook-secret");
   if (secret !== process.env.SES_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Old shape: NextResponse.json({ error: "..." }, { status }). The status
+    // codes are unchanged; only the body gained the machine-readable fields.
+    return apiError({
+      code: "unauthorized",
+      message: "Unauthorized",
+      hint: "Direct calls to this webhook must carry the x-webhook-secret header. SNS deliveries are identified by x-amz-sns-message-type instead.",
+    });
   }
 
   try {
@@ -20,10 +27,11 @@ export async function POST(req: NextRequest) {
     return await ingestEmail(body);
   } catch (error) {
     console.error("SES webhook error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return apiError({
+      code: "internal_error",
+      message: "Internal server error",
+      hint: "The payload could not be ingested. Retry the delivery.",
+    });
   }
 }
 
@@ -165,10 +173,11 @@ async function handleSnsMessage(req: NextRequest, messageType: string) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("SNS message handling error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return apiError({
+      code: "internal_error",
+      message: "Internal server error",
+      hint: "The SNS message could not be handled. SNS should retry the delivery.",
+    });
   }
 }
 
@@ -253,17 +262,19 @@ async function handleDeliveryNotification(
     // for good: the message stays pending forever and the address is never
     // suppressed. Returning a 5xx lets SNS do what it is for.
     if (!trackRes.ok) {
-      return NextResponse.json(
-        { error: "trackDelivery rejected the event" },
-        { status: 502 }
-      );
+      return apiError({
+        code: "upstream_error",
+        message: "trackDelivery rejected the event",
+        hint: "The delivery event was not recorded. SNS should retry so the event is not lost.",
+      });
     }
   } catch (error) {
     console.error("[DELIVERY] trackDelivery call failed:", error);
-    return NextResponse.json(
-      { error: "trackDelivery unreachable" },
-      { status: 502 }
-    );
+    return apiError({
+      code: "upstream_error",
+      message: "trackDelivery unreachable",
+      hint: "The backend could not be reached. SNS should retry so the event is not lost.",
+    });
   }
 
   return NextResponse.json({ success: true });

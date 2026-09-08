@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiError, methodNotAllowed } from "../../../../lib/http/apiError";
 import dns from "node:dns";
 
 const dnsResolver = new dns.promises.Resolver();
@@ -281,35 +282,44 @@ export async function POST(request: NextRequest) {
     "unknown";
 
   if (!checkRateLimit(ip)) {
-    return NextResponse.json(
-      { error: "Rate limit exceeded. Try again later." },
-      { status: 429 }
-    );
+    // Old shape: NextResponse.json({ error: "..." }, { status: 429 }).
+    // apiError keeps `error` and adds code / hint / documentation_url so an
+    // agent can tell a rate limit from a validation failure without parsing
+    // English.
+    return apiError({
+      code: "rate_limited",
+      message: "Rate limit exceeded. Try again later.",
+      hint: "This endpoint is limited per IP. Wait for the window to reset, then retry.",
+    });
   }
 
   let body: { domain?: string };
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid request body." },
-      { status: 400 }
-    );
+    return apiError({
+      code: "invalid_request",
+      message: "Invalid request body.",
+      hint: 'Send a JSON body with Content-Type: application/json, e.g. {"domain":"acme.com"}.',
+    });
   }
 
   if (!body.domain) {
-    return NextResponse.json(
-      { error: "Domain is required." },
-      { status: 400 }
-    );
+    return apiError({
+      code: "invalid_request",
+      message: "Domain is required.",
+      hint: 'Include a "domain" field, e.g. {"domain":"acme.com"}.',
+      details: { required: ["domain"] },
+    });
   }
 
   const domain = cleanDomain(body.domain);
   if (!domain) {
-    return NextResponse.json(
-      { error: "Invalid domain format." },
-      { status: 400 }
-    );
+    return apiError({
+      code: "invalid_request",
+      message: "Invalid domain format.",
+      hint: "Pass a bare hostname such as acme.com, without a scheme, path, or @.",
+    });
   }
 
   const [spf, dkim, dmarc, mx, blacklist] = await Promise.all([
@@ -348,3 +358,8 @@ export async function POST(request: NextRequest) {
     checkedAt: new Date().toISOString(),
   });
 }
+
+// A GET here is a mistake worth explaining, so it answers with a JSON 405 and
+// an Allow header instead of the empty body Next.js would return. OPTIONS is
+// left to Next, which answers it correctly for CORS preflights.
+export const GET = methodNotAllowed(["POST"]);
