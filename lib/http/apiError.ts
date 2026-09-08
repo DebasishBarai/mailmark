@@ -15,7 +15,6 @@ export type ApiErrorCode =
   | "forbidden"
   | "not_found"
   | "method_not_allowed"
-  | "not_acceptable"
   | "conflict"
   | "unprocessable_entity"
   | "rate_limited"
@@ -50,8 +49,6 @@ const DEFAULT_HINTS: Record<ApiErrorCode, string> = {
     "Check the path and any identifiers in it. The full endpoint list is at https://www.mailmark.dev/openapi.json.",
   method_not_allowed:
     "Use one of the methods listed in the Allow header for this path.",
-  not_acceptable:
-    "Ask for a media type this endpoint can produce, such as application/json.",
   conflict: "The resource already exists or is in a state that blocks this change.",
   unprocessable_entity:
     "The request was understood but cannot be completed as written. This is permanent; do not retry unchanged.",
@@ -70,7 +67,6 @@ const DEFAULT_STATUS: Record<ApiErrorCode, number> = {
   forbidden: 403,
   not_found: 404,
   method_not_allowed: 405,
-  not_acceptable: 406,
   conflict: 409,
   unprocessable_entity: 422,
   rate_limited: 429,

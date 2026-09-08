@@ -32,7 +32,6 @@ describe("apiErrorBody", () => {
       ["forbidden", 403],
       ["not_found", 404],
       ["method_not_allowed", 405],
-      ["not_acceptable", 406],
       ["conflict", 409],
       ["unprocessable_entity", 422],
       ["rate_limited", 429],

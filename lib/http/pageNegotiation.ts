@@ -1,6 +1,6 @@
 /**
  * The decision the middleware makes for every page request: HTML, the Markdown
- * variant, a 406, or nothing to do with us.
+ * variant, or nothing to do with us.
  *
  * It lives here, apart from proxy.ts, because it is pure: given a method, a
  * path and an Accept header it returns what to serve, which is the part worth
@@ -84,9 +84,7 @@ export type PageDecision =
   /** Serve the HTML page, and say the response varies by Accept. */
   | { kind: "html"; path: string }
   /** Rewrite to the Markdown variant of `path`. */
-  | { kind: "markdown"; path: string; contentType: string }
-  /** The client accepts nothing this URL can produce. */
-  | { kind: "notAcceptable"; path: string };
+  | { kind: "markdown"; path: string; contentType: string };
 
 /** Paths that are never content-negotiated: they are not public pages. */
 export function isNegotiablePath(pathname: string): boolean {
@@ -140,7 +138,11 @@ export function decidePageResponse(request: PageRequest): PageDecision {
   }
 
   const path = normalizePath(request.pathname);
-  const { mediaType, notAcceptable } = negotiate(request.accept, PAGE_OFFERS);
+  // `negotiate` also reports when nothing on offer is acceptable. We disregard
+  // that deliberately, as RFC 9110 section 12.5.1 allows: a client asking a page
+  // for, say, application/json gets the HTML it would have got before rather
+  // than a 406 it almost certainly cannot use.
+  const { mediaType } = negotiate(request.accept, PAGE_OFFERS);
   const isPublicPage = findRoute(path) !== undefined;
 
   if (mediaType && (MARKDOWN_TYPES.has(mediaType) || mediaType === PLAIN_MEDIA_TYPE)) {
@@ -153,12 +155,10 @@ export function decidePageResponse(request: PageRequest): PageDecision {
     };
   }
 
-  // Everything below only applies to the pages we actually publish. Refusing a
-  // request (406) or claiming a response varies by Accept is only true of a URL
-  // that has both representations.
+  // Everything below only applies to the pages we actually publish: claiming a
+  // response varies by Accept is only true of a URL that has both
+  // representations.
   if (!isPublicPage) return { kind: "passthrough" };
-
-  if (notAcceptable) return { kind: "notAcceptable", path };
 
   return { kind: "html", path };
 }

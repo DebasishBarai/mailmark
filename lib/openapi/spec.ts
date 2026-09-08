@@ -26,7 +26,6 @@ const ERROR_SCHEMA = {
         "forbidden",
         "not_found",
         "method_not_allowed",
-        "not_acceptable",
         "conflict",
         "unprocessable_entity",
         "rate_limited",

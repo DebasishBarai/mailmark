@@ -15,16 +15,10 @@ import {
   routesInSection,
   type SiteRoute,
 } from "../site/routes";
-import { notAcceptableMarkdown } from "../http/notAcceptable";
 import { docsMarkdown } from "./pages/docs";
 import { apiMarkdown } from "./pages/api";
 import { guidesMarkdown } from "./pages/guides";
 import { siteMarkdown } from "./pages/site";
-
-// Re-exported so callers keep one import for the Markdown surface, while the
-// middleware imports it straight from lib/http/notAcceptable and leaves the
-// corpus out of its bundle.
-export { notAcceptableMarkdown };
 
 export interface MarkdownDocument {
   path: string;

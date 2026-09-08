@@ -140,19 +140,19 @@ describe("decidePageResponse", () => {
     expect(markdownRewritePath((decision as { path: string }).path)).toBe("/md");
   });
 
-  test("a client that accepts nothing we have gets a 406, on a published page", () => {
-    expect(decidePageResponse(request({ accept: "application/json" })).kind).toBe(
-      "notAcceptable"
-    );
-    expect(decidePageResponse(request({ accept: "application/pdf" })).kind).toBe(
-      "notAcceptable"
-    );
+  test("a client that accepts nothing we have still gets the page", () => {
+    // RFC 9110 section 12.5.1 lets a server disregard Accept and send the
+    // default representation, and that is what a client asking a page for JSON
+    // or PDF got before this negotiation existed. Refusing it with a 406 would
+    // break, say, an uptime monitor configured with the wrong Accept header.
+    for (const accept of ["application/json", "application/pdf", "image/png"]) {
+      expect(decidePageResponse(request({ accept })).kind, accept).toBe("html");
+    }
   });
 
-  test("but never on a URL that is not a published page", () => {
+  test("a URL that is not a published page is never touched", () => {
     // The regression this guards: a social crawler fetching a generated card
-    // with `Accept: image/*`, and any app route asked for as JSON, used to be
-    // refused with a 406.
+    // with `Accept: image/*`, and any app route asked for as JSON.
     for (const pathname of [
       "/blog/why-emails-land-in-spam/opengraph-image",
       "/settings",
@@ -166,11 +166,6 @@ describe("decidePageResponse", () => {
         ).toBe("passthrough");
       }
     }
-  });
-
-  test("an image request for a published page is refused, not mis-served", () => {
-    // /docs has no image representation, so a 406 is the honest answer there.
-    expect(decidePageResponse(request({ accept: "image/png" })).kind).toBe("notAcceptable");
   });
 
   test("an unknown path is only rewritten when Markdown was asked for by name", () => {

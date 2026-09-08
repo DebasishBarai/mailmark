@@ -1,14 +1,12 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { MARKDOWN_MEDIA_TYPE, PAGE_OFFERS } from "./lib/http/accept";
 import {
   CONTENT_TYPE_HINT,
   PATH_HINT,
   decidePageResponse,
   markdownRewritePath,
 } from "./lib/http/pageNegotiation";
-import { notAcceptableMarkdown } from "./lib/http/notAcceptable";
 
 const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)",
@@ -56,18 +54,6 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     isReactRouterRequest: isReactRouterRequest(req),
     host: req.headers.get("host"),
   });
-
-  if (decision.kind === "notAcceptable") {
-    // The client ruled out every representation this URL has. Say so in the one
-    // media type that is always safe to read.
-    return new NextResponse(notAcceptableMarkdown(decision.path, PAGE_OFFERS), {
-      status: 406,
-      headers: {
-        "Content-Type": `${MARKDOWN_MEDIA_TYPE}; charset=utf-8`,
-        Vary: "Accept, Accept-Encoding",
-      },
-    });
-  }
 
   if (decision.kind === "markdown") {
     const target = req.nextUrl.clone();

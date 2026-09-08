@@ -3,13 +3,11 @@ import {
   getMarkdownDocument,
   hasMarkdownBody,
   markdownPaths,
-  notAcceptableMarkdown,
   notFoundMarkdown,
   siteIndexMarkdown,
 } from "../lib/markdown";
 import { ALL_ROUTES, BASE_URL, findRoute, normalizePath } from "../lib/site/routes";
 import { articles } from "../app/blog/[slug]/articles";
-import { PAGE_OFFERS } from "../lib/http/accept";
 
 describe("normalizePath", () => {
   test("trailing slashes and missing leading slashes are normalised away", () => {
@@ -108,14 +106,6 @@ describe("notFoundMarkdown", () => {
 
   test("explains how to ask for Markdown", () => {
     expect(body).toContain("Accept: text/markdown");
-  });
-});
-
-describe("notAcceptableMarkdown", () => {
-  test("lists what the URL can be served as", () => {
-    const body = notAcceptableMarkdown("/docs", PAGE_OFFERS);
-    expect(body).toContain("406");
-    for (const offer of PAGE_OFFERS) expect(body).toContain(offer);
   });
 });
 

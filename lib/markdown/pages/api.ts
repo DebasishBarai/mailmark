@@ -46,7 +46,7 @@ HTTP 401
 }
 \`\`\`
 
-Error codes: \`invalid_request\`, \`unauthorized\`, \`forbidden\`, \`not_found\`, \`method_not_allowed\`, \`not_acceptable\`, \`conflict\`, \`unprocessable_entity\`, \`rate_limited\`, \`internal_error\`, \`service_unavailable\`, \`upstream_error\`.
+Error codes: \`invalid_request\`, \`unauthorized\`, \`forbidden\`, \`not_found\`, \`method_not_allowed\`, \`conflict\`, \`unprocessable_entity\`, \`rate_limited\`, \`internal_error\`, \`service_unavailable\`, \`upstream_error\`.
 
 A send refused for every recipient returns 422 and names them. This is a permanent outcome, not a transient failure, so it should not be retried:
 
