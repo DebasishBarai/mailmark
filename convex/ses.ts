@@ -1054,13 +1054,21 @@ function parsedAddresses(
   return addresses;
 }
 
-// Correct an ingested email's recipients from the raw message in S3.
+// Correct an ingested email's recipients and subject from the raw message in S3.
 //
 // The Lambda reports `to` as the recipients that live on this domain, merged
 // out of the To and Cc headers, so an inbound message shows the wrong To line
 // (Cc'd colleagues appear as To, off-domain recipients disappear) and never
 // has a Cc at all. The raw message is the authority, so read the headers back
 // from it. Best effort: a failure here must not stop the S3 move below.
+//
+// The subject is read back for the same reason. The Lambda's own RFC 2047
+// decoder used to read each Q-encoded byte as a Latin-1 character, so a UTF-8
+// dash arrived as "\u00e2" plus two control characters. That decoder is fixed, but
+// every BYO-AWS account runs the Lambda copy baked into its CloudFormation
+// stack at creation time, and those are not redeployed when this repo is. So
+// mailparser, which decodes the header properly, has the last word here and
+// the mailbox reads correctly whatever version of the Lambda ingested it.
 async function syncIngestedRecipients(
   ctx: ActionCtx,
   aws: AwsClientBundle,
@@ -1077,15 +1085,17 @@ async function syncIngestedRecipients(
     const parsed = await simpleParser(rawEmail);
     const to = parsedAddresses(parsed.to);
     const cc = parsedAddresses(parsed.cc);
-    if (to.length === 0 && cc.length === 0) return;
+    const subject = (parsed.subject ?? "").trim();
+    if (to.length === 0 && cc.length === 0 && subject.length === 0) return;
 
     await ctx.runMutation(internal.emails.updateIngestedRecipients, {
       emailId,
       ...(to.length > 0 ? { to } : {}),
       ...(cc.length > 0 ? { cc } : {}),
+      ...(subject.length > 0 ? { subject } : {}),
     });
   } catch (error) {
-    console.error("Failed to read recipients from raw email:", error);
+    console.error("Failed to read headers from raw email:", error);
   }
 }
 

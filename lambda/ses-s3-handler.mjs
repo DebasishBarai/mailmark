@@ -167,10 +167,14 @@ function parseEmailHeaders(raw) {
   }
 
   return {
-    from: headers["from"] || "",
+    // From carries a display name, which is encoded the same way a subject
+    // is ("=?UTF-8?B?...?= <a@b.com>"), so it needs the same decoding. The
+    // address inside the angle brackets is ASCII either way, so parseAddressList
+    // still reads it out of the decoded value.
+    from: decodeMimeHeader(headers["from"] || ""),
     to: headers["to"] || "",
     cc: headers["cc"] || "",
-    subject: decodeSubject(headers["subject"] || ""),
+    subject: decodeMimeHeader(headers["subject"] || ""),
     date: headers["date"] || "",
     messageId: headers["message-id"] || "",
     contentType: headers["content-type"] || "",
@@ -204,29 +208,120 @@ function parseAddressList(headerValue) {
 }
 
 /**
- * Decode MIME encoded-word subjects (=?UTF-8?B?...?= or =?UTF-8?Q?...?=)
+ * Decode MIME encoded-word headers (RFC 2047), e.g.
+ * "=?UTF-8?Q?Application_=E2=80=93_Nishant_Verma?=".
+ *
+ * An encoded word carries the charset's raw bytes, so the bytes have to be
+ * collected as bytes and decoded once with the charset the word declares. The
+ * old version below built the string with String.fromCharCode, which reads
+ * every byte as one Latin-1 character: a UTF-8 en dash (E2 80 93) came out as
+ * "\u00e2" plus two control characters, so any subject with a dash, a curly quote
+ * or an emoji in it was stored mojibake'd.
+ *
+ * Adjacent encoded words are merged before decoding, because RFC 2047 lets a
+ * sender split one multi-byte character across two words and decoding each
+ * word on its own would turn that character into replacement characters. The
+ * whitespace between two encoded words is a separator rather than text
+ * (RFC 2047 section 6.2), so it is dropped.
  */
-function decodeSubject(subject) {
-  return subject.replace(
-    /=\?([^?]+)\?([BQ])\?([^?]+)\?=/gi,
-    (match, charset, encoding, encoded) => {
-      try {
-        if (encoding.toUpperCase() === "B") {
-          return Buffer.from(encoded, "base64").toString("utf-8");
-        } else {
-          // Quoted-printable
-          const decoded = encoded
-            .replace(/_/g, " ")
-            .replace(/=([0-9A-Fa-f]{2})/g, (m, hex) =>
-              String.fromCharCode(parseInt(hex, 16))
-            );
-          return decoded;
-        }
-      } catch {
-        return match;
-      }
+// function decodeSubject(subject) {
+//   return subject.replace(
+//     /=\?([^?]+)\?([BQ])\?([^?]+)\?=/gi,
+//     (match, charset, encoding, encoded) => {
+//       try {
+//         if (encoding.toUpperCase() === "B") {
+//           return Buffer.from(encoded, "base64").toString("utf-8");
+//         } else {
+//           // Quoted-printable
+//           const decoded = encoded
+//             .replace(/_/g, " ")
+//             .replace(/=([0-9A-Fa-f]{2})/g, (m, hex) =>
+//               String.fromCharCode(parseInt(hex, 16))
+//             );
+//           return decoded;
+//         }
+//       } catch {
+//         return match;
+//       }
+//     }
+//   );
+// }
+function decodeMimeHeader(value) {
+  if (!value || !value.includes("=?")) return value;
+
+  const pattern = /=\?([^?]+)\?([BQ])\?([^?]*)\?=/gi;
+  let result = "";
+  let cursor = 0;
+  let pendingCharset = null;
+  let pendingBytes = [];
+  let match;
+
+  const flush = () => {
+    if (pendingBytes.length === 0) return;
+    result += decodeBytes(Buffer.concat(pendingBytes), pendingCharset);
+    pendingBytes = [];
+    pendingCharset = null;
+  };
+
+  while ((match = pattern.exec(value)) !== null) {
+    const between = value.slice(cursor, match.index);
+    cursor = match.index + match[0].length;
+
+    // "UTF-8*en" is a charset carrying an RFC 2231 language tag.
+    const charset = match[1].split("*")[0].trim().toLowerCase();
+    const bytes = encodedWordBytes(match[2], match[3]);
+
+    // Only whitespace stood between this word and the previous one, so the two
+    // are adjacent words of one run, not two words with a space between them.
+    const adjacent = pendingBytes.length > 0 && /^[ \t\r\n]*$/.test(between);
+
+    if (adjacent && charset === pendingCharset) {
+      pendingBytes.push(bytes);
+      continue;
     }
-  );
+
+    flush();
+    if (!adjacent) result += between;
+    pendingCharset = charset;
+    pendingBytes = [bytes];
+  }
+
+  flush();
+  return result + value.slice(cursor);
+}
+
+/** The raw bytes an encoded word carries, before any charset is applied. */
+function encodedWordBytes(encoding, text) {
+  if (encoding.toUpperCase() === "B") {
+    return Buffer.from(text, "base64");
+  }
+
+  // Q encoding: "_" is a space, "=XX" is one byte, anything else is itself.
+  const bytes = [];
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (char === "_") {
+      bytes.push(0x20);
+    } else if (char === "=" && /^[0-9A-Fa-f]{2}$/.test(text.slice(i + 1, i + 3))) {
+      bytes.push(parseInt(text.slice(i + 1, i + 3), 16));
+      i += 2;
+    } else {
+      bytes.push(char.charCodeAt(0) & 0xff);
+    }
+  }
+  return Buffer.from(bytes);
+}
+
+/** Decode bytes with the declared charset, falling back rather than throwing. */
+function decodeBytes(bytes, charset) {
+  const label = charset || "utf-8";
+  try {
+    return new TextDecoder(label).decode(bytes);
+  } catch {
+    // Unknown or unsupported label. Latin-1 covers the legacy single-byte
+    // charsets well enough to stay readable, and never throws.
+    return bytes.toString(label.startsWith("utf") ? "utf-8" : "latin1");
+  }
 }
 
 /**

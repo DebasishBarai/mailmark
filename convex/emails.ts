@@ -14,6 +14,7 @@ import {
   readMailboxStats,
 } from "./lib/counters";
 import { recordRecipientsForMailbox } from "./lib/recipients";
+import { repairLatin1Mojibake } from "./lib/mimeHeader";
 import { internal } from "./_generated/api";
 import { suppress } from "./suppressions";
 import { isPermanentBounce } from "./lib/sendPolicy";
@@ -492,19 +493,82 @@ export const updateS3Key = internalMutation({
 // Lambda only reports the recipients that live on this domain, merged out of
 // the To and Cc headers, so an inbound email's To line is wrong and its Cc is
 // missing until the real headers are read back from S3.
+// Headers read back off the raw message by internal.ses.syncRecipientsFromS3.
+// The subject is included because the Lambda decodes it itself, and the copies
+// of the Lambda already deployed in BYO-AWS accounts decode a non-ASCII one
+// wrongly; mailparser's reading of the raw message is the one to trust.
 export const updateIngestedRecipients = internalMutation({
   args: {
     emailId: v.id("emails"),
     to: v.optional(v.array(v.string())),
     cc: v.optional(v.array(v.string())),
+    subject: v.optional(v.string()),
   },
-  handler: async (ctx, { emailId, to, cc }) => {
+  handler: async (ctx, { emailId, to, cc, subject }) => {
     const email = await ctx.db.get(emailId);
     if (!email) return;
     await ctx.db.patch(emailId, {
       ...(to && to.length > 0 ? { to } : {}),
       ...(cc && cc.length > 0 ? { cc } : {}),
+      ...(subject && subject.length > 0 && subject !== email.subject
+        ? { subject }
+        : {}),
     });
+  },
+});
+
+// Repair the subjects already stored mojibake'd, per mailbox:
+//
+//   internal.emails.repairMojibakeSubjects
+//   { "mailboxId": "...", "dryRun": false }
+//
+// dryRun defaults to true, so the first run only reports what it would change.
+//
+// The damage is reversible without going back to S3. The old Lambda decoder
+// turned each byte of a Q-encoded word into one character below U+0100, so the
+// stored subject still holds the original UTF-8 bytes, one per character, and
+// reading those characters back as bytes recovers the text exactly.
+//
+// A row is only rewritten when that reading round-trips: every character has
+// to fit in a byte and the bytes have to be valid UTF-8 that differs from what
+// is stored. A subject that was always fine is pure ASCII and decodes to
+// itself, and a genuinely Latin-1 subject ("Caf\u00e9") is not valid UTF-8, so
+// neither is touched.
+export const repairMojibakeSubjects = internalMutation({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    folder: v.optional(v.string()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { mailboxId, folder, dryRun }) => {
+    const targetFolder = folder ?? "inbox";
+    const isDryRun = dryRun ?? true;
+
+    const emails = await ctx.db
+      .query("emails")
+      .withIndex("by_mailbox_folder", (q) =>
+        q.eq("mailboxId", mailboxId).eq("folder", targetFolder)
+      )
+      .collect();
+
+    const repaired: Array<{ before: string; after: string }> = [];
+
+    for (const email of emails) {
+      const fixed = repairLatin1Mojibake(email.subject);
+      if (!fixed) continue;
+      repaired.push({ before: email.subject, after: fixed });
+      if (!isDryRun) {
+        await ctx.db.patch(email._id, { subject: fixed });
+      }
+    }
+
+    return {
+      dryRun: isDryRun,
+      folder: targetFolder,
+      scanned: emails.length,
+      repaired: isDryRun ? [] : repaired,
+      wouldRepair: isDryRun ? repaired : [],
+    };
   },
 });
 
