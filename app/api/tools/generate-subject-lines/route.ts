@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { apiError, methodNotAllowed } from "../../../../lib/http/apiError";
+
+// Errors used to be `NextResponse.json({ error: "..." }, { status })`, which an
+// agent cannot branch on. They now go through apiError(), which keeps `error`
+// as the same human-readable string and adds `code`, `message`, `hint`,
+// `status` and `documentation_url` alongside it. Old shape, for reference:
+//
+//   return NextResponse.json({ error: "Service temporarily unavailable." }, { status: 503 });
 
 const rateLimit = new Map<
   string,
@@ -29,10 +37,11 @@ const VALID_TONES = ["casual", "professional", "direct", "friendly", "urgent"];
 export async function POST(request: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "Service temporarily unavailable." },
-      { status: 503 }
-    );
+    return apiError({
+      code: "service_unavailable",
+      message: "Service temporarily unavailable.",
+      hint: "Subject line generation needs an ANTHROPIC_API_KEY on the server. Try again later, or use the tool at https://www.mailmark.dev/tools/subject-line-generator.",
+    });
   }
 
   const ip =
@@ -42,47 +51,53 @@ export async function POST(request: NextRequest) {
 
   const { allowed, remaining } = checkRateLimit(ip);
   if (!allowed) {
-    return NextResponse.json(
-      {
-        error:
-          "Daily limit reached. Sign up for Mailmark to unlock unlimited generations.",
-        generationsRemaining: 0,
-      },
-      { status: 429 }
-    );
+    return apiError({
+      code: "rate_limited",
+      message:
+        "Daily limit reached. Sign up for Mailmark to unlock unlimited generations.",
+      hint: "The per-IP daily quota resets 24 hours after your first request. Sign up at https://www.mailmark.dev for unlimited generations.",
+      details: { generationsRemaining: 0 },
+    });
   }
 
   let body: { industry?: string; offer?: string; tone?: string };
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid request body." },
-      { status: 400 }
-    );
+    return apiError({
+      code: "invalid_request",
+      message: "Invalid request body.",
+      hint: 'Send a JSON body with Content-Type: application/json, e.g. {"industry":"SaaS","offer":"a demo","tone":"direct"}.',
+    });
   }
 
   const { industry, offer, tone } = body;
 
   if (!industry || !offer || !tone) {
-    return NextResponse.json(
-      { error: "Industry, offer, and tone are all required." },
-      { status: 400 }
-    );
+    return apiError({
+      code: "invalid_request",
+      message: "Industry, offer, and tone are all required.",
+      hint: `Include all three fields. Valid tones: ${VALID_TONES.join(", ")}.`,
+      details: { required: ["industry", "offer", "tone"] },
+    });
   }
 
   if (industry.length > 200 || offer.length > 200) {
-    return NextResponse.json(
-      { error: "Inputs must be under 200 characters each." },
-      { status: 400 }
-    );
+    return apiError({
+      code: "invalid_request",
+      message: "Inputs must be under 200 characters each.",
+      hint: "Shorten \"industry\" and \"offer\" to 200 characters or fewer.",
+      details: { maxLength: 200 },
+    });
   }
 
   if (!VALID_TONES.includes(tone)) {
-    return NextResponse.json(
-      { error: "Invalid tone selected." },
-      { status: 400 }
-    );
+    return apiError({
+      code: "invalid_request",
+      message: "Invalid tone selected.",
+      hint: `Use one of: ${VALID_TONES.join(", ")}.`,
+      details: { allowedTones: VALID_TONES },
+    });
   }
 
   const client = new Anthropic({ apiKey });
@@ -103,20 +118,22 @@ export async function POST(request: NextRequest) {
 
     const textBlock = message.content.find((b) => b.type === "text");
     if (!textBlock || textBlock.type !== "text") {
-      return NextResponse.json(
-        { error: "Failed to generate subject lines. Please try again." },
-        { status: 500 }
-      );
+      return apiError({
+        code: "upstream_error",
+        message: "Failed to generate subject lines. Please try again.",
+        hint: "The model returned no text block. Retry the request.",
+      });
     }
 
     let subjectLines: { line: string; tip: string }[];
     try {
       subjectLines = JSON.parse(textBlock.text);
     } catch {
-      return NextResponse.json(
-        { error: "Failed to parse results. Please try again." },
-        { status: 500 }
-      );
+      return apiError({
+        code: "upstream_error",
+        message: "Failed to parse results. Please try again.",
+        hint: "The model returned text that was not the expected JSON array. Retry the request.",
+      });
     }
 
     return NextResponse.json({
@@ -124,9 +141,15 @@ export async function POST(request: NextRequest) {
       generationsRemaining: remaining,
     });
   } catch {
-    return NextResponse.json(
-      { error: "Failed to generate subject lines. Please try again." },
-      { status: 500 }
-    );
+    return apiError({
+      code: "upstream_error",
+      message: "Failed to generate subject lines. Please try again.",
+      hint: "The generation service failed. Retry with backoff; if it persists, contact support@mailmark.dev.",
+    });
   }
 }
+
+// Anything but POST gets a JSON 405 with an Allow header instead of the empty
+// body Next.js would return.
+export const GET = methodNotAllowed(["POST"]);
+export const OPTIONS = methodNotAllowed(["POST"]);

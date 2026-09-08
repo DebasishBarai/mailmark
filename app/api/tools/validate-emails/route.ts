@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiError, methodNotAllowed } from "../../../../lib/http/apiError";
 import dns from "node:dns";
 
 const dnsResolver = new dns.promises.Resolver();
@@ -175,24 +176,31 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: "Invalid request body." },
-      { status: 400 }
-    );
+    // Old shape: NextResponse.json({ error: "..." }, { status: 400 }).
+    // apiError keeps `error` and adds the machine-readable fields around it.
+    return apiError({
+      code: "invalid_request",
+      message: "Invalid request body.",
+      hint: 'Send a JSON body with Content-Type: application/json, e.g. {"emails":["alice@acme.com"]}.',
+    });
   }
 
   if (!body.emails || !Array.isArray(body.emails) || body.emails.length === 0) {
-    return NextResponse.json(
-      { error: "Provide at least one email address." },
-      { status: 400 }
-    );
+    return apiError({
+      code: "invalid_request",
+      message: "Provide at least one email address.",
+      hint: '"emails" must be a non-empty array of addresses.',
+      details: { required: ["emails"] },
+    });
   }
 
   if (body.emails.length > 100) {
-    return NextResponse.json(
-      { error: "Maximum 100 emails per validation." },
-      { status: 400 }
-    );
+    return apiError({
+      code: "invalid_request",
+      message: "Maximum 100 emails per validation.",
+      hint: "Split the list into batches of 100 addresses or fewer.",
+      details: { maxEmails: 100 },
+    });
   }
 
   const uniqueEmails = [...new Set(body.emails.map((e: string) => e.trim().toLowerCase()).filter(Boolean))];
@@ -208,3 +216,8 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ results, summary });
 }
+
+// Anything but POST gets a JSON 405 with an Allow header instead of the empty
+// body Next.js would return.
+export const GET = methodNotAllowed(["POST"]);
+export const OPTIONS = methodNotAllowed(["POST"]);

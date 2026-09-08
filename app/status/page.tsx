@@ -4,6 +4,13 @@ import Footer from "../components/Footer";
 import SubscribeForm from "./subscribe-form";
 
 export const metadata: Metadata = {
+  // The canonical URL keeps every listing of this page pointing at one
+  // address on www, instead of splitting signals across variants.
+  alternates: {
+    canonical: "https://www.mailmark.dev/status",
+    // The same page as Markdown, for agents that read it that way.
+    types: { "text/markdown": "https://www.mailmark.dev/status.md" },
+  },
   title: "System Status",
   description: "Real-time status of all Mailmark services and infrastructure components.",
 };

@@ -51,6 +51,13 @@ const jsonLd = {
 };
 
 export const metadata: Metadata = {
+  // The canonical URL keeps every listing of this page pointing at one
+  // address on www, instead of splitting signals across variants.
+  alternates: {
+    canonical: "https://www.mailmark.dev/tools/email-list-validator",
+    // The same page as Markdown, for agents that read it that way.
+    types: { "text/markdown": "https://www.mailmark.dev/tools/email-list-validator.md" },
+  },
   title: "Free Email List Validator - Verify Emails Before You Send",
   description:
     "Validate your email list for free. Check for invalid addresses, disposable emails, missing MX records, and risky contacts. Reduce bounces and protect your sender reputation.",

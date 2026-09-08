@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "bun test",
     "remotion": "bunx remotion studio remotion/index.ts",
     "remotion:render": "bunx remotion render remotion/index.ts MailmarkPromo out/mailmark-promo.mp4"
   },

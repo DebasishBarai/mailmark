@@ -51,6 +51,13 @@ const jsonLd = {
 };
 
 export const metadata: Metadata = {
+  // The canonical URL keeps every listing of this page pointing at one
+  // address on www, instead of splitting signals across variants.
+  alternates: {
+    canonical: "https://www.mailmark.dev/tools/email-signature-generator",
+    // The same page as Markdown, for agents that read it that way.
+    types: { "text/markdown": "https://www.mailmark.dev/tools/email-signature-generator.md" },
+  },
   title: "Free Email Signature Generator - Create Professional HTML Signatures",
   description:
     "Generate a professional HTML email signature in seconds. Choose from 3 styles, customize colors, add your photo and social links. Works with Gmail, Outlook, and Apple Mail. Free, no signup.",

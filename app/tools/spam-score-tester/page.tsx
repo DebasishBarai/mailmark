@@ -51,6 +51,13 @@ const jsonLd = {
 };
 
 export const metadata: Metadata = {
+  // The canonical URL keeps every listing of this page pointing at one
+  // address on www, instead of splitting signals across variants.
+  alternates: {
+    canonical: "https://www.mailmark.dev/tools/spam-score-tester",
+    // The same page as Markdown, for agents that read it that way.
+    types: { "text/markdown": "https://www.mailmark.dev/tools/spam-score-tester.md" },
+  },
   title: "Free Email Spam Score Tester - Check Before You Send",
   description:
     "Test your email for spam trigger words, formatting issues, and deliverability red flags. Get an instant spam risk score with actionable recommendations. Free, no signup required.",

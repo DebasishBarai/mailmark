@@ -46,26 +46,100 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: "https://www.mailmark.dev",
+    // The same page as Markdown, for agents that read it that way.
+    types: { "text/markdown": "https://www.mailmark.dev/index.md" },
   },
 };
 
+// A search for the brand name has to resolve to this domain, so the entity is
+// spelled out here rather than left to be inferred: an @id other pages can
+// point at, the names people actually type, and the addresses that identify us.
 const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
+  "@id": "https://www.mailmark.dev/#organization",
   name: "Mailmark",
+  alternateName: ["Mailmark Email", "mailmark.dev"],
   url: "https://www.mailmark.dev",
   // The og-image is a social card with a headline on it, not a logo.
   // Schema.org wants the mark itself here, so point at the square PNG.
   logo: "https://www.mailmark.dev/logo-icon.png",
+  image: "https://www.mailmark.dev/logo-icon.png",
+  email: "support@mailmark.dev",
+  slogan: "Email hosting and campaigns for your own domain.",
   description:
     "One email platform for developers running multiple products: multi-domain mailboxes, user campaigns, and a send API with npm SDK.",
+  knowsAbout: [
+    "custom domain email hosting",
+    "email deliverability",
+    "SPF, DKIM and DMARC",
+    "email campaigns",
+    "Amazon SES",
+  ],
+  contactPoint: [
+    {
+      "@type": "ContactPoint",
+      contactType: "customer support",
+      email: "support@mailmark.dev",
+      url: "https://www.mailmark.dev/contact",
+      availableLanguage: ["English"],
+    },
+    {
+      "@type": "ContactPoint",
+      contactType: "security",
+      email: "security@mailmark.dev",
+      url: "https://www.mailmark.dev/security",
+    },
+  ],
 };
 
 const websiteSchema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
+  "@id": "https://www.mailmark.dev/#website",
   name: "Mailmark",
+  alternateName: "Mailmark - email hosting and campaigns for your domain",
   url: "https://www.mailmark.dev",
+  inLanguage: "en",
+  publisher: { "@id": "https://www.mailmark.dev/#organization" },
+};
+
+// The product itself, so a brand-name search has something to match beyond the
+// company: what Mailmark is, what it costs, and where the free trial starts.
+const softwareSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Mailmark",
+  applicationCategory: "BusinessApplication",
+  applicationSubCategory: "Email hosting and campaigns",
+  operatingSystem: "Web",
+  url: "https://www.mailmark.dev",
+  description:
+    "Email hosting and campaigns for custom domains: mailboxes, campaigns, sequences, warmup, and a REST API.",
+  publisher: { "@id": "https://www.mailmark.dev/#organization" },
+  offers: [
+    {
+      "@type": "Offer",
+      name: "Starter",
+      price: "10",
+      priceCurrency: "USD",
+      url: "https://www.mailmark.dev/#pricing",
+    },
+    {
+      "@type": "Offer",
+      name: "Pro",
+      price: "50",
+      priceCurrency: "USD",
+      url: "https://www.mailmark.dev/#pricing",
+    },
+    {
+      "@type": "Offer",
+      name: "Business",
+      price: "100",
+      priceCurrency: "USD",
+      url: "https://www.mailmark.dev/#pricing",
+    },
+  ],
 };
 
 export default function Home() {
@@ -78,6 +152,10 @@ export default function Home() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
       />
       <Header />
       <Hero />

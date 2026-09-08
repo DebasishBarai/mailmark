@@ -1,57 +1,18 @@
 import type { MetadataRoute } from "next";
+import { ALL_ROUTES, BASE_URL } from "../lib/site/routes";
 
-const BASE_URL = "https://www.mailmark.dev";
-
-const blogSlugs = [
-  "getting-started-with-custom-domain-emails",
-  "understanding-spf-dkim-and-dmarc",
-  "email-campaign-best-practices-2026",
-  "improve-email-deliverability-rate",
-  "mailmark-1-0-whats-new",
-  "managing-team-mailboxes-at-scale",
-  "building-winning-email-campaign-strategy",
-  "why-emails-land-in-spam",
-];
+// Old: the route list (static pages plus a hard-coded blogSlugs array) lived
+// here. It now comes from lib/site/routes.ts, which the Markdown variants and
+// the 404 page read as well, so a new page cannot appear in one and not the
+// others.
+//
+// const blogSlugs = [ ... ];
+// const staticRoutes: MetadataRoute.Sitemap = [ { url: BASE_URL, ... }, ... ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const staticRoutes: MetadataRoute.Sitemap = [
-    { url: BASE_URL, priority: 1.0, changeFrequency: "weekly" },
-    { url: `${BASE_URL}/blog`, priority: 0.8, changeFrequency: "weekly" },
-    { url: `${BASE_URL}/docs`, priority: 0.8, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/docs/getting-started`, priority: 0.8, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/docs/domain-setup`, priority: 0.7, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/docs/mailboxes`, priority: 0.7, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/docs/email-campaigns`, priority: 0.7, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/docs/troubleshooting`, priority: 0.6, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/docs/byo-aws`, priority: 0.7, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/docs/warmup`, priority: 0.7, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/docs/sequences`, priority: 0.7, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/docs/api`, priority: 0.8, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/guides/dns-setup`, priority: 0.7, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/guides/email-deliverability`, priority: 0.7, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/tools`, priority: 0.8, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/tools/email-deliverability-checker`, priority: 0.8, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/tools/ses-savings-calculator`, priority: 0.8, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/tools/subject-line-generator`, priority: 0.8, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/tools/lead-finder`, priority: 0.8, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/tools/email-list-validator`, priority: 0.8, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/tools/spam-score-tester`, priority: 0.8, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/tools/email-signature-generator`, priority: 0.8, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/about`, priority: 0.5, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/contact`, priority: 0.5, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/careers`, priority: 0.5, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/affiliate-program`, priority: 0.5, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/status`, priority: 0.5, changeFrequency: "daily" },
-    { url: `${BASE_URL}/security`, priority: 0.4, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/privacy`, priority: 0.4, changeFrequency: "monthly" },
-    { url: `${BASE_URL}/terms`, priority: 0.4, changeFrequency: "monthly" },
-  ];
-
-  const blogRoutes: MetadataRoute.Sitemap = blogSlugs.map((slug) => ({
-    url: `${BASE_URL}/blog/${slug}`,
-    priority: 0.7,
-    changeFrequency: "monthly",
+  return ALL_ROUTES.map((route) => ({
+    url: route.path === "/" ? BASE_URL : `${BASE_URL}${route.path}`,
+    priority: route.priority,
+    changeFrequency: route.changeFrequency,
   }));
-
-  return [...staticRoutes, ...blogRoutes];
 }

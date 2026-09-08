@@ -3,6 +3,13 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export const metadata: Metadata = {
+  // The canonical URL keeps every listing of this page pointing at one
+  // address on www, instead of splitting signals across variants.
+  alternates: {
+    canonical: "https://www.mailmark.dev/careers",
+    // The same page as Markdown, for agents that read it that way.
+    types: { "text/markdown": "https://www.mailmark.dev/careers.md" },
+  },
   title: "Careers",
   description:
     "Join the Mailmark team. We're a remote-first company building the future of professional email hosting and campaigns.",

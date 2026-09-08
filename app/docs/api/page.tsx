@@ -1342,8 +1342,10 @@ export default function ApiDocsPage() {
                 {[
                   { label: "Format", value: "JSON request and response bodies." },
                   { label: "Auth", value: "Bearer token via the Authorization header." },
-                  { label: "Errors", value: "Standard HTTP status codes with an error field in the body." },
+                  // Old: "Standard HTTP status codes with an error field in the body."
+                  { label: "Errors", value: "Standard HTTP status codes with a structured JSON body: error, code, message, hint." },
                   { label: "SDK", value: "Use the mailmark npm package for a typed client." },
+                  { label: "OpenAPI", value: "The whole API is described at /openapi.json." },
                 ].map((item) => (
                   <div key={item.label} className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800/50">
                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">{item.label}</p>
@@ -1352,11 +1354,41 @@ export default function ApiDocsPage() {
                 ))}
               </div>
 
+              <h3 className="mt-8 text-base font-semibold text-gray-900 dark:text-white">Machine-readable description</h3>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                Every endpoint on this page, and the free tool endpoints on www, are described by an OpenAPI 3.1 document:{" "}
+                <a href="/openapi.json" className="font-medium text-violet-600 hover:underline dark:text-violet-400">/openapi.json</a>
+                {" "}(also at{" "}
+                <a href="/api/openapi.yaml" className="font-medium text-violet-600 hover:underline dark:text-violet-400">/api/openapi.yaml</a>
+                ). This page is also available as Markdown at{" "}
+                <a href="/docs/api.md" className="font-medium text-violet-600 hover:underline dark:text-violet-400">/docs/api.md</a>
+                , or by sending <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">Accept: text/markdown</code>.
+              </p>
+
               <h3 className="mt-8 text-base font-semibold text-gray-900 dark:text-white">Error responses</h3>
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">All errors return a JSON body with an <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">error</code> field:</p>
-              <CodeBlock code={`HTTP 401\n{\n  "error": "Invalid or revoked API key"\n}`} />
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                Errors return a JSON body. <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">error</code> is the
+                human-readable message, <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">code</code> is the stable
+                identifier to branch on, and <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">hint</code> says how to
+                resolve it:
+              </p>
+              {/* Old body: {"error": "Invalid or revoked API key"} */}
+              <CodeBlock code={`HTTP 401\n{\n  "error": "Unauthorized",\n  "code": "unauthorized",\n  "message": "Unauthorized",\n  "hint": "Pass a valid API key as \\"Authorization: Bearer dm_live_...\\". Keys are created in Dashboard -> Developer.",\n  "status": 401,\n  "documentation_url": "https://www.mailmark.dev/docs/api"\n}`} />
+              <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">
+                Codes: <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">invalid_request</code>,{" "}
+                <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">unauthorized</code>,{" "}
+                <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">forbidden</code>,{" "}
+                <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">not_found</code>,{" "}
+                <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">method_not_allowed</code>,{" "}
+                <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">conflict</code>,{" "}
+                <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">unprocessable_entity</code>,{" "}
+                <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">rate_limited</code>,{" "}
+                <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">upstream_error</code>,{" "}
+                <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">service_unavailable</code>,{" "}
+                <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">internal_error</code>.
+              </p>
               <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">A send refused for every recipient returns <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">422</code> and names them. This is a permanent outcome, not a transient failure, so it should not be retried:</p>
-              <CodeBlock code={`HTTP 422\n{\n  "error": "No eligible recipients.",\n  "blocked": [\n    {\n      "email": "user@example.com",\n      "reason": "invalid_address",\n      "message": "invalid address"\n    }\n  ]\n}`} />
+              <CodeBlock code={`HTTP 422\n{\n  "error": "No eligible recipients.",\n  "code": "unprocessable_entity",\n  "blocked": [\n    {\n      "email": "user@example.com",\n      "reason": "invalid_address",\n      "message": "invalid address"\n    }\n  ]\n}`} />
             </section>
 
             {/* Authentication */}
