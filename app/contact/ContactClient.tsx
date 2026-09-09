@@ -4,10 +4,21 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
+import { X_URL, X_HANDLE } from "../../lib/site/social";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
-const contactOptions = [
+type ContactOption = {
+  title: string;
+  description: string;
+  href: string;
+  // Opens in a new tab and carries rel="noopener noreferrer". Only the social
+  // link leaves the site; the docs link and the mailto do not.
+  external?: boolean;
+  icon: React.ReactNode;
+};
+
+const contactOptions: ContactOption[] = [
   {
     title: "Help Center",
     description: "Browse our documentation for self-serve answers.",
@@ -30,8 +41,10 @@ const contactOptions = [
   },
   {
     title: "Twitter / X",
-    description: "Reach us @MailmarkApp for quick questions.",
-    href: "#",
+    description: `Reach us ${X_HANDLE} for quick questions.`,
+    // href: "#",
+    href: X_URL,
+    external: true,
     icon: (
       <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
         <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
@@ -225,6 +238,8 @@ export default function ContactClient() {
                   <a
                     key={opt.title}
                     href={opt.href}
+                    target={opt.external ? "_blank" : undefined}
+                    rel={opt.external ? "noopener noreferrer" : undefined}
                     className="flex items-start gap-4 rounded-2xl border border-gray-100 p-5 transition-all hover:border-violet-200 hover:shadow-md dark:border-gray-700 dark:hover:border-violet-700"
                   >
                     <div className="shrink-0 rounded-xl bg-violet-100 p-2.5 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400">
