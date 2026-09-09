@@ -261,6 +261,14 @@ export const SITE_ROUTES: SiteRoute[] = [
     changeFrequency: "monthly",
   },
   {
+    path: "/careers/apply",
+    title: "Apply",
+    description: "Application form for open roles at Mailmark.",
+    section: "Company",
+    priority: 0.4,
+    changeFrequency: "monthly",
+  },
+  {
     path: "/affiliate-program",
     title: "Affiliate Program",
     description: "Earn recurring commission for referring Mailmark customers.",

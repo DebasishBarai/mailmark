@@ -192,7 +192,14 @@ Before writing in, the [documentation](/docs) and [troubleshooting guide](/docs/
 
   "/careers": `Mailmark is remote-first: work from anywhere, async-friendly. All positions are remote (worldwide).
 
-Open roles are listed on the [careers page](/careers). To apply, or to introduce yourself when nothing fits, email jobs@mailmark.dev.
+Open roles are listed on the [careers page](/careers). Apply through the [application form](/careers/apply), which takes a role, your links and a short note. To introduce yourself when nothing fits, pick the open application, or email jobs@mailmark.dev.
+`,
+
+  "/careers/apply": `Apply to an open role at Mailmark, or send an open application when nothing on the [careers page](/careers) fits.
+
+The form asks for the role, your name and email, your location and timezone, a link to your portfolio, LinkedIn or GitHub, an optional resume link, how you heard about Mailmark, and a short note on why the role interests you. Every application is read by a person and answered, usually within a week.
+
+Prefer email? Write to jobs@mailmark.dev.
 `,
 
   "/affiliate-program": `Earn 30% recurring commission for every customer you refer to Mailmark, every month, for as long as they stay subscribed.

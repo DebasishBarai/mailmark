@@ -947,6 +947,45 @@ export default defineSchema({
     // reads the newest first.
     .index("by_created_at", ["createdAt"]),
 
+  // Applications from the public /careers/apply form. Shaped like
+  // supportRequests above and for the same reason: the row is the record of
+  // the application and the email to the jobs inbox is a notification on top
+  // of it, so a failed send never loses a candidate.
+  //
+  // The CV is a link rather than a file. An upload path on an unauthenticated
+  // public page is a write into our storage that anyone can reach, and the
+  // form asks for a hosted CV instead.
+  jobApplications: defineTable({
+    name: v.string(),
+    // Normalised by normalizeAddress before the insert, like supportRequests.
+    email: v.string(),
+    // Validated against the openings list at submit time, so this is either a
+    // role that existed when the form was submitted or the open application
+    // label. Stored as text and not a union: the roles change with the page,
+    // and an old row naming a closed role still has to validate.
+    role: v.string(),
+    location: v.string(),
+    // Portfolio, LinkedIn or GitHub. Required, since it is often the most
+    // useful link a candidate has.
+    profileUrl: v.string(),
+    resumeUrl: v.optional(v.string()),
+    // One of HEARD_ABOUT_OPTIONS in lib/jobApplication.ts, checked at submit
+    // time. Text and not a union so the list can be reworded without
+    // invalidating rows that carry the old wording.
+    heardAbout: v.string(),
+    note: v.string(),
+    createdAt: v.number(),
+    status: v.union(
+      v.literal("new"),
+      v.literal("notified"),
+      v.literal("failed")
+    ),
+    notifiedAt: v.optional(v.number()),
+    notifyError: v.optional(v.string()),
+  })
+    .index("by_email_created_at", ["email", "createdAt"])
+    .index("by_created_at", ["createdAt"]),
+
   api_keys: defineTable({
     userId: v.id("users"),
     domainId: v.optional(v.id("domains")),

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import { openings, deptColors, JOBS_EMAIL } from "./openings";
 
 export const metadata: Metadata = {
   // The canonical URL keeps every listing of this page pointing at one
@@ -23,47 +24,6 @@ const perks = [
   { label: "Home office budget", description: "$1,500 one-time budget to set up your ideal workspace." },
   { label: "Unlimited PTO", description: "We trust you to manage your time. Minimum 20 days encouraged." },
 ];
-
-const openings = [
-  {
-    title: "Full-Stack Engineer",
-    department: "Engineering",
-    location: "Remote (Worldwide)",
-    type: "Full-time",
-    description:
-      "Help us build and scale the core Mailmark platform: Next.js frontend, Convex backend, AWS email infrastructure. You'll own features end-to-end.",
-  },
-  {
-    title: "DevOps / Infrastructure Engineer",
-    department: "Engineering",
-    location: "Remote (Worldwide)",
-    type: "Full-time",
-    description:
-      "Own our AWS infrastructure (SES, S3, Lambda), improve reliability, and help us scale email volume by 10×. Experience with email systems a big plus.",
-  },
-  {
-    title: "Product Designer",
-    department: "Design",
-    location: "Remote (Worldwide)",
-    type: "Full-time",
-    description:
-      "Design beautiful, intuitive product experiences across our inbox, campaign builder, and analytics surfaces. Own the design system end-to-end.",
-  },
-  {
-    title: "Content & SEO Writer",
-    department: "Marketing",
-    location: "Remote (Worldwide)",
-    type: "Part-time / Contract",
-    description:
-      "Create high-quality content including blog posts, docs, and email guides that drives organic growth and helps users get the most from Mailmark.",
-  },
-];
-
-const deptColors: Record<string, string> = {
-  Engineering: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
-  Design: "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300",
-  Marketing: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-};
 
 export default function CareersPage() {
   return (
@@ -133,8 +93,12 @@ export default function CareersPage() {
                       </span>
                     </div>
                   </div>
+                  {/* href="/contact" sent applicants into the support form,
+                      whose topics are billing and technical support, so a CV
+                      landed in the support inbox with nothing marking it as an
+                      application. */}
                   <a
-                    href="/contact"
+                    href={`/careers/apply?role=${encodeURIComponent(job.title)}`}
                     className="shrink-0 rounded-full border border-violet-600 px-5 py-2 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-50 dark:border-violet-500 dark:text-violet-400 dark:hover:bg-violet-900/20"
                   >
                     Apply
@@ -147,9 +111,13 @@ export default function CareersPage() {
           <div className="mt-10 rounded-2xl border border-dashed border-gray-200 p-8 text-center dark:border-gray-600">
             <p className="font-medium text-gray-700 dark:text-gray-200">Don&apos;t see a perfect fit?</p>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              We&apos;re always interested in exceptional people. Send us a note at{" "}
-              <a href="mailto:jobs@mailmark.dev" className="text-violet-600 hover:underline dark:text-violet-400">
-                jobs@mailmark.dev
+              We&apos;re always interested in exceptional people.{" "}
+              <a href="/careers/apply" className="text-violet-600 hover:underline dark:text-violet-400">
+                Send an open application
+              </a>{" "}
+              or email us at{" "}
+              <a href={`mailto:${JOBS_EMAIL}`} className="text-violet-600 hover:underline dark:text-violet-400">
+                {JOBS_EMAIL}
               </a>
               .
             </p>
