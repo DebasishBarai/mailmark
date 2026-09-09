@@ -18,7 +18,39 @@ function loadDecoder(): (value: string) => string {
   return new Function(`${source.slice(start, end)}\nreturn decodeMimeHeader;`)();
 }
 
+// The BYO-AWS CloudFormation template carries its own trimmed copy of the
+// Lambda inline, and a stack created from it runs that copy rather than the
+// file above, so the two decoders have to agree. Pulled out of the YAML the
+// same way, by taking the indented block under the ZipFile key.
+function loadCfnDecoder(): (value: string) => string {
+  const template = readFileSync(
+    join(import.meta.dir, "..", "public", "infra", "byo-aws-cfn.yml"),
+    "utf-8"
+  );
+  const marker = "      Code:\n        ZipFile: |\n";
+  const start = template.indexOf(marker);
+  expect(start).toBeGreaterThan(-1);
+
+  const body: string[] = [];
+  for (const line of template.slice(start + marker.length).split("\n")) {
+    if (line.trim() === "") {
+      body.push("");
+      continue;
+    }
+    if (!line.startsWith("          ")) break;
+    body.push(line.slice(10));
+  }
+
+  const source = body.join("\n");
+  const decoderStart = source.indexOf("function decodeMimeHeader");
+  expect(decoderStart).toBeGreaterThan(-1);
+  return new Function(
+    `${source.slice(decoderStart)}\nreturn decodeMimeHeader;`
+  )();
+}
+
 const decodeMimeHeader = loadDecoder();
+const decodeCfnMimeHeader = loadCfnDecoder();
 
 describe("decodeMimeHeader", () => {
   test("a Q-encoded UTF-8 subject keeps its non-ASCII characters", () => {
@@ -66,6 +98,27 @@ describe("decodeMimeHeader", () => {
 
   test("a charset the runtime does not know still yields readable text", () => {
     expect(decodeMimeHeader("=?bogus-charset?Q?hi_=41?=")).toBe("hi A");
+  });
+});
+
+describe("the CloudFormation template's inline copy of the decoder", () => {
+  // A BYO-AWS stack created before the decoder existed keeps passing the raw
+  // "=?UTF-8?Q?...?=" header through as the subject until its stack is
+  // updated. The post-ingest sync in convex/ses.ts covers those mailboxes; a
+  // stack created from the current template decodes at ingest.
+  test("decodes what the file copy decodes", () => {
+    const headers = [
+      "=?UTF-8?Q?Application_=E2=80=93_Nishant_Verma?=",
+      "Re: =?UTF-8?B?8J+agCBsYXVuY2g=?= today",
+      "=?UTF-8?Q?Application_=E2=80?= =?UTF-8?Q?=93_Nishant?=",
+      "=?ISO-8859-1?Q?Caf=E9_r=E9sum=E9?=",
+      "=?UTF-8?B?TmljaywgTsOpZQ==?= <nick@example.com>",
+      "Plain ASCII subject",
+      "",
+    ];
+    for (const header of headers) {
+      expect(decodeCfnMimeHeader(header)).toBe(decodeMimeHeader(header));
+    }
   });
 });
 

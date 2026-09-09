@@ -154,7 +154,65 @@ Resources:
               if (i === -1) continue;
               h[line.slice(0, i).trim().toLowerCase()] = line.slice(i + 1).trim();
             }
-            return { from: h.from || "", to: h.to || "", cc: h.cc || "", subject: h.subject || "", date: h.date || "", contentType: h["content-type"] || "" };
+            // From and Subject carry MIME encoded words; To and Cc are only
+            // ever read for the ASCII addresses inside their angle brackets.
+            return { from: decodeMimeHeader(h.from || ""), to: h.to || "", cc: h.cc || "", subject: decodeMimeHeader(h.subject || ""), date: h.date || "", contentType: h["content-type"] || "" };
+          }
+          // Decode MIME encoded-word headers (RFC 2047), e.g.
+          // "=?UTF-8?Q?Application_=E2=80=93_Nishant?=". An encoded word carries
+          // the charset's raw bytes, so they are collected as bytes and decoded
+          // once with the charset the word declares. Adjacent words are merged
+          // first, because a sender may split one multi-byte character across
+          // two of them, and the whitespace between two words is a separator
+          // rather than text (RFC 2047 section 6.2).
+          function decodeMimeHeader(value) {
+            if (!value || !value.includes("=?")) return value;
+            const pattern = /=\?([^?]+)\?([BQ])\?([^?]*)\?=/gi;
+            let result = "", cursor = 0, pendingCharset = null, pendingBytes = [], match;
+            const flush = () => {
+              if (pendingBytes.length === 0) return;
+              result += decodeBytes(Buffer.concat(pendingBytes), pendingCharset);
+              pendingBytes = [];
+              pendingCharset = null;
+            };
+            while ((match = pattern.exec(value)) !== null) {
+              const between = value.slice(cursor, match.index);
+              cursor = match.index + match[0].length;
+              const charset = match[1].split("*")[0].trim().toLowerCase();
+              const bytes = encodedWordBytes(match[2], match[3]);
+              const adjacent = pendingBytes.length > 0 && /^[ \t\r\n]*$/.test(between);
+              if (adjacent && charset === pendingCharset) { pendingBytes.push(bytes); continue; }
+              flush();
+              if (!adjacent) result += between;
+              pendingCharset = charset;
+              pendingBytes = [bytes];
+            }
+            flush();
+            return result + value.slice(cursor);
+          }
+          function encodedWordBytes(encoding, text) {
+            if (encoding.toUpperCase() === "B") return Buffer.from(text, "base64");
+            const bytes = [];
+            for (let i = 0; i < text.length; i++) {
+              const char = text[i];
+              if (char === "_") {
+                bytes.push(0x20);
+              } else if (char === "=" && /^[0-9A-Fa-f]{2}$/.test(text.slice(i + 1, i + 3))) {
+                bytes.push(parseInt(text.slice(i + 1, i + 3), 16));
+                i += 2;
+              } else {
+                bytes.push(char.charCodeAt(0) & 0xff);
+              }
+            }
+            return Buffer.from(bytes);
+          }
+          function decodeBytes(bytes, charset) {
+            const label = charset || "utf-8";
+            try {
+              return new TextDecoder(label).decode(bytes);
+            } catch {
+              return bytes.toString(label.startsWith("utf") ? "utf-8" : "latin1");
+            }
           }
           function addrs(v) {
             if (!v) return [];
