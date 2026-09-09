@@ -3,6 +3,8 @@ import {
   normalizeUrl,
   isKnownHeardAbout,
   buildJobApplicationNotice,
+  buildApplicantAcknowledgement,
+  OPEN_APPLICATION,
 } from "../convex/lib/jobApplication";
 
 describe("normalizeUrl", () => {
@@ -97,5 +99,80 @@ describe("buildJobApplicationNotice", () => {
 
     expect(notice.subject).not.toContain("\n");
     expect(notice.subject).not.toContain("\r");
+  });
+});
+
+describe("buildApplicantAcknowledgement", () => {
+  const jobsEmail = "jobs@mailmark.dev";
+
+  test("names the role in the subject and greets by first name", () => {
+    const notice = buildApplicantAcknowledgement(base, { jobsEmail });
+    expect(notice.subject).toBe(
+      "We received your application for Product Designer"
+    );
+    expect(notice.text.startsWith("Hi Jane,")).toBe(true);
+  });
+
+  test("tells them where a reply lands", () => {
+    const notice = buildApplicantAcknowledgement(base, { jobsEmail });
+    expect(notice.text).toContain(jobsEmail);
+    expect(notice.html).toContain("jobs@mailmark.dev");
+  });
+
+  test("carries nothing the applicant wrote beyond their name and role", () => {
+    const notice = buildApplicantAcknowledgement(
+      { name: base.name, role: base.role },
+      { jobsEmail }
+    );
+    expect(notice.text).not.toContain(base.note);
+    expect(notice.text).not.toContain(base.profileUrl);
+    expect(notice.text).not.toContain(base.resumeUrl);
+  });
+
+  test("escapes a name carrying markup", () => {
+    const notice = buildApplicantAcknowledgement(
+      { name: '<img src=x onerror="alert(1)">', role: base.role },
+      { jobsEmail }
+    );
+    expect(notice.html).not.toContain("<img src=x");
+    expect(notice.html).toContain("&lt;img");
+  });
+
+  test("falls back to a plain greeting when the name is unusable", () => {
+    for (const name of ["", "   ", "a".repeat(60)]) {
+      const notice = buildApplicantAcknowledgement(
+        { name, role: base.role },
+        { jobsEmail }
+      );
+      expect(notice.text.startsWith("Hi,")).toBe(true);
+    }
+  });
+
+  test("keeps newlines out of the subject, which becomes a header", () => {
+    const notice = buildApplicantAcknowledgement(
+      { name: base.name, role: "Designer\r\nBcc: attacker@example.com" },
+      { jobsEmail }
+    );
+    expect(notice.subject).not.toContain("\n");
+    expect(notice.subject).not.toContain("\r");
+  });
+});
+
+describe("the open application wording", () => {
+  test("does not read as a role name", () => {
+    const notice = buildApplicantAcknowledgement(
+      { name: "Jane Smith", role: OPEN_APPLICATION },
+      { jobsEmail: "jobs@mailmark.dev" }
+    );
+    expect(notice.subject).toBe("We received your application");
+    expect(notice.text).not.toContain("application for Open application");
+  });
+
+  test("an empty role is treated the same way", () => {
+    const notice = buildApplicantAcknowledgement(
+      { name: "Jane Smith", role: "" },
+      { jobsEmail: "jobs@mailmark.dev" }
+    );
+    expect(notice.subject).toBe("We received your application");
   });
 });

@@ -56,9 +56,11 @@ export const deptColors: Record<string, string> = {
   Marketing: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
 };
 
-// The role someone applies to when nothing on the list fits. Kept here so the
-// form's select and the page's "no perfect fit" note agree on the wording.
-export const OPEN_APPLICATION = "Open application";
+// The role someone applies to when nothing on the list fits. Defined next to
+// the acknowledgement builder, which words itself differently for it, and
+// re-exported here so the page and the form have one import for the roles.
+export { OPEN_APPLICATION } from "../../convex/lib/jobApplication";
+import { OPEN_APPLICATION } from "../../convex/lib/jobApplication";
 
 export function isKnownRole(title: string): boolean {
   return title === OPEN_APPLICATION || openings.some((o) => o.title === title);

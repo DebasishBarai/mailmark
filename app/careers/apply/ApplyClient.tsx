@@ -100,8 +100,9 @@ export default function ApplyClient({ initialRole }: { initialRole: string }) {
               </h2>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                 Thanks, {form.name.split(" ")[0] || "there"}. We have your
-                application for <strong>{form.role || OPEN_APPLICATION}</strong>{" "}
-                and will reply to <strong>{form.email}</strong>.
+                application for <strong>{form.role || OPEN_APPLICATION}</strong>.
+                A confirmation is on its way to{" "}
+                <strong>{form.email}</strong>, and that is where we will reply.
               </p>
               <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
                 Anything to add? Email{" "}

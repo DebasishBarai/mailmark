@@ -31,6 +31,16 @@ export function isKnownHeardAbout(value: string): value is HeardAbout {
   return (HEARD_ABOUT_OPTIONS as readonly string[]).includes(value);
 }
 
+/**
+ * The role someone picks when nothing on the list fits.
+ *
+ * Defined here rather than with the openings, because both the form and the
+ * acknowledgement have to recognise it: "your application for Open
+ * application" is not a sentence, so the wording changes when this is the
+ * role. app/careers/openings.ts re-exports it so the page has one import.
+ */
+export const OPEN_APPLICATION = "Open application";
+
 export type JobApplicationInput = {
   name: string;
   email: string;
@@ -174,6 +184,76 @@ export function buildJobApplicationNotice(
     `Reply to this email to answer ${name} directly.`,
     "",
     "Sent by the Mailmark careers form. The applicant's address has not been verified.",
+  ].join("\n");
+
+  return { subject, html, text };
+}
+
+/**
+ * The acknowledgement the applicant receives.
+ *
+ * Deliberately thin on content. It goes to an address typed into a public
+ * form and never verified, so anyone can make us send one to anyone: it
+ * carries no attachment, no link back into the product, and nothing the
+ * sender wrote beyond their own first name and the role they picked. What it
+ * says is true for every application, so a stranger receiving one in error
+ * learns only that someone used their address.
+ */
+export function buildApplicantAcknowledgement(
+  input: Pick<JobApplicationInput, "name" | "role">,
+  options: { jobsEmail: string }
+): JobApplicationNotice {
+  const role = singleLine(input.role);
+  const isOpenApplication =
+    role.length === 0 || role.toLowerCase() === OPEN_APPLICATION.toLowerCase();
+  // First name only, and only when it looks like a name. The greeting falls
+  // back to a plain hello rather than addressing someone as a pasted URL.
+  const firstName = singleLine(input.name).split(" ")[0] ?? "";
+  const greeting =
+    firstName.length > 0 && firstName.length <= 40 ? `Hi ${firstName},` : "Hi,";
+
+  const subject = isOpenApplication
+    ? "We received your application"
+    : `We received your application for ${role}`;
+
+  const lines = [
+    isOpenApplication
+      ? "Thanks for writing to us about joining Mailmark. Your application is in and a person will read it."
+      : `Thanks for applying for ${role} at Mailmark. Your application is in and a person will read it.`,
+    "We reply to everyone, usually within a week. If we would like to talk, the next step is a short call to hear about what you have built.",
+    `Anything to add in the meantime, a link or an updated resume, just reply to this email and it will reach us at ${options.jobsEmail}.`,
+  ];
+
+  const html = `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#f6f6f7;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;padding:32px;">
+            <tr>
+              <td>
+                <p style="margin:0 0 20px;font-size:18px;font-weight:700;color:#7c3aed;">Mailmark</p>
+                <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111;">${escapeHtml(greeting)}</p>
+                ${lines
+                  .map(
+                    (line) =>
+                      `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">${escapeHtml(line)}</p>`
+                  )
+                  .join("\n                ")}
+                <p style="margin:24px 0 0;font-size:15px;line-height:1.6;color:#374151;">Mailmark</p>
+                <p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #eee;font-size:12px;line-height:1.5;color:#9ca3af;">You are receiving this because this address was used to apply on www.mailmark.dev/careers. If that was not you, you can ignore this email.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>`;
+
+  const text = [
+    greeting,
+    "",
+    ...lines.flatMap((line) => [line, ""]),
+    "Mailmark",
+    "",
+    "You are receiving this because this address was used to apply on www.mailmark.dev/careers. If that was not you, you can ignore this email.",
   ].join("\n");
 
   return { subject, html, text };

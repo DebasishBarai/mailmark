@@ -13,7 +13,10 @@ import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { getPlatformAwsClients } from "./lib/awsClients";
-import { buildJobApplicationNotice } from "./lib/jobApplication";
+import {
+  buildJobApplicationNotice,
+  buildApplicantAcknowledgement,
+} from "./lib/jobApplication";
 
 // Sent as the platform's own support identity, since that is the verified one.
 const SUPPORT_FROM_ADDRESS =
@@ -26,14 +29,21 @@ const JOBS_INBOX_ADDRESS =
   process.env.JOBS_INBOX_EMAIL ?? "jobs@mailmark.dev";
 
 /**
- * Email the jobs inbox about one application.
+ * Email the jobs inbox about one application, and acknowledge it to the
+ * applicant.
  *
  * Scheduled from jobApplications.submit, so the row has already committed. A
  * failure is recorded on the row and swallowed: the application is safe in the
  * table either way and there is no caller left to report to.
  *
- * The applicant's address goes in Reply-To rather than From. It is unverified,
- * and sending as an address we do not own would fail DMARC at the receiver.
+ * The two sends are independent, each in its own try. A rejected
+ * acknowledgement, which is the likelier of the two since the address is
+ * whatever the applicant typed, must not stop the application reaching the
+ * jobs inbox, and neither failure should hide the other on the row.
+ *
+ * The applicant's address goes in Reply-To on the internal notice rather than
+ * From. It is unverified, and sending as an address we do not own would fail
+ * DMARC at the receiver.
  */
 export const notifyJobsInbox = internalAction({
   args: { applicationId: v.id("jobApplications") },
@@ -56,8 +66,10 @@ export const notifyJobsInbox = internalAction({
       createdAt: application.createdAt,
     });
 
+    const clients = getPlatformAwsClients();
+
+    let noticeError: string | undefined;
     try {
-      const clients = getPlatformAwsClients();
       await clients.sesv2.send(
         new SendEmailCommand({
           FromEmailAddress: `${CAREERS_FROM_NAME} <${SUPPORT_FROM_ADDRESS}>`,
@@ -74,15 +86,48 @@ export const notifyJobsInbox = internalAction({
           },
         })
       );
-
-      await ctx.runMutation(internal.jobApplications.recordNotified, {
-        applicationId,
-      });
     } catch (error) {
-      await ctx.runMutation(internal.jobApplications.recordNotified, {
-        applicationId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      noticeError = error instanceof Error ? error.message : String(error);
     }
+
+    // The acknowledgement. Replies go to the jobs inbox rather than the
+    // support one, so a candidate answering this lands where the rest of
+    // their application already is.
+    const acknowledgement = buildApplicantAcknowledgement(
+      { name: application.name, role: application.role },
+      { jobsEmail: JOBS_INBOX_ADDRESS }
+    );
+
+    let acknowledged = false;
+    let acknowledgeError: string | undefined;
+    try {
+      await clients.sesv2.send(
+        new SendEmailCommand({
+          FromEmailAddress: `${CAREERS_FROM_NAME} <${SUPPORT_FROM_ADDRESS}>`,
+          Destination: { ToAddresses: [application.email] },
+          ReplyToAddresses: [JOBS_INBOX_ADDRESS],
+          Content: {
+            Simple: {
+              Subject: { Data: acknowledgement.subject, Charset: "UTF-8" },
+              Body: {
+                Html: { Data: acknowledgement.html, Charset: "UTF-8" },
+                Text: { Data: acknowledgement.text, Charset: "UTF-8" },
+              },
+            },
+          },
+        })
+      );
+      acknowledged = true;
+    } catch (error) {
+      acknowledgeError =
+        error instanceof Error ? error.message : String(error);
+    }
+
+    await ctx.runMutation(internal.jobApplications.recordNotified, {
+      applicationId,
+      error: noticeError,
+      acknowledged,
+      acknowledgeError,
+    });
   },
 });

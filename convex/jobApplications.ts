@@ -150,18 +150,38 @@ export const getForNotice = internalQuery({
   },
 });
 
+/**
+ * Record what happened to the two emails an application sends.
+ *
+ * status tracks the notice to the jobs inbox, since that is the one whose
+ * failure means we do not know about a candidate. The acknowledgement to the
+ * applicant is recorded beside it and does not change status: an application
+ * we received and acted on is not "failed" because their confirmation
+ * bounced.
+ */
 export const recordNotified = internalMutation({
   args: {
     applicationId: v.id("jobApplications"),
     error: v.optional(v.string()),
+    acknowledged: v.optional(v.boolean()),
+    acknowledgeError: v.optional(v.string()),
   },
-  handler: async (ctx, { applicationId, error }) => {
+  handler: async (
+    ctx,
+    { applicationId, error, acknowledged, acknowledgeError }
+  ) => {
     const application = await ctx.db.get(applicationId);
     if (!application) return;
     await ctx.db.patch(applicationId, {
       status: error ? "failed" : "notified",
       notifiedAt: error ? undefined : Date.now(),
+      // Truncated: an AWS error can carry a long request trace, and the row
+      // only needs enough of it to say what went wrong.
       notifyError: error ? error.slice(0, 500) : undefined,
+      acknowledgedAt: acknowledged ? Date.now() : undefined,
+      acknowledgeError: acknowledgeError
+        ? acknowledgeError.slice(0, 500)
+        : undefined,
     });
   },
 });

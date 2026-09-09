@@ -982,6 +982,12 @@ export default defineSchema({
     ),
     notifiedAt: v.optional(v.number()),
     notifyError: v.optional(v.string()),
+    // The acknowledgement sent to the applicant, tracked apart from the
+    // notice above because the two sends are independent: the applicant
+    // hearing nothing back and us not hearing about them are different
+    // failures, and neither should hide the other.
+    acknowledgedAt: v.optional(v.number()),
+    acknowledgeError: v.optional(v.string()),
   })
     .index("by_email_created_at", ["email", "createdAt"])
     .index("by_created_at", ["createdAt"]),
