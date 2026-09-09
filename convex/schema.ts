@@ -913,6 +913,40 @@ export default defineSchema({
     lastError: v.optional(v.string()),
   }).index("by_name", ["name"]),
 
+  // Messages sent from the public /contact form. The form used to throw the
+  // submission away: handleSubmit only flipped a "Message received!" flag, so
+  // nothing was stored and nothing reached support. Rows land here first and
+  // the SES notice to the support inbox is scheduled off the insert, which
+  // means a send failure loses the notification but never the message.
+  //
+  // No userId: the form is public and most senders are not signed in. The
+  // email address is whatever the sender typed, normalised but unverified,
+  // so treat it as a reply-to hint rather than an identity.
+  supportRequests: defineTable({
+    name: v.string(),
+    // Lowercased and trimmed by normalizeAddress before the insert, so the
+    // per-sender rate limit cannot be sidestepped with casing or padding.
+    email: v.string(),
+    subject: v.string(),
+    message: v.string(),
+    createdAt: v.number(),
+    // "new" until the support notice goes out, then "notified", or "failed"
+    // when SES rejected it. A failed row still holds the full message, so it
+    // can be read from the dashboard and the send retried.
+    status: v.union(
+      v.literal("new"),
+      v.literal("notified"),
+      v.literal("failed")
+    ),
+    notifiedAt: v.optional(v.number()),
+    notifyError: v.optional(v.string()),
+  })
+    // Rate limiting reads one sender's recent rows.
+    .index("by_email_created_at", ["email", "createdAt"])
+    // Rate limiting reads the whole form's recent rows, and the dashboard
+    // reads the newest first.
+    .index("by_created_at", ["createdAt"]),
+
   api_keys: defineTable({
     userId: v.id("users"),
     domainId: v.optional(v.id("domains")),

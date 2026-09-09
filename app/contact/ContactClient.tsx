@@ -1,10 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation } from "convex/react";
+import { ConvexError } from "convex/values";
+import { api } from "../../convex/_generated/api";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
-const contactOptions = [
+type ContactOption = {
+  title: string;
+  description: string;
+  href: string;
+  // Opens in a new tab and carries rel="noopener noreferrer". Only the social
+  // link leaves the site; the docs link and the mailto do not.
+  external?: boolean;
+  icon: React.ReactNode;
+};
+
+const contactOptions: ContactOption[] = [
   {
     title: "Help Center",
     description: "Browse our documentation for self-serve answers.",
@@ -27,8 +40,11 @@ const contactOptions = [
   },
   {
     title: "Twitter / X",
-    description: "Reach us @MailmarkApp for quick questions.",
-    href: "#",
+    description: "Reach us @mailmarkdev for quick questions.",
+    // href: "#",
+    // Same NEXT_PUBLIC_X_URL the footer icon links to.
+    href: `${process.env.NEXT_PUBLIC_X_URL}`,
+    external: true,
     icon: (
       <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
         <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
@@ -39,11 +55,52 @@ const contactOptions = [
 
 export default function ContactClient() {
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
+  // Honeypot. Hidden from people, filled in by bots that complete every input.
+  const [website, setWebsite] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  const submitSupportRequest = useMutation(api.supportRequests.submit);
+
+  // The old handler showed "Message received!" without sending anything
+  // anywhere: the message lived in React state and was gone on the next
+  // navigation. Kept for reference.
+  //
+  // function handleSubmit(e: React.FormEvent) {
+  //   e.preventDefault();
+  //   setSubmitted(true);
+  // }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitted(true);
+    if (sending) return;
+
+    setSending(true);
+    setError(null);
+
+    try {
+      await submitSupportRequest({
+        name: form.name,
+        email: form.email,
+        subject: form.subject,
+        message: form.message,
+        website,
+      });
+      setSubmitted(true);
+    } catch (err) {
+      // Convex redacts a plain Error in production, so only a ConvexError
+      // carries a message worth showing. Anything else is a network or
+      // deployment problem and gets the generic line plus the address they
+      // can fall back to.
+      setError(
+        err instanceof ConvexError && typeof err.data === "string"
+          ? err.data
+          : "Something went wrong sending your message. Please email support@mailmark.dev instead."
+      );
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -144,11 +201,30 @@ export default function ContactClient() {
                       className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500 dark:focus:border-violet-500 dark:focus:ring-violet-900/30"
                     />
                   </div>
+                  {/* Honeypot: off-screen and out of the tab order, so nobody
+                      using a keyboard or a screen reader ever lands on it. */}
+                  <div aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
+                    <label htmlFor="contact-website">Leave this field empty</label>
+                    <input
+                      id="contact-website"
+                      type="text"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                    />
+                  </div>
+                  {error && (
+                    <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-900/20 dark:text-red-300">
+                      {error}
+                    </p>
+                  )}
                   <button
                     type="submit"
-                    className="rounded-full bg-violet-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700 dark:shadow-violet-900/30"
+                    disabled={sending}
+                    className="rounded-full bg-violet-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-200 transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60 dark:shadow-violet-900/30"
                   >
-                    Send message
+                    {sending ? "Sending…" : "Send message"}
                   </button>
                 </form>
               )}
@@ -162,6 +238,8 @@ export default function ContactClient() {
                   <a
                     key={opt.title}
                     href={opt.href}
+                    target={opt.external ? "_blank" : undefined}
+                    rel={opt.external ? "noopener noreferrer" : undefined}
                     className="flex items-start gap-4 rounded-2xl border border-gray-100 p-5 transition-all hover:border-violet-200 hover:shadow-md dark:border-gray-700 dark:hover:border-violet-700"
                   >
                     <div className="shrink-0 rounded-xl bg-violet-100 p-2.5 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400">
