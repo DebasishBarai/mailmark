@@ -39,3 +39,31 @@ export function repairLatin1Mojibake(text: string): string | null {
 
   return decoded === text ? null : decoded;
 }
+
+/**
+ * The "Name <address>" form the emails table stores for a sender.
+ *
+ * mailparser's own `from.text` renders the display name quoted, as
+ * `"Tamás Hám-Szabó" <tamas@example.com>`. That is a valid header, but it is
+ * not the shape this app stores: the mailbox UI splits the stored value on the
+ * angle brackets and quotes the reply header with it, and every row written
+ * before now holds the unquoted form. Building the value from the parsed
+ * address keeps the stored shape unchanged, so only the encoding is fixed.
+ *
+ * An address with no display name is returned bare, and the rare header
+ * carrying several addresses keeps them comma separated, as the header had it.
+ */
+export function formatSender(
+  addresses: Array<{ name?: string; address?: string }> | undefined
+): string {
+  if (!addresses) return "";
+
+  const parts: string[] = [];
+  for (const entry of addresses) {
+    const address = entry.address?.trim();
+    if (!address) continue;
+    const name = entry.name?.trim();
+    parts.push(name ? `${name} <${address}>` : address);
+  }
+  return parts.join(", ");
+}
