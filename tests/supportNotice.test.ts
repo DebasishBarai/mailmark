@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { buildSupportNotice } from "../convex/lib/supportNotice";
+import {
+  buildSupportNotice,
+  buildSupportAcknowledgement,
+} from "../convex/lib/supportNotice";
 
 const base = {
   name: "Jane Smith",
@@ -51,5 +54,71 @@ describe("buildSupportNotice", () => {
   test("falls back when name and subject are blank", () => {
     const notice = buildSupportNotice({ ...base, name: "  ", subject: "" });
     expect(notice.subject).toBe("[Contact] No subject from Someone");
+  });
+});
+
+describe("buildSupportAcknowledgement", () => {
+  const supportEmail = "support@mailmark.dev";
+
+  test("names the topic in the subject and greets by first name", () => {
+    const notice = buildSupportAcknowledgement(base, { supportEmail });
+    expect(notice.subject).toBe(
+      "We received your message about Billing question"
+    );
+    expect(notice.text.startsWith("Hi Jane,")).toBe(true);
+  });
+
+  test("drops the topic from the subject when there is none", () => {
+    const notice = buildSupportAcknowledgement(
+      { name: base.name, subject: "  " },
+      { supportEmail }
+    );
+    expect(notice.subject).toBe("We received your message");
+  });
+
+  test("tells them where a reply lands", () => {
+    const notice = buildSupportAcknowledgement(base, { supportEmail });
+    expect(notice.text).toContain(supportEmail);
+  });
+
+  test("does not quote their message back to them", () => {
+    const notice = buildSupportAcknowledgement(
+      { name: base.name, subject: base.subject },
+      { supportEmail }
+    );
+    expect(notice.text).not.toContain(base.message);
+    expect(notice.html).not.toContain(base.message);
+  });
+
+  test("escapes a name and a topic carrying markup", () => {
+    const notice = buildSupportAcknowledgement(
+      {
+        name: '<img src=x onerror="alert(1)">',
+        subject: "<script>alert('xss')</script>",
+      },
+      { supportEmail }
+    );
+    expect(notice.html).not.toContain("<img src=x");
+    expect(notice.html).not.toContain("<script>");
+    expect(notice.html).toContain("&lt;script&gt;");
+  });
+
+  test("falls back to a plain greeting when the name is unusable", () => {
+    for (const name of ["", "   ", "a".repeat(60)]) {
+      const notice = buildSupportAcknowledgement(
+        { name, subject: base.subject },
+        { supportEmail }
+      );
+      expect(notice.text.startsWith("Hi,")).toBe(true);
+    }
+  });
+
+  test("keeps newlines out of the subject, which becomes a header", () => {
+    const notice = buildSupportAcknowledgement(
+      { name: base.name, subject: "Billing\r\nBcc: attacker@example.com" },
+      { supportEmail }
+    );
+    expect(notice.subject).not.toContain("\n");
+    expect(notice.subject).not.toContain("\r");
   });
 });

@@ -1,12 +1,19 @@
 /**
- * Builds the internal notice we email to the support inbox when someone
- * submits the public /contact form.
+ * Builds the two emails a /contact submission sends: the internal notice to
+ * the support inbox, and the acknowledgement back to whoever wrote in.
  *
  * Pure string building, no Convex or AWS imports, so the Node send action can
  * use it without dragging the runtime into a test. Every value here is typed
  * by an anonymous visitor, so all of it is HTML escaped on the way in: the
  * only markup in the output is the markup this file writes.
  */
+
+import {
+  escapeHtml,
+  singleLine,
+  greetingFor,
+  renderAcknowledgement,
+} from "./emailNotice";
 
 export type SupportRequestInput = {
   name: string;
@@ -21,23 +28,6 @@ export type SupportNotice = {
   html: string;
   text: string;
 };
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-// Header injection guard for the values that reach SES as headers rather than
-// as body text. SES rejects most of this itself, but the subject is built from
-// visitor input and a stray newline there is the one way form input could
-// reach a header boundary.
-function singleLine(value: string): string {
-  return value.replace(/[\r\n]+/g, " ").trim();
-}
 
 export function buildSupportNotice(input: SupportRequestInput): SupportNotice {
   const name = singleLine(input.name) || "Someone";
@@ -99,6 +89,43 @@ export function buildSupportNotice(input: SupportRequestInput): SupportNotice {
     "",
     "Sent by the Mailmark contact form. The sender's address has not been verified.",
   ].join("\n");
+
+  return { subject, html, text };
+}
+
+/**
+ * The acknowledgement the sender receives.
+ *
+ * Thin on content for the same reason the careers one is: it goes to an
+ * address typed into a public form and never verified, so anyone can make us
+ * send one to anyone. It carries the topic they chose, which came from a
+ * fixed list, and nothing else they wrote. Their own message is not quoted
+ * back: that would turn the form into a way to deliver arbitrary text to a
+ * stranger's inbox over our domain.
+ */
+export function buildSupportAcknowledgement(
+  input: Pick<SupportRequestInput, "name" | "subject">,
+  options: { supportEmail: string }
+): SupportNotice {
+  const topic = singleLine(input.subject);
+
+  const subject =
+    topic.length > 0
+      ? `We received your message about ${topic}`
+      : "We received your message";
+
+  const { html, text } = renderAcknowledgement({
+    greeting: greetingFor(input.name),
+    lines: [
+      topic.length > 0
+        ? `Thanks for writing to Mailmark about ${topic}. Your message is in and a person will read it.`
+        : "Thanks for writing to Mailmark. Your message is in and a person will read it.",
+      "We answer every message, usually within a couple of hours on business days. Our hours are Monday to Friday, 9am to 6pm UTC.",
+      `Anything to add in the meantime, just reply to this email and it will reach us at ${options.supportEmail}.`,
+    ],
+    footer:
+      "You are receiving this because this address was used to write to us on www.mailmark.dev/contact. If that was not you, you can ignore this email.",
+  });
 
   return { subject, html, text };
 }

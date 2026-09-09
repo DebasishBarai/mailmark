@@ -136,8 +136,8 @@ export default function ContactClient() {
                   </svg>
                   <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">Message received!</h3>
                   <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                    Thanks for reaching out, {form.name.split(" ")[0] || "there"}. We&apos;ll reply to{" "}
-                    <strong>{form.email}</strong> shortly.
+                    Thanks for reaching out, {form.name.split(" ")[0] || "there"}. A confirmation is on
+                    its way to <strong>{form.email}</strong>, and that is where we&apos;ll reply.
                   </p>
                 </div>
               ) : (

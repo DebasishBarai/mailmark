@@ -1067,6 +1067,7 @@ All further sends are blocked until the next calendar month (when the quota rese
 | Blog | https://www.mailmark.dev/blog |
 | About | https://www.mailmark.dev/about |
 | Careers | https://www.mailmark.dev/careers |
+| Apply to a role | https://www.mailmark.dev/careers/apply |
 | Contact | https://www.mailmark.dev/contact |
 | Privacy policy | https://www.mailmark.dev/privacy |
 | Terms of service | https://www.mailmark.dev/terms |

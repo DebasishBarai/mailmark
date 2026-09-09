@@ -125,12 +125,25 @@ export const getForNotice = internalQuery({
   },
 });
 
+/**
+ * Record what happened to the two emails a submission sends.
+ *
+ * status tracks the notice to the support inbox, since that is the one whose
+ * failure means we never learn about the message. The acknowledgement to the
+ * sender is recorded beside it and does not change status: a message we
+ * received and answered is not "failed" because their confirmation bounced.
+ */
 export const recordNotified = internalMutation({
   args: {
     requestId: v.id("supportRequests"),
     error: v.optional(v.string()),
+    acknowledged: v.optional(v.boolean()),
+    acknowledgeError: v.optional(v.string()),
   },
-  handler: async (ctx, { requestId, error }) => {
+  handler: async (
+    ctx,
+    { requestId, error, acknowledged, acknowledgeError }
+  ) => {
     const request = await ctx.db.get(requestId);
     if (!request) return;
     await ctx.db.patch(requestId, {
@@ -139,6 +152,10 @@ export const recordNotified = internalMutation({
       // Truncated: an AWS error can carry a long request trace, and the row
       // only needs enough of it to say what went wrong.
       notifyError: error ? error.slice(0, 500) : undefined,
+      acknowledgedAt: acknowledged ? Date.now() : undefined,
+      acknowledgeError: acknowledgeError
+        ? acknowledgeError.slice(0, 500)
+        : undefined,
     });
   },
 });
