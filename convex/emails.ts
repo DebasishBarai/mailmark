@@ -503,8 +503,9 @@ export const updateIngestedRecipients = internalMutation({
     to: v.optional(v.array(v.string())),
     cc: v.optional(v.array(v.string())),
     subject: v.optional(v.string()),
+    from: v.optional(v.string()),
   },
-  handler: async (ctx, { emailId, to, cc, subject }) => {
+  handler: async (ctx, { emailId, to, cc, subject, from }) => {
     const email = await ctx.db.get(emailId);
     if (!email) return;
     await ctx.db.patch(emailId, {
@@ -513,6 +514,9 @@ export const updateIngestedRecipients = internalMutation({
       ...(subject && subject.length > 0 && subject !== email.subject
         ? { subject }
         : {}),
+      // From is stored as "Name <address>" and the UI splits it on the angle
+      // brackets, so the decoded form keeps working everywhere the raw one did.
+      ...(from && from.length > 0 && from !== email.from ? { from } : {}),
     });
   },
 });

@@ -18,6 +18,7 @@ import { SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { PutObjectCommand, GetObjectCommand, HeadObjectCommand, CopyObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import type { ListObjectsV2CommandOutput } from "@aws-sdk/client-s3";
 import { simpleParser } from "mailparser";
+import { formatSender } from "./lib/mimeHeader";
 import type { AddressObject } from "mailparser";
 import {
   getPlatformAwsClients,
@@ -1069,6 +1070,13 @@ function parsedAddresses(
 // stack at creation time, and those are not redeployed when this repo is. So
 // mailparser, which decodes the header properly, has the last word here and
 // the mailbox reads correctly whatever version of the Lambda ingested it.
+//
+// The From header gets the same treatment. A display name is encoded the same
+// way a subject is, and the Lambda copies deployed today store it undecoded,
+// so a sender called "Tamás Hám-Szabó" showed in the message list as the raw
+// "=?UTF-8?q?Tam=C3=A1s_H=C3=A1m-Szab=C3=B3?=". mailparser's from.text is the
+// "Name <address>" form the UI already splits on the angle brackets, so the
+// decoded value works everywhere the raw one did.
 async function syncIngestedRecipients(
   ctx: ActionCtx,
   aws: AwsClientBundle,
@@ -1086,13 +1094,22 @@ async function syncIngestedRecipients(
     const to = parsedAddresses(parsed.to);
     const cc = parsedAddresses(parsed.cc);
     const subject = (parsed.subject ?? "").trim();
-    if (to.length === 0 && cc.length === 0 && subject.length === 0) return;
+    const from = formatSender(parsed.from?.value).trim();
+    if (
+      to.length === 0 &&
+      cc.length === 0 &&
+      subject.length === 0 &&
+      from.length === 0
+    ) {
+      return;
+    }
 
     await ctx.runMutation(internal.emails.updateIngestedRecipients, {
       emailId,
       ...(to.length > 0 ? { to } : {}),
       ...(cc.length > 0 ? { cc } : {}),
       ...(subject.length > 0 ? { subject } : {}),
+      ...(from.length > 0 ? { from } : {}),
     });
   } catch (error) {
     console.error("Failed to read headers from raw email:", error);
@@ -1461,6 +1478,8 @@ export const repairSubjectsFromS3 = internalAction({
         unchanged: 0,
         repaired: [],
         wouldRepair: [],
+        repairedSenders: [],
+        wouldRepairSenders: [],
         unreadable: [],
       };
     }
@@ -1469,10 +1488,12 @@ export const repairSubjectsFromS3 = internalAction({
 
     let unchanged = 0;
     const changed: Array<{ before: string; after: string }> = [];
+    const senders: Array<{ before: string; after: string }> = [];
     const unreadable: Array<{ subject: string; s3Key: string; reason: string }> = [];
 
     for (const email of emails) {
       let subject: string;
+      let from: string;
       try {
         const response = await aws.s3.send(
           new GetObjectCommand({ Bucket: aws.s3Bucket, Key: email.s3Key })
@@ -1492,6 +1513,7 @@ export const repairSubjectsFromS3 = internalAction({
         // instead of being replaced by U+FFFD before the parser sees it.
         const parsed = await simpleParser(Buffer.from(bytes));
         subject = (parsed.subject ?? "").trim();
+        from = formatSender(parsed.from?.value).trim();
       } catch (error) {
         unreadable.push({
           subject: email.subject,
@@ -1501,18 +1523,24 @@ export const repairSubjectsFromS3 = internalAction({
         continue;
       }
 
-      // An empty subject is not an improvement over what is stored: a message
-      // with no Subject header at all was given "(no subject)" at ingest.
-      if (subject.length === 0 || subject === email.subject) {
+      // An empty header is not an improvement over what is stored: a message
+      // with no Subject at all was given "(no subject)" at ingest.
+      const subjectChanged = subject.length > 0 && subject !== email.subject;
+      const fromChanged = from.length > 0 && from !== email.from;
+
+      if (!subjectChanged && !fromChanged) {
         unchanged++;
         continue;
       }
 
-      changed.push({ before: email.subject, after: subject });
+      if (subjectChanged) changed.push({ before: email.subject, after: subject });
+      if (fromChanged) senders.push({ before: email.from, after: from });
+
       if (!isDryRun) {
         await ctx.runMutation(internal.emails.updateIngestedRecipients, {
           emailId: email._id,
-          subject,
+          ...(subjectChanged ? { subject } : {}),
+          ...(fromChanged ? { from } : {}),
         });
       }
     }
@@ -1524,6 +1552,8 @@ export const repairSubjectsFromS3 = internalAction({
       unchanged,
       repaired: isDryRun ? [] : changed,
       wouldRepair: isDryRun ? changed : [],
+      repairedSenders: isDryRun ? [] : senders,
+      wouldRepairSenders: isDryRun ? senders : [],
       unreadable,
     };
   },
