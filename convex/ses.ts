@@ -1414,6 +1414,121 @@ export const repairEmailS3Keys = internalAction({
   },
 });
 
+// Rewrite stored subjects from the raw message in S3, per mailbox:
+//
+//   internal.ses.repairSubjectsFromS3
+//   { "mailboxId": "...", "dryRun": false }
+//
+// dryRun defaults to true, so the first run only reports what it would change.
+//
+// This is the thorough counterpart to internal.emails.repairMojibakeSubjects.
+// That one repairs the bytes of a subject in place and needs nothing but the
+// row, which makes it cheap, but it cannot undo the other half of the old
+// Lambda's decoding: a subject too long for one header line is sent as several
+// encoded words, and the old decoder decoded each one separately and kept the
+// whitespace between them. RFC 2047 section 6.2 says that whitespace is a
+// separator, not text, so "Nilambar Beh" + " " + "era" was stored with a space
+// inside the name. Once stored, that space is indistinguishable from one the
+// sender typed, so no amount of rereading the row can find it.
+//
+// The raw message still has the truth, and mailparser reads it correctly, so
+// this asks S3. It only ever reads: a GetObject per row, the same request the
+// recipient sync already makes for every inbound message. Nothing in S3 is
+// written, moved or deleted, and the corrected subject goes to the Convex row.
+//
+// A row whose object cannot be read is reported rather than changed. Run
+// internal.ses.repairEmailS3Keys first if there are many of those: it is the
+// function that finds where a message actually came to rest.
+export const repairSubjectsFromS3 = internalAction({
+  args: {
+    mailboxId: v.id("mailboxes"),
+    folder: v.optional(v.string()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { mailboxId, folder, dryRun }) => {
+    const targetFolder = folder ?? "inbox";
+    const isDryRun = dryRun ?? true;
+
+    const emails = await ctx.runQuery(internal.emails.listForRepairInternal, {
+      mailboxId,
+      folder: targetFolder,
+    });
+    if (emails.length === 0) {
+      return {
+        dryRun: isDryRun,
+        folder: targetFolder,
+        scanned: 0,
+        unchanged: 0,
+        repaired: [],
+        wouldRepair: [],
+        unreadable: [],
+      };
+    }
+
+    const aws = await clientsForS3Key(ctx, emails[0].s3Key);
+
+    let unchanged = 0;
+    const changed: Array<{ before: string; after: string }> = [];
+    const unreadable: Array<{ subject: string; s3Key: string; reason: string }> = [];
+
+    for (const email of emails) {
+      let subject: string;
+      try {
+        const response = await aws.s3.send(
+          new GetObjectCommand({ Bucket: aws.s3Bucket, Key: email.s3Key })
+        );
+        const bytes = await response.Body?.transformToByteArray();
+        if (!bytes || bytes.length === 0) {
+          unreadable.push({
+            subject: email.subject,
+            s3Key: email.s3Key,
+            reason: "empty object",
+          });
+          continue;
+        }
+
+        // Handed to mailparser as bytes rather than as a UTF-8 string, so a
+        // header carrying raw 8-bit bytes is decoded with its own charset
+        // instead of being replaced by U+FFFD before the parser sees it.
+        const parsed = await simpleParser(Buffer.from(bytes));
+        subject = (parsed.subject ?? "").trim();
+      } catch (error) {
+        unreadable.push({
+          subject: email.subject,
+          s3Key: email.s3Key,
+          reason: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+        });
+        continue;
+      }
+
+      // An empty subject is not an improvement over what is stored: a message
+      // with no Subject header at all was given "(no subject)" at ingest.
+      if (subject.length === 0 || subject === email.subject) {
+        unchanged++;
+        continue;
+      }
+
+      changed.push({ before: email.subject, after: subject });
+      if (!isDryRun) {
+        await ctx.runMutation(internal.emails.updateIngestedRecipients, {
+          emailId: email._id,
+          subject,
+        });
+      }
+    }
+
+    return {
+      dryRun: isDryRun,
+      folder: targetFolder,
+      scanned: emails.length,
+      unchanged,
+      repaired: isDryRun ? [] : changed,
+      wouldRepair: isDryRun ? changed : [],
+      unreadable,
+    };
+  },
+});
+
 // Remove the duplicate rows written before insertFromWebhook started deduping
 // by messageId. Run repairEmailS3Keys first, then, per mailbox:
 //
