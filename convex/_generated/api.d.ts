@@ -41,6 +41,7 @@ import type * as supportActions from "../supportActions.js";
 import type * as supportRequests from "../supportRequests.js";
 import type * as unsubscribe from "../unsubscribe.js";
 import type * as users from "../users.js";
+import type * as lib_emailNotice from "../lib/emailNotice.js";
 import type * as lib_gate from "../lib/gate.js";
 import type * as lib_millionVerifier from "../lib/millionVerifier.js";
 import type * as lib_jobApplication from "../lib/jobApplication.js";
@@ -100,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   supportRequests: typeof supportRequests;
   unsubscribe: typeof unsubscribe;
   users: typeof users;
+  "lib/emailNotice": typeof lib_emailNotice;
   "lib/gate": typeof lib_gate;
   "lib/millionVerifier": typeof lib_millionVerifier;
   "lib/jobApplication": typeof lib_jobApplication;

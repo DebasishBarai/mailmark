@@ -1,11 +1,18 @@
 /**
  * Pure helpers for applications submitted through /careers/apply: the link
- * checks the mutation validates with, and the notice emailed to the jobs
- * inbox.
+ * checks the mutation validates with, the notice emailed to the jobs inbox,
+ * and the acknowledgement sent back to the applicant.
  *
  * No Convex or AWS imports, so the Node send action and the V8 mutation can
  * both use this and the rules stay testable on their own.
  */
+
+import {
+  escapeHtml,
+  singleLine,
+  greetingFor,
+  renderAcknowledgement,
+} from "./emailNotice";
 
 /**
  * Answers to "How did you hear about Mailmark?".
@@ -58,21 +65,6 @@ export type JobApplicationNotice = {
   html: string;
   text: string;
 };
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-// Header injection guard for the values that reach SES as a header rather
-// than as body text.
-function singleLine(value: string): string {
-  return value.replace(/[\r\n]+/g, " ").trim();
-}
 
 /**
  * Accept a link a candidate pasted, or null when it is not one we would put
@@ -206,55 +198,23 @@ export function buildApplicantAcknowledgement(
   const role = singleLine(input.role);
   const isOpenApplication =
     role.length === 0 || role.toLowerCase() === OPEN_APPLICATION.toLowerCase();
-  // First name only, and only when it looks like a name. The greeting falls
-  // back to a plain hello rather than addressing someone as a pasted URL.
-  const firstName = singleLine(input.name).split(" ")[0] ?? "";
-  const greeting =
-    firstName.length > 0 && firstName.length <= 40 ? `Hi ${firstName},` : "Hi,";
 
   const subject = isOpenApplication
     ? "We received your application"
     : `We received your application for ${role}`;
 
-  const lines = [
-    isOpenApplication
-      ? "Thanks for writing to us about joining Mailmark. Your application is in and a person will read it."
-      : `Thanks for applying for ${role} at Mailmark. Your application is in and a person will read it.`,
-    "We reply to everyone, usually within a week. If we would like to talk, the next step is a short call to hear about what you have built.",
-    `Anything to add in the meantime, a link or an updated resume, just reply to this email and it will reach us at ${options.jobsEmail}.`,
-  ];
-
-  const html = `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#f6f6f7;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-      <tr>
-        <td align="center">
-          <table role="presentation" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;padding:32px;">
-            <tr>
-              <td>
-                <p style="margin:0 0 20px;font-size:18px;font-weight:700;color:#7c3aed;">Mailmark</p>
-                <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111;">${escapeHtml(greeting)}</p>
-                ${lines
-                  .map(
-                    (line) =>
-                      `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">${escapeHtml(line)}</p>`
-                  )
-                  .join("\n                ")}
-                <p style="margin:24px 0 0;font-size:15px;line-height:1.6;color:#374151;">Mailmark</p>
-                <p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #eee;font-size:12px;line-height:1.5;color:#9ca3af;">You are receiving this because this address was used to apply on www.mailmark.dev/careers. If that was not you, you can ignore this email.</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>`;
-
-  const text = [
-    greeting,
-    "",
-    ...lines.flatMap((line) => [line, ""]),
-    "Mailmark",
-    "",
-    "You are receiving this because this address was used to apply on www.mailmark.dev/careers. If that was not you, you can ignore this email.",
-  ].join("\n");
+  const { html, text } = renderAcknowledgement({
+    greeting: greetingFor(input.name),
+    lines: [
+      isOpenApplication
+        ? "Thanks for writing to us about joining Mailmark. Your application is in and a person will read it."
+        : `Thanks for applying for ${role} at Mailmark. Your application is in and a person will read it.`,
+      "We reply to everyone, usually within a week. If we would like to talk, the next step is a short call to hear about what you have built.",
+      `Anything to add in the meantime, a link or an updated resume, just reply to this email and it will reach us at ${options.jobsEmail}.`,
+    ],
+    footer:
+      "You are receiving this because this address was used to apply on www.mailmark.dev/careers. If that was not you, you can ignore this email.",
+  });
 
   return { subject, html, text };
 }
