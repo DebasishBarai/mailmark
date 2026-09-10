@@ -112,6 +112,48 @@ export const upsert = internalMutation({
   },
 });
 
+/** Delete address-book rows that shadow a user's own mailboxes.
+ *
+ *  upsert now refuses to learn a name for an address its owner holds as a
+ *  mailbox, but rows written before that guard are still in the table, and the
+ *  contacts page and audience lists read them directly. Run once from the
+ *  Convex dashboard.
+ *
+ *  Walks mailboxes rather than contacts: one indexed lookup per mailbox, and a
+ *  mailbox row already names both halves of the key the contacts index wants.
+ *  Returns what it removed so the run is auditable. */
+export const purgeOwnMailboxContacts = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const mailboxes = await ctx.db.query("mailboxes").collect();
+    const removed: string[] = [];
+
+    for (const mailbox of mailboxes) {
+      const email = mailbox.fullAddress.toLowerCase();
+      const contact = await ctx.db
+        .query("contacts")
+        .withIndex("by_user_email", (q) =>
+          q.eq("userId", mailbox.userId).eq("email", email)
+        )
+        .unique();
+      if (!contact) continue;
+
+      await ctx.db.delete(contact._id);
+      await countRemoved(ctx, contactBuckets());
+
+      const user = await ctx.db.get(mailbox.userId);
+      if (user) {
+        await ctx.db.patch(mailbox.userId, {
+          contactCount: Math.max(0, (user.contactCount ?? 0) - 1),
+        });
+      }
+      removed.push(`${email} (was "${contact.name}")`);
+    }
+
+    return { removed, count: removed.length };
+  },
+});
+
 // Get all contacts for the current user (used to resolve display names)
 export const listForCurrentUser = query({
   args: {},

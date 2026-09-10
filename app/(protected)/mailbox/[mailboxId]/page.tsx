@@ -49,13 +49,30 @@ function timeAgo(timestamp: number) {
   return `${days}d ago`;
 }
 
-function getDisplayName(emailStr: string, contactMap?: Map<string, string>): string {
+function getDisplayName(
+  emailStr: string,
+  contactMap?: Map<string, string>,
+  ownMap?: Map<string, string>
+): string {
+  // The user's own mailboxes are named by the mailbox row, and nothing else.
+  // Checked before the header and before contacts, because both of those are
+  // names other people chose: a platform mail sent as
+  // "Mailmark Careers Form <support@mailmark.dev>" got that name written into
+  // the address book on ingest, and it then won every To/Cc line over the
+  // "Mailmark Support" the user had set on the mailbox itself.
+  if (ownMap) {
+    const own = ownMap.get(getRawEmail(emailStr).toLowerCase().trim());
+    if (own) return own;
+  }
   // Extract name from "Name <email>" format
   const match = emailStr.match(/^(.+?)\s*<([^>]+)>$/);
   if (match) return match[1].trim().replace(/^["']|["']$/g, "");
   // Look up in contacts by raw email address
   if (contactMap) {
-    const name = contactMap.get(emailStr.toLowerCase());
+    // Old: keyed on the whole string, which misses "<addr>" with no name and
+    // anything carrying stray whitespace.
+    // const name = contactMap.get(emailStr.toLowerCase());
+    const name = contactMap.get(getRawEmail(emailStr).toLowerCase().trim());
     if (name) return name;
   }
   // Fallback: local part of email
@@ -262,29 +279,25 @@ export default function MailboxPage() {
   // has a handful of mailboxes, not a page of them.
   const ownMailboxNames = useQuery(api.mailboxes.displayNamesForCurrentUser);
   // Build a lookup map: raw email → display name
-  // Old: contacts were the only source, so a name learned from an inbound
-  // From header won even for the user's own addresses. A platform mail sent as
-  // "Mailmark Careers Form <support@mailmark.dev>" wrote that into contacts,
-  // and every To/Cc line then called support@ the careers form instead of the
-  // "Mailmark Support" name set on the mailbox.
-  // const contactNameMap = useMemo(
-  //   () =>
-  //     new Map<string, string>(
-  //       (contactNames ?? []).map((c) => [c.email, c.name] as [string, string])
-  //     ),
-  //   [contactNames]
-  // );
-  // Now: contacts first, then the user's own mailbox names layered on top, so
-  // the name they edit on the mailbox is the one their own addresses show.
-  const contactNameMap = useMemo(() => {
-    const map = new Map<string, string>(
-      (contactNames ?? []).map((c) => [c.email, c.name] as [string, string])
-    );
-    for (const m of ownMailboxNames ?? []) {
-      map.set(m.email.toLowerCase(), m.name);
-    }
-    return map;
-  }, [contactNames, ownMailboxNames]);
+  const contactNameMap = useMemo(
+    () =>
+      new Map<string, string>(
+        (contactNames ?? []).map((c) => [c.email, c.name] as [string, string])
+      ),
+    [contactNames]
+  );
+  // The user's own addresses, kept apart from contacts rather than merged into
+  // them: getDisplayName has to consult this one before the name inside a
+  // "Name <address>" header, which a merged map cannot express.
+  const ownNameMap = useMemo(
+    () =>
+      new Map<string, string>(
+        (ownMailboxNames ?? []).map(
+          (m) => [m.email.toLowerCase(), m.name] as [string, string]
+        )
+      ),
+    [ownMailboxNames]
+  );
   const senderGroups = useQuery(api.senderGroups.list, { mailboxId: mbId });
   const createSenderGroup = useMutation(api.senderGroups.create);
   const updateSenderGroup = useMutation(api.senderGroups.update);
@@ -1788,9 +1801,9 @@ export default function MailboxPage() {
                         <span className={`min-w-0 truncate text-sm ${!email.read ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"}`}>
                           {activeFolder === "sent" || activeFolder === "outbox"
                             ? allRecipients.length > 1
-                              ? `${showEmailIds ? getRawEmail(allRecipients[0]) : getDisplayName(allRecipients[0], contactNameMap)} +${allRecipients.length - 1}`
-                              : showEmailIds ? getRawEmail(allRecipients[0]) : getDisplayName(allRecipients[0], contactNameMap)
-                            : showEmailIds ? getRawEmail(email.from) : getDisplayName(email.from, contactNameMap)}
+                              ? `${showEmailIds ? getRawEmail(allRecipients[0]) : getDisplayName(allRecipients[0], contactNameMap, ownNameMap)} +${allRecipients.length - 1}`
+                              : showEmailIds ? getRawEmail(allRecipients[0]) : getDisplayName(allRecipients[0], contactNameMap, ownNameMap)
+                            : showEmailIds ? getRawEmail(email.from) : getDisplayName(email.from, contactNameMap, ownNameMap)}
                         </span>
                         <div className="flex shrink-0 items-center gap-1">
                           {email.starred && (
@@ -1859,11 +1872,11 @@ export default function MailboxPage() {
                   </h2>
                   <div className="mt-2 flex items-center gap-3 overflow-hidden">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
-                      {getDisplayName(selectedEmail.from, contactNameMap)[0].toUpperCase()}
+                      {getDisplayName(selectedEmail.from, contactNameMap, ownNameMap)[0].toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1 md:flex-initial">
                       <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
-                        {getDisplayName(selectedEmail.from, contactNameMap)}
+                        {getDisplayName(selectedEmail.from, contactNameMap, ownNameMap)}
                         {showEmailIds && (
                           <span className="ml-1.5 font-normal text-gray-500 dark:text-gray-400">&lt;{getRawEmail(selectedEmail.from)}&gt;</span>
                         )}
@@ -1873,7 +1886,7 @@ export default function MailboxPage() {
                         {selectedEmail.to.map((addr) =>
                           showEmailIds
                             ? getRawEmail(addr)
-                            : getDisplayName(addr, contactNameMap)
+                            : getDisplayName(addr, contactNameMap, ownNameMap)
                         ).join(", ")}
                         {isBatchDetail && selectedEmail.to.length === 1 && (
                           <span className="ml-1 text-gray-400 dark:text-gray-500">
@@ -1887,7 +1900,7 @@ export default function MailboxPage() {
                           {selectedEmail.cc.map((addr) =>
                             showEmailIds
                               ? getRawEmail(addr)
-                              : getDisplayName(addr, contactNameMap)
+                              : getDisplayName(addr, contactNameMap, ownNameMap)
                           ).join(", ")}
                         </p>
                       )}
@@ -1897,7 +1910,7 @@ export default function MailboxPage() {
                           {selectedEmail.bcc.map((addr) =>
                             showEmailIds
                               ? getRawEmail(addr)
-                              : getDisplayName(addr, contactNameMap)
+                              : getDisplayName(addr, contactNameMap, ownNameMap)
                           ).join(", ")}
                         </p>
                       )}
