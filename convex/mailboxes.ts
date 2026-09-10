@@ -68,6 +68,47 @@ export const listForCurrentUser = query({
   },
 });
 
+/** Display names for every mailbox the current user owns.
+ *
+ *  The mailbox view resolves a bare address to a name through the contacts
+ *  table, and contacts are learned from whatever name an inbound message
+ *  happened to carry in its From header. That is fine for other people's
+ *  addresses and wrong for the user's own: a platform mail sent as
+ *  "Mailmark Careers Form <support@mailmark.dev>" teaches the address book
+ *  that support@ is called "Mailmark Careers Form", and from then on every
+ *  To/Cc line showed that instead of the name set on the mailbox itself.
+ *
+ *  The mailbox row is the name the user actually edits, so it is the
+ *  authoritative one for their own addresses and is layered over contacts.
+ *  Only address and name are returned: signatures can be large HTML and this
+ *  is read on every mailbox open. */
+export const displayNamesForCurrentUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) return [];
+
+    const mailboxes = await ctx.db
+      .query("mailboxes")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .collect();
+
+    return mailboxes
+      .filter((m) => m.displayName)
+      .map((m) => ({
+        email: m.fullAddress.toLowerCase(),
+        name: m.displayName as string,
+      }));
+  },
+});
+
 export const getById = query({
   args: { mailboxId: v.id("mailboxes") },
   handler: async (ctx, { mailboxId }) => {
