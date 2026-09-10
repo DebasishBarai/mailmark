@@ -258,14 +258,33 @@ export default function MailboxPage() {
     [visibleAddressKey]
   );
   const contactNames = useQuery(api.contacts.namesByEmails, nameLookupArgs);
+  // The names the user set on their own mailboxes. Read whole because a user
+  // has a handful of mailboxes, not a page of them.
+  const ownMailboxNames = useQuery(api.mailboxes.displayNamesForCurrentUser);
   // Build a lookup map: raw email → display name
-  const contactNameMap = useMemo(
-    () =>
-      new Map<string, string>(
-        (contactNames ?? []).map((c) => [c.email, c.name] as [string, string])
-      ),
-    [contactNames]
-  );
+  // Old: contacts were the only source, so a name learned from an inbound
+  // From header won even for the user's own addresses. A platform mail sent as
+  // "Mailmark Careers Form <support@mailmark.dev>" wrote that into contacts,
+  // and every To/Cc line then called support@ the careers form instead of the
+  // "Mailmark Support" name set on the mailbox.
+  // const contactNameMap = useMemo(
+  //   () =>
+  //     new Map<string, string>(
+  //       (contactNames ?? []).map((c) => [c.email, c.name] as [string, string])
+  //     ),
+  //   [contactNames]
+  // );
+  // Now: contacts first, then the user's own mailbox names layered on top, so
+  // the name they edit on the mailbox is the one their own addresses show.
+  const contactNameMap = useMemo(() => {
+    const map = new Map<string, string>(
+      (contactNames ?? []).map((c) => [c.email, c.name] as [string, string])
+    );
+    for (const m of ownMailboxNames ?? []) {
+      map.set(m.email.toLowerCase(), m.name);
+    }
+    return map;
+  }, [contactNames, ownMailboxNames]);
   const senderGroups = useQuery(api.senderGroups.list, { mailboxId: mbId });
   const createSenderGroup = useMutation(api.senderGroups.create);
   const updateSenderGroup = useMutation(api.senderGroups.update);

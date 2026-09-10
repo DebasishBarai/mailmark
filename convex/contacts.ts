@@ -54,6 +54,18 @@ export const upsert = internalMutation({
   handler: async (ctx, { userId, email, name }) => {
     if (!name || !email) return;
 
+    // Never learn a name for one of the user's own mailboxes. The name on the
+    // mailbox row is the one they set and edit; this path takes whatever name
+    // an inbound From header carried, so a platform mail sent as
+    // "Mailmark Careers Form <support@mailmark.dev>" landing in the user's own
+    // jobs inbox would otherwise rename their support mailbox in every To/Cc
+    // line. Their own addresses are not address-book entries anyway.
+    const ownMailbox = await ctx.db
+      .query("mailboxes")
+      .withIndex("by_full_address", (q) => q.eq("fullAddress", email))
+      .first();
+    if (ownMailbox && ownMailbox.userId === userId) return;
+
     const existing = await ctx.db
       .query("contacts")
       .withIndex("by_user_email", (q) => q.eq("userId", userId).eq("email", email))
