@@ -207,6 +207,10 @@ export const sendEmail = action({
     });
     const sentThisMonth = await ctx.runQuery(internal.quotas.countSentEmailsThisMonth, {
       userId: mailbox.userId,
+      // Stop counting at the allowance being tested against, so the
+      // read stays proportional to the plan and not to how much mail
+      // this account has ever sent.
+      cap: emailLimits.emailsPerMonth,
     });
     if (sentThisMonth >= emailLimits.emailsPerMonth) {
       throw new ConvexError(
@@ -469,6 +473,10 @@ export const scheduleEmail = action({
     });
     const schedSentThisMonth = await ctx.runQuery(internal.quotas.countSentEmailsThisMonth, {
       userId: mailbox.userId,
+      // Stop counting at the allowance being tested against, so the
+      // read stays proportional to the plan and not to how much mail
+      // this account has ever sent.
+      cap: schedLimits.emailsPerMonth,
     });
     if (schedSentThisMonth >= schedLimits.emailsPerMonth) {
       throw new ConvexError(
@@ -792,6 +800,10 @@ export const scheduleEmailViaApi = internalAction({
     });
     const schedApiSentThisMonth = await ctx.runQuery(internal.quotas.countSentEmailsThisMonth, {
       userId: mailbox.userId,
+      // Stop counting at the allowance being tested against, so the
+      // read stays proportional to the plan and not to how much mail
+      // this account has ever sent.
+      cap: schedApiLimits.emailsPerMonth,
     });
     if (schedApiSentThisMonth >= schedApiLimits.emailsPerMonth) {
       throw new Error(
@@ -940,6 +952,10 @@ export const sendEmailViaApi = internalAction({
     });
     const apiSentThisMonth = await ctx.runQuery(internal.quotas.countSentEmailsThisMonth, {
       userId: mailbox.userId,
+      // Stop counting at the allowance being tested against, so the
+      // read stays proportional to the plan and not to how much mail
+      // this account has ever sent.
+      cap: apiLimits.emailsPerMonth,
     });
     if (apiSentThisMonth >= apiLimits.emailsPerMonth) {
       throw new Error(
