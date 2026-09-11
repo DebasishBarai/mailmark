@@ -8,6 +8,7 @@ import {
   type MailboxTally,
   applyEmailToTally,
   emptyMailboxTally,
+  dayRows,
   folderRows,
   sourceRows,
   readDomainStats,
@@ -536,8 +537,22 @@ export const rebuildMailboxStats = internalMutation({
       if (value > 0) byFolder[folder] = value;
     }
 
-    const merge = (key: Exclude<keyof MailboxTally, "byFolder">) =>
-      Math.max(0, tally[key] + (current[key] - snapshot[key]));
+    const days = new Set([
+      ...Object.keys(tally.sentByDay),
+      ...Object.keys(current.sentByDay),
+      ...Object.keys(snapshot.sentByDay),
+    ]);
+    const sentByDay: Record<string, number> = {};
+    for (const day of days) {
+      const live =
+        (current.sentByDay[day] ?? 0) - (snapshot.sentByDay[day] ?? 0);
+      const value = (tally.sentByDay[day] ?? 0) + live;
+      if (value > 0) sentByDay[day] = value;
+    }
+
+    const merge = (
+      key: Exclude<keyof MailboxTally, "byFolder" | "sentByDay">
+    ) => Math.max(0, tally[key] + (current[key] - snapshot[key]));
 
     const row = await ctx.db
       .query("mailboxStats")
@@ -547,6 +562,7 @@ export const rebuildMailboxStats = internalMutation({
     const values = {
       mailboxId: args.mailboxId,
       byFolder: folderRows(byFolder),
+      sentByDay: dayRows(sentByDay),
       unread: merge("unread"),
       delivered: merge("delivered"),
       failed: merge("failed"),

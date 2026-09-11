@@ -1,6 +1,8 @@
 import { internalQuery, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import { readMailboxStats } from "./lib/counters";
+import { periodStartDayKey } from "./lib/period";
 import { v } from "convex/values";
 
 // null = unlimited
@@ -80,58 +82,40 @@ export function resolvePlan(
   return "free";
 }
 
-/** Hard ceiling on how many email rows one usage scan will read.
+/** Count a user's sent mail in the subscription period in progress.
  *
- *  Sized from what production actually read rather than from a guess about row
- *  size. The failure this replaces logged 18.01 MB read against the 16777216
- *  byte limit, out of an emails table of roughly 52,000 rows, which puts a row
- *  somewhere in the hundreds of bytes to low kilobytes. At a pessimistic 2 KB
- *  a row, two thousand rows is about 4 MB, a quarter of the budget, with the
- *  rest left for the other reads in the query.
+ *  One document per mailbox, and no email rows at all.
  *
- *  It also sits above the free and starter allowance of 1,000, so those plans
- *  are still counted and enforced exactly.
+ *  This used to count by reading the rows. It walked by_mailbox_folder, which
+ *  pins only mailboxId and folder, and then narrowed the result with
+ *  .filter((q) => q.gte(q.field("date"), startOfMonth)). A Convex .filter() is
+ *  applied after rows have been read out of the index, so counting one window
+ *  meant reading every sent message the mailbox had ever held. The bytes read
+ *  grew with the age of the account and nothing capped them, so a long-lived
+ *  sender crossed the 16 MiB per transaction limit and this began throwing
+ *  "Too many bytes read in a single function execution", with the slower
+ *  variant of the same read dying as "too many system operations" instead.
+ *  Production logged 18.01 MB read on the last failure before this changed.
  *
- *  It is below the pro and business allowances, so an account sending more
- *  than this in one period stops being counted exactly and its limit stops
- *  being enforced. That is the deliberate direction to fail in: a paying
- *  sender who sends more than we counted is a billing question, whereas the
- *  alternative is refusing their mail on a number we cannot read. Removing the
- *  ceiling means keeping the count denormalised in mailboxStats the way the
- *  all-time folder counts are already kept, rather than scanning at send time.
+ *  Every send path calls this before sending, so that throw refused every
+ *  message on the account, including a campaign of one, and the same read
+ *  shape in getUsageAndLimits took out the billing, domains and audience pages
+ *  that render usage.
+ *
+ *  Putting the date into the index range would have bounded the scan to the
+ *  window rather than the lifetime, but it would still have been unbounded
+ *  work whose whole output is a single integer, and a big enough period would
+ *  have walked into the same wall. So the count is kept where every other
+ *  count in this codebase is kept: denormalised in mailboxStats, bumped by the
+ *  email write wrappers in lib/counters, and rebuilt nightly by
+ *  platformStats.startEntityStatsRebuild so drift cannot compound.
  */
-const MAX_USAGE_SCAN_ROWS = 2_000;
-
-/** Count a user's sent mail on or after `since`, reading a bounded number of rows.
- *
- *  Two separate bounds, and both of them matter.
- *
- *  The index range is the first. This used to walk by_mailbox_folder, which
- *  pins only mailboxId and folder, and then narrow the result with
- *  .filter((q) => q.gte(q.field("date"), startOfMonth)). A Convex .filter()
- *  is applied after rows have been read out of the index, so counting one
- *  month meant reading every sent message the mailbox had ever held. The bytes
- *  read grew with the age of the account and nothing capped them, so a
- *  long-lived sender eventually crossed the 16 MiB per transaction limit and
- *  this started throwing "Too many bytes read in a single function execution".
- *  Every send path calls this before sending, so that one throw took out all
- *  sending on the account, and the same read shape in getUsageAndLimits took
- *  out the dashboard, billing and domains pages that render usage.
- *  by_mailbox_folder_date carries date as its third component, so the range
- *  itself excludes everything before the window and the scan is proportional
- *  to the month rather than to the lifetime of the account.
- *
- *  The cap is the second. Callers only ever ask whether the user has reached
- *  an allowance, so there is no reason to read past it: .take() stops there
- *  and a `count >= limit` test is still exact at the boundary.
- */
-async function countSentEmailsSince(
+async function countSentEmailsThisPeriodFor(
   ctx: QueryCtx,
   userId: Id<"users">,
-  since: number,
-  cap: number,
+  subscription: Doc<"subscriptions"> | null,
 ): Promise<number> {
-  const ceiling = Math.max(0, Math.min(cap, MAX_USAGE_SCAN_ROWS));
+  const since = periodStartDayKey(subscription?.startedAt, Date.now());
 
   const mailboxes = await ctx.db
     .query("mailboxes")
@@ -140,25 +124,13 @@ async function countSentEmailsSince(
 
   let count = 0;
   for (const mailbox of mailboxes) {
-    const remaining = ceiling - count;
-    if (remaining <= 0) break;
-
-    const rows = await ctx.db
-      .query("emails")
-      .withIndex("by_mailbox_folder_date", (q) =>
-        q.eq("mailboxId", mailbox._id).eq("folder", "sent").gte("date", since)
-      )
-      .take(remaining);
-    count += rows.length;
+    const stats = await readMailboxStats(ctx, mailbox._id);
+    // Day keys are zero padded, so lexical order is chronological order.
+    for (const [day, sent] of Object.entries(stats.sentByDay)) {
+      if (day >= since) count += sent;
+    }
   }
-
   return count;
-}
-
-/** Midnight on the first of the current month, in the server's timezone. */
-function startOfThisMonth(): number {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 }
 
 /** Public query: returns the user's plan limits and current usage counts. */
@@ -195,8 +167,11 @@ export const getUsageAndLimits = query({
     // Old, and the reason the pages that call this stopped rendering with a
     // client-side exception: .withIndex("by_mailbox_folder") followed by
     // .filter() on date read every sent message in the mailbox, forever, to
-    // count the current month.
+    // count one window. It also measured the calendar month, which is not the
+    // window the allowance actually runs over.
     //
+    // const now = new Date();
+    // const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
     // let emailsSentThisMonth = 0;
     // for (const mailbox of mailboxes) {
     //   const emails = await ctx.db
@@ -208,11 +183,10 @@ export const getUsageAndLimits = query({
     //     .collect();
     //   emailsSentThisMonth += emails.length;
     // }
-    const emailsSentThisMonth = await countSentEmailsSince(
+    const emailsSentThisPeriod = await countSentEmailsThisPeriodFor(
       ctx,
       user._id,
-      startOfThisMonth(),
-      limits.emailsPerMonth,
+      subscription
     );
 
     return {
@@ -227,7 +201,10 @@ export const getUsageAndLimits = query({
       usage: {
         domains: domains.length,
         mailboxes: mailboxes.length,
-        emailsSentThisMonth,
+        // Old: emailsSentThisMonth, which named a calendar month the
+        // allowance never ran on.
+        emailsSentThisPeriod,
+        periodStartedAt: periodStartDayKey(subscription?.startedAt, Date.now()),
         // Both read off denormalised counts rather than collecting the tables,
         // which keeps this query as cheap as it was. Each reads 0 for a user
         // its backfill has not reached yet.
@@ -242,24 +219,20 @@ export const getUsageAndLimits = query({
   },
 });
 
-/** Count how many sent emails the user has sent in the current calendar month.
+/** Count how many sent emails the user has sent in the subscription period
+ *  currently in progress.
  *
- *  `cap` is the allowance the caller is about to compare against. Pass it: the
- *  count stops there, which is all a `count >= cap` test needs and keeps the
- *  read proportional to the plan rather than to the account's history. Callers
- *  that omit it get the largest allowance any plan grants.
+ *  Old name: countSentEmailsThisMonth, which described the calendar month the
+ *  scan used to measure. The allowance has always been per subscription period.
  */
-export const countSentEmailsThisMonth = internalQuery({
-  args: { userId: v.id("users"), cap: v.optional(v.number()) },
-  handler: async (ctx, { userId, cap }): Promise<number> => {
-    // Old: collected mailboxes here and, for each, read the whole sent folder
-    // through by_mailbox_folder with a .filter() on date. See
-    // countSentEmailsSince for why that was unbounded.
-    return await countSentEmailsSince(
-      ctx,
-      userId,
-      startOfThisMonth(),
-      cap ?? PLAN_LIMITS.business.emailsPerMonth,
-    );
+export const countSentEmailsThisPeriod = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }): Promise<number> => {
+    const subscription = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .first();
+
+    return await countSentEmailsThisPeriodFor(ctx, userId, subscription);
   },
 });
