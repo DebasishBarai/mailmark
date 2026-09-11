@@ -840,6 +840,23 @@ export default defineSchema({
     // document Convex rejects. Storing them as values keeps any folder name
     // legal.
     byFolder: v.array(v.object({ folder: v.string(), count: v.number() })),
+    // Sent messages per UTC day, "YYYY-MM-DD", newest first and pruned to the
+    // last 45. The send allowance is read from here rather than counted at
+    // send time: quotas used to scan the sent folder on every send, which is
+    // unbounded work whose only output is one integer, and which took the
+    // 16 MiB read limit down with it and refused every send on the account.
+    //
+    // A day rather than a month because the allowance runs over a subscription
+    // period anchored on subscriptions.startedAt, which begins on an arbitrary
+    // day of the month. All plans bill monthly, so 45 days covers the longest
+    // period that ever has to be summed with slack to spare.
+    //
+    // Optional for the same reason byFolder never was: rows written before
+    // this field existed carry nothing until the nightly
+    // platformStats.startEntityStatsRebuild walk fills them in.
+    sentByDay: v.optional(
+      v.array(v.object({ day: v.string(), count: v.number() }))
+    ),
     // Inbox messages with read === false.
     unread: v.number(),
     // The next five are over folder === "sent" only, which is the scope

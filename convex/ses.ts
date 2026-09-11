@@ -205,14 +205,10 @@ export const sendEmail = action({
     const emailLimits = await ctx.runQuery(internal.quotas.getUserLimits, {
       userId: mailbox.userId,
     });
-    const sentThisMonth = await ctx.runQuery(internal.quotas.countSentEmailsThisMonth, {
+    const sentThisPeriod = await ctx.runQuery(internal.quotas.countSentEmailsThisPeriod, {
       userId: mailbox.userId,
-      // Stop counting at the allowance being tested against, so the
-      // read stays proportional to the plan and not to how much mail
-      // this account has ever sent.
-      cap: emailLimits.emailsPerMonth,
     });
-    if (sentThisMonth >= emailLimits.emailsPerMonth) {
+    if (sentThisPeriod >= emailLimits.emailsPerMonth) {
       throw new ConvexError(
         `Monthly email limit reached (${emailLimits.emailsPerMonth.toLocaleString()} emails). Please upgrade your plan.`
       );
@@ -471,14 +467,10 @@ export const scheduleEmail = action({
     const schedLimits = await ctx.runQuery(internal.quotas.getUserLimits, {
       userId: mailbox.userId,
     });
-    const schedSentThisMonth = await ctx.runQuery(internal.quotas.countSentEmailsThisMonth, {
+    const schedSentThisPeriod = await ctx.runQuery(internal.quotas.countSentEmailsThisPeriod, {
       userId: mailbox.userId,
-      // Stop counting at the allowance being tested against, so the
-      // read stays proportional to the plan and not to how much mail
-      // this account has ever sent.
-      cap: schedLimits.emailsPerMonth,
     });
-    if (schedSentThisMonth >= schedLimits.emailsPerMonth) {
+    if (schedSentThisPeriod >= schedLimits.emailsPerMonth) {
       throw new ConvexError(
         `Monthly email limit reached (${schedLimits.emailsPerMonth.toLocaleString()} emails). Please upgrade your plan.`
       );
@@ -798,14 +790,10 @@ export const scheduleEmailViaApi = internalAction({
     const schedApiLimits = await ctx.runQuery(internal.quotas.getUserLimits, {
       userId: mailbox.userId,
     });
-    const schedApiSentThisMonth = await ctx.runQuery(internal.quotas.countSentEmailsThisMonth, {
+    const schedApiSentThisPeriod = await ctx.runQuery(internal.quotas.countSentEmailsThisPeriod, {
       userId: mailbox.userId,
-      // Stop counting at the allowance being tested against, so the
-      // read stays proportional to the plan and not to how much mail
-      // this account has ever sent.
-      cap: schedApiLimits.emailsPerMonth,
     });
-    if (schedApiSentThisMonth >= schedApiLimits.emailsPerMonth) {
+    if (schedApiSentThisPeriod >= schedApiLimits.emailsPerMonth) {
       throw new Error(
         `Monthly email limit reached (${schedApiLimits.emailsPerMonth.toLocaleString()} emails). Please upgrade your plan.`
       );
@@ -950,14 +938,10 @@ export const sendEmailViaApi = internalAction({
     const apiLimits = await ctx.runQuery(internal.quotas.getUserLimits, {
       userId: mailbox.userId,
     });
-    const apiSentThisMonth = await ctx.runQuery(internal.quotas.countSentEmailsThisMonth, {
+    const apiSentThisPeriod = await ctx.runQuery(internal.quotas.countSentEmailsThisPeriod, {
       userId: mailbox.userId,
-      // Stop counting at the allowance being tested against, so the
-      // read stays proportional to the plan and not to how much mail
-      // this account has ever sent.
-      cap: apiLimits.emailsPerMonth,
     });
-    if (apiSentThisMonth >= apiLimits.emailsPerMonth) {
+    if (apiSentThisPeriod >= apiLimits.emailsPerMonth) {
       throw new Error(
         `Monthly email limit reached (${apiLimits.emailsPerMonth.toLocaleString()} emails). Please upgrade your plan.`
       );

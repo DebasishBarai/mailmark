@@ -1,6 +1,7 @@
 import type { WithoutSystemFields } from "convex/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { dayKeyOf } from "./period";
 
 /**
  * Denormalized platform counters.
@@ -282,6 +283,22 @@ export async function readCounters(
 
 export type MailboxTally = {
   byFolder: Record<string, number>;
+  // Sent messages keyed by the UTC day of the message's own date, "YYYY-MM-DD".
+  // The send allowance is measured against a subscription period anchored on
+  // subscriptions.startedAt, which falls on an arbitrary day of the month, so
+  // the bucket has to be finer than the period. A day is the coarsest bucket
+  // that can still be summed into one.
+  //
+  // Keying off the message's date rather than off the clock is what makes this
+  // safe to maintain through the same before/after diff as everything else
+  // here: re-counting a message that has not changed day is a no-op, and there
+  // is no rollover step to run when a period turns over.
+  //
+  // Every row in the sent folder counts, whatever its deliveryStatus, which is
+  // exactly what the scan this replaces counted. A blocked message is included
+  // for the same reason it is included in byFolder["sent"]: the row is kept
+  // rather than deleted, and the two numbers should not disagree.
+  sentByDay: Record<string, number>;
   unread: number;
   delivered: number;
   failed: number;
@@ -289,6 +306,15 @@ export type MailboxTally = {
   pending: number;
   opened: number;
 };
+
+/** How many days of send counts a stats row keeps.
+ *
+ *  Every plan bills monthly, so the longest period that ever has to be summed
+ *  is 31 days. The rest is slack for a write that lands against a day the
+ *  period has already moved past, and it keeps the array small enough that
+ *  reading it costs nothing worth measuring. Anything older than this is
+ *  outside every live period and is dropped on the next write. */
+const DAYS_KEPT = 45;
 
 /**
  * Stored shape of the folder and source breakdowns.
@@ -316,6 +342,22 @@ const sourcesToRecord = (
   return out;
 };
 
+const daysToRecord = (
+  rows: { day: string; count: number }[]
+): Record<string, number> => {
+  const out: Record<string, number> = {};
+  for (const row of rows) out[row.day] = row.count;
+  return out;
+};
+
+/** Serialise day counts, newest first, keeping at most DAYS_KEPT of them. */
+export const dayRows = (rec: Record<string, number>) =>
+  Object.entries(rec)
+    .filter(([, count]) => count > 0)
+    .sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0))
+    .slice(0, DAYS_KEPT)
+    .map(([day, count]) => ({ day, count }));
+
 export const folderRows = (rec: Record<string, number>) =>
   Object.entries(rec)
     .filter(([, count]) => count > 0)
@@ -328,6 +370,7 @@ export const sourceRows = (rec: Record<string, number>) =>
 
 export const emptyMailboxTally = (): MailboxTally => ({
   byFolder: {},
+  sentByDay: {},
   unread: 0,
   delivered: 0,
   failed: 0,
@@ -354,6 +397,9 @@ export function applyEmailToTally(
   if (email.folder === "inbox" && !email.read) tally.unread += sign;
 
   if (email.folder === "sent") {
+    const day = dayKeyOf(email.date);
+    tally.sentByDay[day] = (tally.sentByDay[day] ?? 0) + sign;
+
     if (email.deliveryStatus === "delivered") tally.delivered += sign;
     else if (email.deliveryStatus === "failed") tally.failed += sign;
     else if (email.deliveryStatus === "bounced") tally.bounced += sign;
@@ -382,8 +428,10 @@ export async function applyMailboxDelta(
   const nonZeroFolders = Object.entries(delta.byFolder).filter(
     ([, n]) => n !== 0
   );
+  const nonZeroDays = Object.entries(delta.sentByDay).filter(([, n]) => n !== 0);
   if (
     nonZeroFolders.length === 0 &&
+    nonZeroDays.length === 0 &&
     delta.unread === 0 &&
     delta.delivered === 0 &&
     delta.failed === 0 &&
@@ -407,9 +455,12 @@ export async function applyMailboxDelta(
   if (!row) {
     const byFolder: Record<string, number> = {};
     for (const [folder, n] of nonZeroFolders) byFolder[folder] = Math.max(0, n);
+    const sentByDay: Record<string, number> = {};
+    for (const [day, n] of nonZeroDays) sentByDay[day] = Math.max(0, n);
     await ctx.db.insert("mailboxStats", {
       mailboxId,
       byFolder: folderRows(byFolder),
+      sentByDay: dayRows(sentByDay),
       unread: Math.max(0, delta.unread),
       delivered: Math.max(0, delta.delivered),
       failed: Math.max(0, delta.failed),
@@ -425,8 +476,14 @@ export async function applyMailboxDelta(
     byFolder[folder] = Math.max(0, (byFolder[folder] ?? 0) + n);
   }
 
+  const sentByDay = daysToRecord(row.sentByDay ?? []);
+  for (const [day, n] of nonZeroDays) {
+    sentByDay[day] = Math.max(0, (sentByDay[day] ?? 0) + n);
+  }
+
   await ctx.db.patch(row._id, {
     byFolder: folderRows(byFolder),
+    sentByDay: dayRows(sentByDay),
     unread: Math.max(0, row.unread + delta.unread),
     delivered: Math.max(0, row.delivered + delta.delivered),
     failed: Math.max(0, row.failed + delta.failed),
@@ -448,6 +505,10 @@ export async function readMailboxStats(
   if (!row) return emptyMailboxTally();
   return {
     byFolder: foldersToRecord(row.byFolder),
+    // Absent on every row written before this field existed. Those read as no
+    // sends at all until platformStats.startEntityStatsRebuild, which runs
+    // nightly and can be run by hand, walks the mailbox and fills them in.
+    sentByDay: daysToRecord(row.sentByDay ?? []),
     unread: row.unread,
     delivered: row.delivered,
     failed: row.failed,

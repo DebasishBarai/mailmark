@@ -231,7 +231,10 @@ export default function BillingPage() {
           <div className="grid gap-6 px-6 py-6 sm:grid-cols-2">
             {[
               { label: "Contacts", used: usage.usage.recipients, limit: usage.limits.recipients },
-              { label: "Emails this month", used: usage.usage.emailsSentThisMonth, limit: usage.limits.emailsPerMonth },
+              // Old: "Emails this month" reading usage.usage.emailsSentThisMonth.
+              // The allowance runs over the subscription period, not the
+              // calendar month, and the backend now reports it that way.
+              { label: "Emails this period", used: usage.usage.emailsSentThisPeriod, limit: usage.limits.emailsPerMonth },
               { label: "Domains", used: usage.usage.domains, limit: usage.limits.domains },
               { label: "Mailboxes", used: usage.usage.mailboxes, limit: usage.limits.mailboxes },
             ].map(({ label, used, limit }) => {
