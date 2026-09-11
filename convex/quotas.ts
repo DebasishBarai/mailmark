@@ -82,20 +82,25 @@ export function resolvePlan(
 
 /** Hard ceiling on how many email rows one usage scan will read.
  *
- *  A sent-email row is small (the body lives in S3; only a 100 character
- *  snippet is stored inline) but not free, so ten thousand of them sits
- *  comfortably inside the 16 MiB a Convex transaction may read while leaving
- *  room for the rest of the query.
+ *  Sized from what production actually read rather than from a guess about row
+ *  size. The failure this replaces logged 18.01 MB read against the 16777216
+ *  byte limit, out of an emails table of roughly 52,000 rows, which puts a row
+ *  somewhere in the hundreds of bytes to low kilobytes. At a pessimistic 2 KB
+ *  a row, two thousand rows is about 4 MB, a quarter of the budget, with the
+ *  rest left for the other reads in the query.
  *
- *  It is below the pro and business monthly allowances, so an account sending
- *  more than this in one month stops being counted exactly and its monthly
- *  limit stops being enforced. That is the deliberate direction to fail in: a
- *  paying sender who sends more than we counted is a billing question, whereas
- *  the alternative is refusing their mail on a number we cannot read. Removing
- *  the ceiling means keeping a per-month counter in mailboxStats the way the
+ *  It also sits above the free and starter allowance of 1,000, so those plans
+ *  are still counted and enforced exactly.
+ *
+ *  It is below the pro and business allowances, so an account sending more
+ *  than this in one period stops being counted exactly and its limit stops
+ *  being enforced. That is the deliberate direction to fail in: a paying
+ *  sender who sends more than we counted is a billing question, whereas the
+ *  alternative is refusing their mail on a number we cannot read. Removing the
+ *  ceiling means keeping the count denormalised in mailboxStats the way the
  *  all-time folder counts are already kept, rather than scanning at send time.
  */
-const MAX_USAGE_SCAN_ROWS = 10_000;
+const MAX_USAGE_SCAN_ROWS = 2_000;
 
 /** Count a user's sent mail on or after `since`, reading a bounded number of rows.
  *
