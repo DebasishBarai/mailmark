@@ -9,6 +9,8 @@ import {
   applyEmailToTally,
   emptyMailboxTally,
   emptyDayTally,
+  dayTallyIsEmpty,
+  DAY_FIELDS,
   type DayTally,
   dayRows,
   folderRows,
@@ -549,24 +551,11 @@ export const rebuildMailboxStats = internalMutation({
       const walked = tally.byDay[day] ?? emptyDayTally();
       const now = current.byDay[day] ?? emptyDayTally();
       const then = snapshot.byDay[day] ?? emptyDayTally();
-      const field = (k: keyof DayTally) =>
-        Math.max(0, walked[k] + (now[k] - then[k]));
-      const merged: DayTally = {
-        sent: field("sent"),
-        received: field("received"),
-        bounced: field("bounced"),
-        failed: field("failed"),
-        complained: field("complained"),
-      };
-      if (
-        merged.sent > 0 ||
-        merged.received > 0 ||
-        merged.bounced > 0 ||
-        merged.failed > 0 ||
-        merged.complained > 0
-      ) {
-        byDay[day] = merged;
+      const merged = emptyDayTally();
+      for (const k of DAY_FIELDS) {
+        merged[k] = Math.max(0, walked[k] + (now[k] - then[k]));
       }
+      if (!dayTallyIsEmpty(merged)) byDay[day] = merged;
     }
 
     const merge = (

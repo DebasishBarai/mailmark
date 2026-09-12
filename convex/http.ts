@@ -1524,6 +1524,37 @@ http.route({
 
 // ── Bounce Stats API ───────────────────────────────────────────────────────
 
+/** Shape of one domain's window, as getBounceStatsForDomain returns it. */
+type BounceWindow = {
+  totalSent: number;
+  delivered: number;
+  bounced: number;
+  failed: number;
+  complained: number;
+};
+
+const asPercent = (part: number, whole: number) =>
+  whole > 0 ? Math.round((part / whole) * 10000) / 100 : 0;
+
+/** Both kinds of bounce. `failed` is a permanent hard bounce per the emails
+ *  schema and `bounced` a transient one, and SES counts both against the
+ *  bounce rate it judges a sender on. This used to report only the transient
+ *  half, which understated the rate on exactly the failure that matters most.
+ *
+ *  The raw `bounced` and `failed` counts stay in the response unchanged and
+ *  still mean what they always did, so a caller that splits them keeps
+ *  working. Only the rate moves. */
+const bounceRateOf = (s: BounceWindow) =>
+  asPercent(s.bounced + s.failed, s.totalSent);
+
+/** Genuine complaints. This used to be computed from `failed`, which is a hard
+ *  bounce, so it reported dead addresses as spam reports and left real
+ *  complaints out of the response entirely. Both are now counted where they
+ *  belong, and `complained` is returned alongside as a raw count. */
+const complaintRateOf = (s: BounceWindow) =>
+  asPercent(s.complained, s.totalSent);
+
+
 http.route({
   path: "/v1/bounces",
   method: "GET",
@@ -1554,8 +1585,9 @@ http.route({
         delivered: stats.delivered,
         bounced: stats.bounced,
         failed: stats.failed,
-        bounceRate: stats.totalSent > 0 ? Math.round((stats.bounced / stats.totalSent) * 10000) / 100 : 0,
-        complaintRate: stats.totalSent > 0 ? Math.round((stats.failed / stats.totalSent) * 10000) / 100 : 0,
+        complained: stats.complained,
+        bounceRate: bounceRateOf(stats),
+        complaintRate: complaintRateOf(stats),
       }, 200);
     }
 
@@ -1577,8 +1609,9 @@ http.route({
           delivered: stats.delivered,
           bounced: stats.bounced,
           failed: stats.failed,
-          bounceRate: stats.totalSent > 0 ? Math.round((stats.bounced / stats.totalSent) * 10000) / 100 : 0,
-          complaintRate: stats.totalSent > 0 ? Math.round((stats.failed / stats.totalSent) * 10000) / 100 : 0,
+          complained: stats.complained,
+          bounceRate: bounceRateOf(stats),
+          complaintRate: complaintRateOf(stats),
         };
       })
     );

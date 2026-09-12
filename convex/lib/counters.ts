@@ -301,6 +301,7 @@ export async function readCounters(
 export type DayTally = {
   sent: number;
   received: number;
+  delivered: number;
   bounced: number;
   failed: number;
   complained: number;
@@ -309,10 +310,25 @@ export type DayTally = {
 export const emptyDayTally = (): DayTally => ({
   sent: 0,
   received: 0,
+  delivered: 0,
   bounced: 0,
   failed: 0,
   complained: 0,
 });
+
+/** Every count a day bucket carries, so the merges below cannot forget one. */
+export const DAY_FIELDS: (keyof DayTally)[] = [
+  "sent",
+  "received",
+  "delivered",
+  "bounced",
+  "failed",
+  "complained",
+];
+
+/** True when a bucket carries nothing and can be dropped. */
+export const dayTallyIsEmpty = (d: DayTally): boolean =>
+  DAY_FIELDS.every((k) => d[k] === 0);
 
 export type MailboxTally = {
   byFolder: Record<string, number>;
@@ -340,13 +356,17 @@ export type MailboxTally = {
 
 /** How many days of buckets a stats row keeps.
  *
- *  Two readers set the floor: the longest billing period is 31 days, since
- *  every plan bills monthly, and the dashboard chart draws 30. The rest is
- *  slack for a write that lands against a day the period has already moved
- *  past, and it keeps the array small enough that reading it costs nothing
- *  worth measuring. Anything older is outside every live window and is dropped
+ *  Sized by the widest window any reader asks for. The /v1/bounces API takes a
+ *  days parameter clamped to 90 and is the widest; the longest billing period
+ *  is 31, since every plan bills monthly; the dashboard chart draws 30. 95
+ *  covers the widest with slack for a write landing against a day a window has
+ *  already moved past.
+ *
+ *  Do not lower this below any reader's window without changing that reader:
+ *  a window wider than what is kept silently reports a short period as a full
+ *  one. Anything older than this is outside every live window and is dropped
  *  on the next write. */
-const DAYS_KEPT = 45;
+const DAYS_KEPT = 95;
 
 /**
  * Stored shape of the folder and source breakdowns.
@@ -379,6 +399,9 @@ const daysToRecord = (
     day: string;
     sent: number;
     received: number;
+    // Optional because it was added after byDay itself. A row written before
+    // that reads as no deliveries rather than failing to parse.
+    delivered?: number;
     bounced: number;
     failed: number;
     complained: number;
@@ -389,6 +412,7 @@ const daysToRecord = (
     out[row.day] = {
       sent: row.sent,
       received: row.received,
+      delivered: row.delivered ?? 0,
       bounced: row.bounced,
       failed: row.failed,
       complained: row.complained,
@@ -403,20 +427,14 @@ const daysToRecord = (
  *  so a mailbox that has been emptied does not carry a run of empty buckets. */
 export const dayRows = (rec: Record<string, DayTally>) =>
   Object.entries(rec)
-    .filter(
-      ([, d]) =>
-        d.sent > 0 ||
-        d.received > 0 ||
-        d.bounced > 0 ||
-        d.failed > 0 ||
-        d.complained > 0
-    )
+    .filter(([, d]) => !dayTallyIsEmpty(d))
     .sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0))
     .slice(0, DAYS_KEPT)
     .map(([day, d]) => ({
       day,
       sent: d.sent,
       received: d.received,
+      delivered: d.delivered,
       bounced: d.bounced,
       failed: d.failed,
       complained: d.complained,
@@ -473,9 +491,10 @@ export function applyEmailToTally(
 
   if (email.folder === "sent") {
     dayTally.sent += sign;
-    // Split by what actually happened, so domainHealth can tell a dead address
-    // from a reputation problem from a genuine complaint.
-    if (email.deliveryStatus === "bounced") dayTally.bounced += sign;
+    // Split by what actually happened, so domainHealth and the bounce API can
+    // tell a dead address from a reputation problem from a genuine complaint.
+    if (email.deliveryStatus === "delivered") dayTally.delivered += sign;
+    else if (email.deliveryStatus === "bounced") dayTally.bounced += sign;
     else if (email.deliveryStatus === "failed") dayTally.failed += sign;
     else if (email.deliveryStatus === "complained") dayTally.complained += sign;
 
@@ -508,12 +527,7 @@ export async function applyMailboxDelta(
     ([, n]) => n !== 0
   );
   const nonZeroDays = Object.entries(delta.byDay).filter(
-    ([, d]) =>
-      d.sent !== 0 ||
-      d.received !== 0 ||
-      d.bounced !== 0 ||
-      d.failed !== 0 ||
-      d.complained !== 0
+    ([, d]) => DAY_FIELDS.some((k) => d[k] !== 0)
   );
   if (
     nonZeroFolders.length === 0 &&
@@ -543,13 +557,9 @@ export async function applyMailboxDelta(
     for (const [folder, n] of nonZeroFolders) byFolder[folder] = Math.max(0, n);
     const byDay: Record<string, DayTally> = {};
     for (const [day, d] of nonZeroDays) {
-      byDay[day] = {
-        sent: Math.max(0, d.sent),
-        received: Math.max(0, d.received),
-        bounced: Math.max(0, d.bounced),
-        failed: Math.max(0, d.failed),
-        complained: Math.max(0, d.complained),
-      };
+      const fresh = emptyDayTally();
+      for (const k of DAY_FIELDS) fresh[k] = Math.max(0, d[k]);
+      byDay[day] = fresh;
     }
     await ctx.db.insert("mailboxStats", {
       mailboxId,
@@ -573,13 +583,9 @@ export async function applyMailboxDelta(
   const byDay = daysToRecord(row.byDay ?? []);
   for (const [day, d] of nonZeroDays) {
     const current = byDay[day] ?? emptyDayTally();
-    byDay[day] = {
-      sent: Math.max(0, current.sent + d.sent),
-      received: Math.max(0, current.received + d.received),
-      bounced: Math.max(0, current.bounced + d.bounced),
-      failed: Math.max(0, current.failed + d.failed),
-      complained: Math.max(0, current.complained + d.complained),
-    };
+    const merged = emptyDayTally();
+    for (const k of DAY_FIELDS) merged[k] = Math.max(0, current[k] + d[k]);
+    byDay[day] = merged;
   }
 
   await ctx.db.patch(row._id, {

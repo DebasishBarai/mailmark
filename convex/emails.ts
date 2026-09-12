@@ -17,6 +17,7 @@ import {
 } from "./lib/counters";
 import { recordRecipientsForMailbox } from "./lib/recipients";
 import { repairLatin1Mojibake } from "./lib/mimeHeader";
+import { dayKeyOf } from "./lib/period";
 import { internal } from "./_generated/api";
 import { suppress } from "./suppressions";
 import { isPermanentBounce } from "./lib/sendPolicy";
@@ -1055,6 +1056,23 @@ export const markAsReplied = internalMutation({
 
 // ── Bounce stats for a domain (used by /v1/bounces) ──
 
+/** Send and failure counts for a domain over a window, for /v1/bounces.
+ *
+ *  Reads mailboxStats.byDay, the same buckets domainHealth scores a domain
+ *  from, so the API and the dashboard cannot report different bounce rates for
+ *  the same domain. It also means no email rows are read: this used to collect
+ *  every sent message in the window for every mailbox, and the window comes
+ *  from a caller-supplied days parameter, so a wide enough request reproduced
+ *  the read that refused every send on the account.
+ *
+ *  `complained` is new here, and is what a complaint actually is. The route
+ *  used to compute its complaint rate from `failed`, which the emails schema
+ *  defines as a permanent hard bounce, so it reported hard bounces as
+ *  complaints and counted real complaints nowhere.
+ *
+ *  Dropped from the return: opened, clicked and replied. This query computed
+ *  all three and no caller has ever read one.
+ */
 export const getBounceStatsForDomain = internalQuery({
   args: {
     domainId: v.id("domains"),
@@ -1070,40 +1088,34 @@ export const getBounceStatsForDomain = internalQuery({
     let delivered = 0;
     let bounced = 0;
     let failed = 0;
-    let opened = 0;
-    let clicked = 0;
-    let replied = 0;
+    let complained = 0;
+
+    const since = dayKeyOf(sinceMs);
 
     for (const mb of mailboxes) {
-      // Old: collect every sent message the mailbox ever had, then skip the
-      // ones before sinceMs in the loop below. Same rows match either way, but
-      // the range read stops scanning at the window boundary.
+      // Old: a range read over by_mailbox_folder_date, bounded by the window
+      // but not by how much was sent inside it.
       //
       // const sentEmails = await ctx.db
       //   .query("emails")
-      //   .withIndex("by_mailbox_folder", (q) =>
-      //     q.eq("mailboxId", mb._id).eq("folder", "sent")
+      //   .withIndex("by_mailbox_folder_date", (q) =>
+      //     q.eq("mailboxId", mb._id).eq("folder", "sent").gte("date", sinceMs)
       //   )
       //   .collect();
-      const sentEmails = await ctx.db
-        .query("emails")
-        .withIndex("by_mailbox_folder_date", (q) =>
-          q.eq("mailboxId", mb._id).eq("folder", "sent").gte("date", sinceMs)
-        )
-        .collect();
-
-      for (const email of sentEmails) {
-        totalSent++;
-        if (email.deliveryStatus === "delivered") delivered++;
-        else if (email.deliveryStatus === "bounced") bounced++;
-        else if (email.deliveryStatus === "failed") failed++;
-        if (email.openedAt) opened++;
-        if (email.clickedLinks && email.clickedLinks.length > 0) clicked++;
-        if (email.repliedAt) replied++;
+      // for (const email of sentEmails) { ...count by deliveryStatus... }
+      const stats = await readMailboxStats(ctx, mb._id);
+      // Day keys are zero padded, so lexical order is chronological order.
+      for (const [day, tally] of Object.entries(stats.byDay)) {
+        if (day < since) continue;
+        totalSent += tally.sent;
+        delivered += tally.delivered;
+        bounced += tally.bounced;
+        failed += tally.failed;
+        complained += tally.complained;
       }
     }
 
-    return { totalSent, delivered, bounced, failed, opened, clicked, replied };
+    return { totalSent, delivered, bounced, failed, complained };
   },
 });
 

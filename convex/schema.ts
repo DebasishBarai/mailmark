@@ -862,13 +862,14 @@ export default defineSchema({
     // A day rather than anything coarser because the allowance runs over a
     // subscription period anchored on subscriptions.startedAt, which begins on
     // an arbitrary day of the month, and because the chart draws one point per
-    // day. 45 days covers the longest monthly period and the 30 day chart with
-    // slack to spare.
+    // day. Retention is sized by the widest window any reader asks for, which
+    // is the /v1/bounces days parameter at 90; see DAYS_KEPT in lib/counters.
     //
     // bounced, failed and complained are kept apart because they are different
     // problems: per the emails table above, failed is a permanent hard bounce,
     // bounced a transient one, and complained means it arrived and was
-    // reported.
+    // reported. The /v1/bounces API and domainHealth both read them from here,
+    // so the dashboard and the API cannot drift apart on what a bounce is.
     //
     // Optional for the same reason byFolder never was: rows written before
     // this field existed carry nothing until the nightly
@@ -879,6 +880,9 @@ export default defineSchema({
           day: v.string(),
           sent: v.number(),
           received: v.number(),
+          // Optional because it was added after byDay itself, so a row written
+          // by the version between the two still validates on deploy.
+          delivered: v.optional(v.number()),
           bounced: v.number(),
           failed: v.number(),
           complained: v.number(),
