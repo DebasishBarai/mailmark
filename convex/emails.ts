@@ -8,6 +8,8 @@ import {
   applyEmailToTally,
   applyMailboxDelta,
   deleteEmailCounted,
+  deleteEmailsCounted,
+  deleteMailboxStats,
   emptyMailboxTally,
   insertEmailCounted,
   patchEmailCounted,
@@ -236,6 +238,50 @@ export const markAsRead = mutation({
   },
 });
 
+/** How many messages one markAllAsRead transaction touches.
+ *
+ *  The work is bounded per call and continued by a scheduled follow-up, so a
+ *  mailbox with any number of unread messages is marked without a single
+ *  transaction having to hold all of them. */
+const MARK_READ_BATCH = 500;
+
+/** Mark up to MARK_READ_BATCH unread messages read. Returns whether it filled
+ *  the batch, which means there is more to do.
+ *
+ *  The read flag is the last component of by_mailbox_folder_read, so this reads
+ *  only rows that are still unread. Marking them flips that flag and moves them
+ *  out of the range, which is why each call can start from the beginning
+ *  instead of carrying a cursor: the rows it already handled are no longer
+ *  there to be seen again.
+ */
+async function markUnreadBatch(
+  ctx: MutationCtx,
+  mailboxId: Id<"mailboxes">
+): Promise<boolean> {
+  const unread = await ctx.db
+    .query("emails")
+    .withIndex("by_mailbox_folder_read", (q) =>
+      q.eq("mailboxId", mailboxId).eq("folder", "inbox").eq("read", false)
+    )
+    .take(MARK_READ_BATCH);
+
+  if (unread.length === 0) return false;
+
+  // Old: a bare patch per row, which left mailboxStats.unread stale.
+  // Going through patchEmailCounted here would add a stats write per email,
+  // so instead the unread delta is tallied in memory and written once, the
+  // same shape as the cascade deletes in lib/counters.ts.
+  const tally = emptyMailboxTally();
+  for (const email of unread) {
+    applyEmailToTally(tally, email, -1);
+    await ctx.db.patch(email._id, { read: true });
+    applyEmailToTally(tally, { ...email, read: true }, 1);
+  }
+  await applyMailboxDelta(ctx, mailboxId, tally);
+
+  return unread.length === MARK_READ_BATCH;
+}
+
 export const markAllAsRead = mutation({
   args: { mailboxId: v.id("mailboxes") },
   handler: async (ctx, { mailboxId }) => {
@@ -254,26 +300,87 @@ export const markAllAsRead = mutation({
       throw new Error("Not authorized");
     }
 
-    const emails = await ctx.db
-      .query("emails")
-      .withIndex("by_mailbox_folder", (q) =>
-        q.eq("mailboxId", mailboxId).eq("folder", "inbox")
-      )
-      .collect();
-
-    // Old: a bare patch per row, which left mailboxStats.unread stale.
-    // Going through patchEmailCounted here would add a stats write per email,
-    // so instead the unread delta is tallied in memory and written once, the
-    // same shape as the cascade deletes in lib/counters.ts.
-    const tally = emptyMailboxTally();
-    for (const email of emails) {
-      if (!email.read) {
-        applyEmailToTally(tally, email, -1);
-        await ctx.db.patch(email._id, { read: true });
-        applyEmailToTally(tally, { ...email, read: true }, 1);
-      }
+    // Old: collected the entire inbox folder, however large, and skipped the
+    // already-read rows in memory. One click on a big mailbox was the same
+    // unbounded read that broke the send quota.
+    //
+    // const emails = await ctx.db
+    //   .query("emails")
+    //   .withIndex("by_mailbox_folder", (q) =>
+    //     q.eq("mailboxId", mailboxId).eq("folder", "inbox")
+    //   )
+    //   .collect();
+    // for (const email of emails) { if (!email.read) { ...patch... } }
+    const more = await markUnreadBatch(ctx, mailboxId);
+    if (more) {
+      await ctx.scheduler.runAfter(0, internal.emails.markAllAsReadContinue, {
+        mailboxId,
+      });
     }
-    await applyMailboxDelta(ctx, mailboxId, tally);
+  },
+});
+
+/** Continues markAllAsRead past its first batch. Authorisation was settled by
+ *  the public mutation that scheduled this, which is why it takes none. */
+export const markAllAsReadContinue = internalMutation({
+  args: { mailboxId: v.id("mailboxes") },
+  handler: async (ctx, { mailboxId }) => {
+    const more = await markUnreadBatch(ctx, mailboxId);
+    if (more) {
+      await ctx.scheduler.runAfter(0, internal.emails.markAllAsReadContinue, {
+        mailboxId,
+      });
+    }
+  },
+});
+
+/** How many messages one cascade-delete transaction removes. */
+const EMAIL_SWEEP_BATCH = 500;
+
+/** Delete up to EMAIL_SWEEP_BATCH of a mailbox's messages, whatever folder.
+ *
+ *  Returns the S3 keys removed so a caller that owns the objects can delete
+ *  them too, and whether the batch was full, which means there is more.
+ *
+ *  No cursor, for the same reason markUnreadBatch needs none: the rows this
+ *  reads are gone by the time it returns, so the next call starting from the
+ *  beginning of the range sees the next batch.
+ */
+export async function sweepMailboxEmailsBatch(
+  ctx: MutationCtx,
+  mailboxId: Id<"mailboxes">
+): Promise<{ s3Keys: string[]; more: boolean }> {
+  const page = await ctx.db
+    .query("emails")
+    .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mailboxId))
+    .take(EMAIL_SWEEP_BATCH);
+
+  if (page.length === 0) return { s3Keys: [], more: false };
+
+  const s3Keys = page.map((e) => e.s3Key);
+  await deleteEmailsCounted(ctx, page);
+
+  return { s3Keys, more: page.length === EMAIL_SWEEP_BATCH };
+}
+
+/** Sweep a mailbox's messages to nothing across as many transactions as it
+ *  takes, then drop its stats row.
+ *
+ *  Used where nothing is waiting on the outcome, so the work can be spread
+ *  over scheduled steps. The S3 objects are not touched here, which matches
+ *  what the domain cascade has always done.
+ */
+export const sweepMailboxEmails = internalMutation({
+  args: { mailboxId: v.id("mailboxes") },
+  handler: async (ctx, { mailboxId }) => {
+    const { more } = await sweepMailboxEmailsBatch(ctx, mailboxId);
+    if (more) {
+      await ctx.scheduler.runAfter(0, internal.emails.sweepMailboxEmails, {
+        mailboxId,
+      });
+      return;
+    }
+    await deleteMailboxStats(ctx, mailboxId);
   },
 });
 
@@ -538,22 +645,30 @@ export const updateIngestedRecipients = internalMutation({
 // is stored. A subject that was always fine is pure ASCII and decodes to
 // itself, and a genuinely Latin-1 subject ("Caf\u00e9") is not valid UTF-8, so
 // neither is touched.
+/** Rows one hand-run repair pass reads. */
+const REPAIR_BATCH = 500;
+
 export const repairMojibakeSubjects = internalMutation({
   args: {
     mailboxId: v.id("mailboxes"),
     folder: v.optional(v.string()),
     dryRun: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
   },
-  handler: async (ctx, { mailboxId, folder, dryRun }) => {
+  handler: async (ctx, { mailboxId, folder, dryRun, limit }) => {
     const targetFolder = folder ?? "inbox";
     const isDryRun = dryRun ?? true;
 
+    // Old: .collect(), the whole folder in one transaction. This is a repair
+    // tool run by hand, so a bounded batch and a second run is a better
+    // failure mode than a read that cannot finish on the mailboxes most
+    // likely to need repairing.
     const emails = await ctx.db
       .query("emails")
       .withIndex("by_mailbox_folder", (q) =>
         q.eq("mailboxId", mailboxId).eq("folder", targetFolder)
       )
-      .collect();
+      .take(limit ?? REPAIR_BATCH);
 
     const repaired: Array<{ before: string; after: string }> = [];
 
@@ -597,20 +712,31 @@ export const getByMailboxAndMessageId = internalQuery({
   },
 });
 
-// Every row in a folder, for the repair and purge actions. Unlike
-// listByMailboxAndFolderInternal this is not capped at 50 rows.
+// A folder's rows for the repair and purge actions. Unlike
+// listByMailboxAndFolderInternal this is not capped at 50, but it is capped:
+// it used to .collect() the folder entire, which on a busy mailbox is the
+// unbounded read that broke the send quota. Callers that have more to do than
+// one batch run the action again.
 export const listForRepairInternal = internalQuery({
   args: {
     mailboxId: v.id("mailboxes"),
     folder: v.string(),
+    limit: v.optional(v.number()),
+    // For callers that want the newest rows rather than any rows. A Convex
+    // index is ordered by _creationTime after its own fields, so descending
+    // order off this one is newest first. inspectEmailS3 used to read the
+    // whole folder and sort it in memory to find five rows.
+    newestFirst: v.optional(v.boolean()),
   },
-  handler: async (ctx, { mailboxId, folder }) => {
-    return await ctx.db
+  handler: async (ctx, { mailboxId, folder, limit, newestFirst }) => {
+    const rows = ctx.db
       .query("emails")
       .withIndex("by_mailbox_folder", (q) =>
         q.eq("mailboxId", mailboxId).eq("folder", folder)
-      )
-      .collect();
+      );
+    return await (newestFirst ? rows.order("desc") : rows).take(
+      limit ?? REPAIR_BATCH
+    );
   },
 });
 

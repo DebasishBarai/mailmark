@@ -1245,15 +1245,24 @@ export const inspectEmailS3 = internalAction({
     });
     if (!mailbox) throw new Error("Mailbox not found");
 
-    const all = await ctx.runQuery(internal.emails.listForRepairInternal, {
+    // Old: read every row in the folder, sort the lot by creation time and
+    // keep five. The index already orders by creation time, so asking for the
+    // newest five reads five rows.
+    //
+    // const all = await ctx.runQuery(internal.emails.listForRepairInternal, {
+    //   mailboxId, folder: targetFolder,
+    // });
+    // const recent = [...all]
+    //   .sort((a, b) => b._creationTime - a._creationTime)
+    //   .slice(0, limit ?? 5);
+    const recent = await ctx.runQuery(internal.emails.listForRepairInternal, {
       mailboxId,
       folder: targetFolder,
+      newestFirst: true,
+      limit: limit ?? 5,
     });
-    if (all.length === 0) return { mailbox: mailbox.fullAddress, rows: [] };
-
-    const recent = [...all]
-      .sort((a, b) => b._creationTime - a._creationTime)
-      .slice(0, limit ?? 5);
+    if (recent.length === 0) return { mailbox: mailbox.fullAddress, rows: [] };
+    const all = recent;
 
     const aws = await clientsForS3Key(ctx, all[0].s3Key);
 
@@ -1345,8 +1354,9 @@ export const repairEmailS3Keys = internalAction({
     mailboxId: v.id("mailboxes"),
     folder: v.optional(v.string()),
     dryRun: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
   },
-  handler: async (ctx, { mailboxId, folder, dryRun }) => {
+  handler: async (ctx, { mailboxId, folder, dryRun, limit }) => {
     const targetFolder = folder ?? "inbox";
     const isDryRun = dryRun ?? false;
 
@@ -1355,9 +1365,11 @@ export const repairEmailS3Keys = internalAction({
     });
     if (!mailbox) throw new Error("Mailbox not found");
 
+    // Bounded batch rather than the whole folder. Run again to continue.
     const emails = await ctx.runQuery(internal.emails.listForRepairInternal, {
       mailboxId,
       folder: targetFolder,
+      limit,
     });
     if (emails.length === 0) {
       return { folder: targetFolder, scanned: 0, intact: 0, repaired: [], missing: [] };
@@ -1461,14 +1473,18 @@ export const repairSubjectsFromS3 = internalAction({
     mailboxId: v.id("mailboxes"),
     folder: v.optional(v.string()),
     dryRun: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
   },
-  handler: async (ctx, { mailboxId, folder, dryRun }) => {
+  handler: async (ctx, { mailboxId, folder, dryRun, limit }) => {
     const targetFolder = folder ?? "inbox";
     const isDryRun = dryRun ?? true;
 
+    // listForRepairInternal reads a bounded batch rather than the whole
+    // folder. Raise `limit` to widen one pass, or run the action again.
     const emails = await ctx.runQuery(internal.emails.listForRepairInternal, {
       mailboxId,
       folder: targetFolder,
+      limit,
     });
     if (emails.length === 0) {
       return {
@@ -1575,15 +1591,21 @@ export const purgeDuplicateIngests = internalAction({
   args: {
     mailboxId: v.id("mailboxes"),
     folder: v.optional(v.string()),
+    limit: v.optional(v.number()),
     dryRun: v.optional(v.boolean()),
   },
-  handler: async (ctx, { mailboxId, folder, dryRun }) => {
+  handler: async (ctx, { mailboxId, folder, dryRun, limit }) => {
     const targetFolder = folder ?? "inbox";
     const isDryRun = dryRun ?? true;
 
+    // Bounded batch rather than the whole folder. Duplicates are found within
+    // the batch, so a group split across two batches is caught on the run that
+    // sees both copies: repeated runs converge, one run is not guaranteed to
+    // be enough on a folder larger than the batch.
     const emails = await ctx.runQuery(internal.emails.listForRepairInternal, {
       mailboxId,
       folder: targetFolder,
+      limit,
     });
     if (emails.length === 0) {
       return { folder: targetFolder, scanned: 0, duplicateGroups: 0, deleted: [], skipped: [] };

@@ -81,6 +81,12 @@ export default defineSchema({
   })
     .index("by_user_id", ["userId"])
     .index("by_domain", ["domain"])
+    // The verification crons both want unverified domains within a creation
+    // time window. Without this they scanned the whole table and narrowed with
+    // .filter(), which reads every row before discarding it. A Convex index is
+    // ordered by _creationTime after its own fields, so this range arrives
+    // oldest first and the crons can stop at a bounded batch.
+    .index("by_verified", ["verified"])
     .index("by_aws_account", ["awsAccountId"]),
 
   // User-connected AWS accounts for BYO (bring-your-own) infrastructure.
@@ -202,6 +208,11 @@ export default defineSchema({
     // unbounded work for a bounded answer, and it is what put these queries on
     // course for the 32,000 document scan cap.
     .index("by_mailbox_folder_date", ["mailboxId", "folder", "date"])
+    // markAllAsRead wants "this folder's unread mail" and by_mailbox_folder
+    // stops at the folder, so it collected the whole inbox and skipped the
+    // already-read rows in memory. On a large mailbox that is the same
+    // unbounded read that broke quotas, reachable from a single click.
+    .index("by_mailbox_folder_read", ["mailboxId", "folder", "read"])
     .index("by_message_id", ["messageId"])
     .index("by_ses_message_id", ["sesMessageId"]),
 

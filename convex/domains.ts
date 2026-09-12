@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import {
   buildDomainPendingNotice,
   noticeInputFromDomain,
@@ -10,8 +11,6 @@ import {
   countCreated,
   countRemoved,
   deleteDomainStats,
-  deleteEmailsCounted,
-  deleteMailboxStats,
   domainBuckets,
 } from "./lib/counters";
 import {
@@ -205,23 +204,26 @@ export const deleteDomainCascade = internalMutation({
       .collect();
 
     for (const mb of mailboxes) {
-      const emails = await ctx.db
-        .query("emails")
-        .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mb._id))
-        .collect();
-
-      // Old: one ctx.db.delete per email. Same rows are removed, but the
-      // counters are tallied in memory and written once for the whole batch,
-      // so a mailbox with thousands of emails does not add thousands of
-      // counter writes to a mutation that is already reading every one of
-      // those rows into a single transaction.
-      // for (const email of emails) {
-      //   await ctx.db.delete(email._id);
-      // }
-      await deleteEmailsCounted(ctx, emails);
-
+      // Old: read every message in the mailbox into this transaction and
+      // delete them here. That is the unbounded read that broke the send
+      // quota, and a domain with a busy mailbox could not be deleted at all
+      // because the mutation died before it reached the domain row.
+      //
+      // const emails = await ctx.db
+      //   .query("emails")
+      //   .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mb._id))
+      //   .collect();
+      // await deleteEmailsCounted(ctx, emails);
+      //
+      // The mailbox row goes now, so the domain disappears from the user's
+      // account immediately, and its mail is swept in scheduled batches after.
+      // Nothing is waiting on that sweep, and emails are indexed by mailboxId,
+      // which keeps working once the mailbox row is gone. The sweep drops the
+      // stats row when it finishes, so deleteMailboxStats is not called here.
       await ctx.db.delete(mb._id);
-      await deleteMailboxStats(ctx, mb._id);
+      await ctx.scheduler.runAfter(0, internal.emails.sweepMailboxEmails, {
+        mailboxId: mb._id,
+      });
     }
     // One counter write for the whole set, for the same reason the emails
     // above are tallied rather than counted one at a time.
@@ -234,18 +236,31 @@ export const deleteDomainCascade = internalMutation({
   },
 });
 
+/** Rows either verification sweep reads in one pass. */
+const DOMAIN_SWEEP_BATCH = 200;
+
 export const listUnverifiedOlderThan = internalQuery({
-  args: { cutoffTime: v.number() },
-  handler: async (ctx, { cutoffTime }) => {
-    return await ctx.db
+  args: { cutoffTime: v.number(), limit: v.optional(v.number()) },
+  handler: async (ctx, { cutoffTime, limit }) => {
+    // Old: no index at all, so this read the entire domains table and threw
+    // away every verified row, then every row inside the cutoff. Same shape as
+    // the quota scan, just against a table that is small today.
+    //
+    // return await ctx.db.query("domains").filter((q) => q.and(
+    //   q.eq(q.field("verified"), false),
+    //   q.lt(q.field("_creationTime"), cutoffTime)
+    // )).collect();
+    //
+    // A Convex index orders by _creationTime after its own fields, so the
+    // unverified range arrives oldest first. The rows this wants are therefore
+    // at the front of it, and a bounded batch off the front is enough: the
+    // caller is a daily cron, so anything left waits for tomorrow.
+    const oldest = await ctx.db
       .query("domains")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("verified"), false),
-          q.lt(q.field("_creationTime"), cutoffTime)
-        )
-      )
-      .collect();
+      .withIndex("by_verified", (q) => q.eq("verified", false))
+      .take(limit ?? DOMAIN_SWEEP_BATCH);
+
+    return oldest.filter((d) => d._creationTime < cutoffTime);
   },
 });
 
@@ -256,15 +271,25 @@ export const listUnverifiedOlderThan = internalQuery({
 export const listPendingVerification = internalQuery({
   args: { createdAfter: v.number(), limit: v.number() },
   handler: async (ctx, { createdAfter, limit }) => {
-    return await ctx.db
+    // Old: no index, so .take(limit) bounded what came back but not what was
+    // read. A filtered scan keeps reading until it has enough matches, which
+    // on a table where few rows match means reading all of it.
+    //
+    // return await ctx.db.query("domains").filter((q) => q.and(
+    //   q.eq(q.field("verified"), false),
+    //   q.gt(q.field("_creationTime"), createdAfter)
+    // )).take(limit);
+    //
+    // Newest first, so every row inside the window sorts ahead of every row
+    // outside it. Taking `limit` and dropping the ones that fall outside
+    // therefore loses nothing the old query would have returned.
+    const newest = await ctx.db
       .query("domains")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("verified"), false),
-          q.gt(q.field("_creationTime"), createdAfter)
-        )
-      )
+      .withIndex("by_verified", (q) => q.eq("verified", false))
+      .order("desc")
       .take(limit);
+
+    return newest.filter((d) => d._creationTime > createdAfter);
   },
 });
 
