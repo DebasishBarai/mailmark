@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { api } from "../../convex/_generated/api";
+
+/** Exactly what convex/quotas.ts getUsageAndLimits returns, including the null
+ *  it returns when signed out. */
+export type QuotaUsage = FunctionReturnType<typeof api.quotas.getUsageAndLimits>;
 
 /**
  * Banner shown when the account is at or over the contact allowance for its
@@ -53,9 +58,25 @@ const TONES = {
   },
 } as const;
 
-export default function ContactLimitWarning() {
-  const usage = useQuery(api.quotas.getUsageAndLimits);
-
+/**
+ * The banner itself, over usage handed to it.
+ *
+ * Split out from the querying component below so the admin view of another
+ * user's dashboard can render this same notice from that user's usage. An
+ * admin must see the banner the user sees, not one computed from the admin's
+ * own plan.
+ *
+ * readOnly drops the two action links. They point at /billing and /audience,
+ * which resolve to the reader's own account, so on someone else's dashboard
+ * they would take an admin somewhere the banner did not promise.
+ */
+export function ContactLimitNotice({
+  usage,
+  readOnly = false,
+}: {
+  usage: QuotaUsage | undefined;
+  readOnly?: boolean;
+}) {
   // undefined while the query is in flight, null when signed out.
   if (!usage) return null;
 
@@ -120,15 +141,23 @@ export default function ContactLimitWarning() {
             </p>
           </>
         )}
-        <div className="mt-2 flex flex-wrap items-center gap-4">
-          <Link href="/billing" className={tone.primaryLink}>
-            Upgrade plan
-          </Link>
-          <Link href="/audience" className={tone.secondaryLink}>
-            View contacts
-          </Link>
-        </div>
+        {!readOnly && (
+          <div className="mt-2 flex flex-wrap items-center gap-4">
+            <Link href="/billing" className={tone.primaryLink}>
+              Upgrade plan
+            </Link>
+            <Link href="/audience" className={tone.secondaryLink}>
+              View contacts
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+/** The banner for the signed-in user, which is what /dashboard renders. */
+export default function ContactLimitWarning() {
+  const usage = useQuery(api.quotas.getUsageAndLimits);
+  return <ContactLimitNotice usage={usage} />;
 }

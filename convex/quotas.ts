@@ -1,6 +1,7 @@
 import { internalQuery, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { isAdmin } from "./lib/admin";
 import { readMailboxStats } from "./lib/counters";
 import { periodStartDayKey } from "./lib/period";
 import { v } from "convex/values";
@@ -133,6 +134,85 @@ async function countSentEmailsThisPeriodFor(
   return count;
 }
 
+/** Plan limits and current usage for one user.
+ *
+ *  This was the body of getUsageAndLimits. It is a plain function over a user
+ *  doc now so the admin view of a user's dashboard resolves the plan and the
+ *  allowance exactly as that user's own session does, rather than through a
+ *  second copy that could drift. */
+async function usageAndLimitsFor(ctx: QueryCtx, user: Doc<"users">) {
+  const subscription = await ctx.db
+    .query("subscriptions")
+    .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+    .first();
+
+  const plan = resolvePlan(user.category, subscription?.status, subscription?.plan);
+  const limits = PLAN_LIMITS[plan];
+
+  const domains = await ctx.db
+    .query("domains")
+    .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+    .collect();
+
+  const mailboxes = await ctx.db
+    .query("mailboxes")
+    .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+    .collect();
+
+  // Old, and the reason the pages that call this stopped rendering with a
+  // client-side exception: .withIndex("by_mailbox_folder") followed by
+  // .filter() on date read every sent message in the mailbox, forever, to
+  // count one window. It also measured the calendar month, which is not the
+  // window the allowance actually runs over.
+  //
+  // const now = new Date();
+  // const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  // let emailsSentThisMonth = 0;
+  // for (const mailbox of mailboxes) {
+  //   const emails = await ctx.db
+  //     .query("emails")
+  //     .withIndex("by_mailbox_folder", (q) =>
+  //       q.eq("mailboxId", mailbox._id).eq("folder", "sent")
+  //     )
+  //     .filter((q) => q.gte(q.field("date"), startOfMonth))
+  //     .collect();
+  //   emailsSentThisMonth += emails.length;
+  // }
+  const emailsSentThisPeriod = await countSentEmailsThisPeriodFor(
+    ctx,
+    user._id,
+    subscription
+  );
+
+  return {
+    plan,
+    limits: {
+      domains: limits.domains,
+      mailboxes: limits.mailboxes,
+      emailsPerMonth: limits.emailsPerMonth,
+      // Old: contacts: limits.contacts.
+      recipients: limits.recipients,
+    },
+    usage: {
+      domains: domains.length,
+      mailboxes: mailboxes.length,
+      // Old: emailsSentThisMonth, which named a calendar month the
+      // allowance never ran on.
+      emailsSentThisPeriod,
+      periodStartedAt: periodStartDayKey(subscription?.startedAt, Date.now()),
+      // Both read off denormalised counts rather than collecting the tables,
+      // which keeps this query as cheap as it was. Each reads 0 for a user
+      // its backfill has not reached yet.
+      //
+      // contacts has no plan limit any more. It is kept because it is a real
+      // number about the account (people who have written in), just not the
+      // one a plan is sized on.
+      contacts: user.contactCount ?? 0,
+      recipients: user.recipientCount ?? 0,
+    },
+  };
+}
+
 /** Public query: returns the user's plan limits and current usage counts. */
 export const getUsageAndLimits = query({
   args: {},
@@ -146,76 +226,23 @@ export const getUsageAndLimits = query({
       .unique();
     if (!user) return null;
 
-    const subscription = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
-      .first();
+    return await usageAndLimitsFor(ctx, user);
+  },
+});
 
-    const plan = resolvePlan(user.category, subscription?.status, subscription?.plan);
-    const limits = PLAN_LIMITS[plan];
+/** The same plan limits and usage for any user, for an admin. Read only.
+ *
+ *  Returns null for a non-admin or a missing user rather than throwing, since
+ *  the page that reads this takes the id off the URL. */
+export const getUsageAndLimitsForUserAsAdmin = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    if (!(await isAdmin(ctx))) return null;
 
-    const domains = await ctx.db
-      .query("domains")
-      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
-      .collect();
+    const user = await ctx.db.get(userId);
+    if (!user) return null;
 
-    const mailboxes = await ctx.db
-      .query("mailboxes")
-      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
-      .collect();
-
-    // Old, and the reason the pages that call this stopped rendering with a
-    // client-side exception: .withIndex("by_mailbox_folder") followed by
-    // .filter() on date read every sent message in the mailbox, forever, to
-    // count one window. It also measured the calendar month, which is not the
-    // window the allowance actually runs over.
-    //
-    // const now = new Date();
-    // const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-    // let emailsSentThisMonth = 0;
-    // for (const mailbox of mailboxes) {
-    //   const emails = await ctx.db
-    //     .query("emails")
-    //     .withIndex("by_mailbox_folder", (q) =>
-    //       q.eq("mailboxId", mailbox._id).eq("folder", "sent")
-    //     )
-    //     .filter((q) => q.gte(q.field("date"), startOfMonth))
-    //     .collect();
-    //   emailsSentThisMonth += emails.length;
-    // }
-    const emailsSentThisPeriod = await countSentEmailsThisPeriodFor(
-      ctx,
-      user._id,
-      subscription
-    );
-
-    return {
-      plan,
-      limits: {
-        domains: limits.domains,
-        mailboxes: limits.mailboxes,
-        emailsPerMonth: limits.emailsPerMonth,
-        // Old: contacts: limits.contacts.
-        recipients: limits.recipients,
-      },
-      usage: {
-        domains: domains.length,
-        mailboxes: mailboxes.length,
-        // Old: emailsSentThisMonth, which named a calendar month the
-        // allowance never ran on.
-        emailsSentThisPeriod,
-        periodStartedAt: periodStartDayKey(subscription?.startedAt, Date.now()),
-        // Both read off denormalised counts rather than collecting the tables,
-        // which keeps this query as cheap as it was. Each reads 0 for a user
-        // its backfill has not reached yet.
-        //
-        // contacts has no plan limit any more. It is kept because it is a real
-        // number about the account (people who have written in), just not the
-        // one a plan is sized on.
-        contacts: user.contactCount ?? 0,
-        recipients: user.recipientCount ?? 0,
-      },
-    };
+    return await usageAndLimitsFor(ctx, user);
   },
 });
 

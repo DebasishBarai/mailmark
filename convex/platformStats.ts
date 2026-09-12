@@ -130,6 +130,10 @@ export const getAdminStats = query({
       .take(10);
 
     const recentUsers = recentUserDocs.map((u) => ({
+      // The id lets each row on the admin dashboard link straight into that
+      // user's dashboard. Old shape carried the email only, so the row named
+      // an account there was no way to open.
+      id: u._id,
       email: u.email,
       name: u.name,
       category: u.category,
