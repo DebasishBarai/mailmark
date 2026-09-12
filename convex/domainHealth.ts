@@ -61,6 +61,11 @@ export const runHealthCheckForAllDomains = internalAction({
         mailboxIds: mailboxes.map((m) => m._id),
       });
 
+      // stats.bounced is now both kinds of bounce, transient and permanent, and
+      // stats.complained is genuine complaints rather than the hard bounces it
+      // used to carry. See getEmailStatsForMailboxes. The thresholds below are
+      // unchanged, so a domain with hard bounces will score differently than it
+      // did: its bounce rate rises and its complaint rate falls to the truth.
       const bounceRate = stats.totalSent > 0 ? (stats.bounced / stats.totalSent) * 100 : 0;
       const complaintRate = stats.totalSent > 0 ? (stats.complained / stats.totalSent) * 100 : 0;
 

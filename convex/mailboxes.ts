@@ -11,10 +11,10 @@ import {
 import {
   countCreated,
   countRemoved,
-  deleteEmailsCounted,
   deleteMailboxStats,
   mailboxBuckets,
 } from "./lib/counters";
+import { sweepMailboxEmailsBatch } from "./emails";
 
 // Resolve AWS clients for a mailbox's deletion: uses the mailbox's domain
 // to find the BYO awsAccount row (if any), falling back to platform creds.
@@ -267,22 +267,27 @@ export const removeRecords = internalMutation({
       throw new Error("Mailbox not found");
     }
 
-    const emails = await ctx.db
-      .query("emails")
-      .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mailboxId))
-      .collect();
+    // Old: .collect() every message in the mailbox into one transaction, then
+    // delete them all. That is the unbounded read that broke the send quota,
+    // and here it would also fail halfway on a busy mailbox, leaving the
+    // mailbox row and some of its mail behind.
+    //
+    // const emails = await ctx.db
+    //   .query("emails")
+    //   .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mailboxId))
+    //   .collect();
+    // const s3Keys = emails.map((e) => e.s3Key);
+    // await deleteEmailsCounted(ctx, emails);
+    const { s3Keys, more } = await sweepMailboxEmailsBatch(ctx, mailboxId);
 
-    const s3Keys = emails.map((e) => e.s3Key);
-
-    // for (const email of emails) {
-    //   await ctx.db.delete(email._id);
-    // }
-    await deleteEmailsCounted(ctx, emails);
+    // The mailbox row outlives its mail until the last batch, so a sweep that
+    // is interrupted can be resumed by calling again with the same id.
+    if (more) return { s3Keys, more: true };
 
     await ctx.db.delete(mailboxId);
     await countRemoved(ctx, mailboxBuckets());
     await deleteMailboxStats(ctx, mailboxId);
-    return s3Keys;
+    return { s3Keys, more: false };
   },
 });
 
@@ -291,23 +296,28 @@ export const remove = action({
   handler: async (ctx, { mailboxId }) => {
     const aws = await clientsForMailboxId(ctx, mailboxId);
 
-    const s3Keys: string[] = await ctx.runMutation(
-      internal.mailboxes.removeRecords,
-      { mailboxId }
-    );
-
-    if (s3Keys.length === 0) return;
-
-    // DeleteObjectsCommand accepts up to 1000 keys per request
-    for (let i = 0; i < s3Keys.length; i += 1000) {
-      await aws.s3.send(
-        new DeleteObjectsCommand({
-          Bucket: aws.s3Bucket,
-          Delete: {
-            Objects: s3Keys.slice(i, i + 1000).map((Key) => ({ Key })),
-          },
-        })
+    // One transaction per batch of messages, with this action driving the
+    // loop so the S3 objects for each batch are gone before the next is read.
+    // The mutation deletes the mailbox row on the batch that empties it.
+    let more = true;
+    while (more) {
+      const result: { s3Keys: string[]; more: boolean } = await ctx.runMutation(
+        internal.mailboxes.removeRecords,
+        { mailboxId }
       );
+      more = result.more;
+
+      // DeleteObjectsCommand accepts up to 1000 keys per request
+      for (let i = 0; i < result.s3Keys.length; i += 1000) {
+        await aws.s3.send(
+          new DeleteObjectsCommand({
+            Bucket: aws.s3Bucket,
+            Delete: {
+              Objects: result.s3Keys.slice(i, i + 1000).map((Key) => ({ Key })),
+            },
+          })
+        );
+      }
     }
   },
 });
@@ -384,13 +394,9 @@ export const createInternal = internalMutation({
 export const deleteRecordsInternal = internalMutation({
   args: { mailboxId: v.id("mailboxes") },
   handler: async (ctx, { mailboxId }) => {
-    const emails = await ctx.db
-      .query("emails")
-      .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mailboxId))
-      .collect();
-    const s3Keys = emails.map((e) => e.s3Key);
-    // for (const email of emails) await ctx.db.delete(email._id);
-    await deleteEmailsCounted(ctx, emails);
+    // Old: .collect() the whole mailbox. See removeRecords above.
+    const { s3Keys, more } = await sweepMailboxEmailsBatch(ctx, mailboxId);
+    if (more) return { s3Keys, more: true };
 
     // Remove this mailbox from any sender groups
     const groups = await ctx.db.query("senderGroups").collect();
@@ -409,7 +415,7 @@ export const deleteRecordsInternal = internalMutation({
     await ctx.db.delete(mailboxId);
     if (mailboxDoc) await countRemoved(ctx, mailboxBuckets());
     await deleteMailboxStats(ctx, mailboxId);
-    return s3Keys;
+    return { s3Keys, more: false };
   },
 });
 
@@ -418,18 +424,23 @@ export const removeInternal = internalAction({
   handler: async (ctx, { mailboxId }) => {
     const aws = await clientsForMailboxId(ctx, mailboxId);
 
-    const s3Keys: string[] = await ctx.runMutation(
-      internal.mailboxes.deleteRecordsInternal,
-      { mailboxId }
-    );
-    if (s3Keys.length === 0) return;
-    for (let i = 0; i < s3Keys.length; i += 1000) {
-      await aws.s3.send(
-        new DeleteObjectsCommand({
-          Bucket: aws.s3Bucket,
-          Delete: { Objects: s3Keys.slice(i, i + 1000).map((Key) => ({ Key })) },
-        })
+    let more = true;
+    while (more) {
+      const result: { s3Keys: string[]; more: boolean } = await ctx.runMutation(
+        internal.mailboxes.deleteRecordsInternal,
+        { mailboxId }
       );
+      more = result.more;
+      for (let i = 0; i < result.s3Keys.length; i += 1000) {
+        await aws.s3.send(
+          new DeleteObjectsCommand({
+            Bucket: aws.s3Bucket,
+            Delete: {
+              Objects: result.s3Keys.slice(i, i + 1000).map((Key) => ({ Key })),
+            },
+          })
+        );
+      }
     }
   },
 });

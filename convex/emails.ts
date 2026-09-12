@@ -8,6 +8,8 @@ import {
   applyEmailToTally,
   applyMailboxDelta,
   deleteEmailCounted,
+  deleteEmailsCounted,
+  deleteMailboxStats,
   emptyMailboxTally,
   insertEmailCounted,
   patchEmailCounted,
@@ -15,6 +17,7 @@ import {
 } from "./lib/counters";
 import { recordRecipientsForMailbox } from "./lib/recipients";
 import { repairLatin1Mojibake } from "./lib/mimeHeader";
+import { dayKeyOf } from "./lib/period";
 import { internal } from "./_generated/api";
 import { suppress } from "./suppressions";
 import { isPermanentBounce } from "./lib/sendPolicy";
@@ -236,6 +239,50 @@ export const markAsRead = mutation({
   },
 });
 
+/** How many messages one markAllAsRead transaction touches.
+ *
+ *  The work is bounded per call and continued by a scheduled follow-up, so a
+ *  mailbox with any number of unread messages is marked without a single
+ *  transaction having to hold all of them. */
+const MARK_READ_BATCH = 500;
+
+/** Mark up to MARK_READ_BATCH unread messages read. Returns whether it filled
+ *  the batch, which means there is more to do.
+ *
+ *  The read flag is the last component of by_mailbox_folder_read, so this reads
+ *  only rows that are still unread. Marking them flips that flag and moves them
+ *  out of the range, which is why each call can start from the beginning
+ *  instead of carrying a cursor: the rows it already handled are no longer
+ *  there to be seen again.
+ */
+async function markUnreadBatch(
+  ctx: MutationCtx,
+  mailboxId: Id<"mailboxes">
+): Promise<boolean> {
+  const unread = await ctx.db
+    .query("emails")
+    .withIndex("by_mailbox_folder_read", (q) =>
+      q.eq("mailboxId", mailboxId).eq("folder", "inbox").eq("read", false)
+    )
+    .take(MARK_READ_BATCH);
+
+  if (unread.length === 0) return false;
+
+  // Old: a bare patch per row, which left mailboxStats.unread stale.
+  // Going through patchEmailCounted here would add a stats write per email,
+  // so instead the unread delta is tallied in memory and written once, the
+  // same shape as the cascade deletes in lib/counters.ts.
+  const tally = emptyMailboxTally();
+  for (const email of unread) {
+    applyEmailToTally(tally, email, -1);
+    await ctx.db.patch(email._id, { read: true });
+    applyEmailToTally(tally, { ...email, read: true }, 1);
+  }
+  await applyMailboxDelta(ctx, mailboxId, tally);
+
+  return unread.length === MARK_READ_BATCH;
+}
+
 export const markAllAsRead = mutation({
   args: { mailboxId: v.id("mailboxes") },
   handler: async (ctx, { mailboxId }) => {
@@ -254,26 +301,87 @@ export const markAllAsRead = mutation({
       throw new Error("Not authorized");
     }
 
-    const emails = await ctx.db
-      .query("emails")
-      .withIndex("by_mailbox_folder", (q) =>
-        q.eq("mailboxId", mailboxId).eq("folder", "inbox")
-      )
-      .collect();
-
-    // Old: a bare patch per row, which left mailboxStats.unread stale.
-    // Going through patchEmailCounted here would add a stats write per email,
-    // so instead the unread delta is tallied in memory and written once, the
-    // same shape as the cascade deletes in lib/counters.ts.
-    const tally = emptyMailboxTally();
-    for (const email of emails) {
-      if (!email.read) {
-        applyEmailToTally(tally, email, -1);
-        await ctx.db.patch(email._id, { read: true });
-        applyEmailToTally(tally, { ...email, read: true }, 1);
-      }
+    // Old: collected the entire inbox folder, however large, and skipped the
+    // already-read rows in memory. One click on a big mailbox was the same
+    // unbounded read that broke the send quota.
+    //
+    // const emails = await ctx.db
+    //   .query("emails")
+    //   .withIndex("by_mailbox_folder", (q) =>
+    //     q.eq("mailboxId", mailboxId).eq("folder", "inbox")
+    //   )
+    //   .collect();
+    // for (const email of emails) { if (!email.read) { ...patch... } }
+    const more = await markUnreadBatch(ctx, mailboxId);
+    if (more) {
+      await ctx.scheduler.runAfter(0, internal.emails.markAllAsReadContinue, {
+        mailboxId,
+      });
     }
-    await applyMailboxDelta(ctx, mailboxId, tally);
+  },
+});
+
+/** Continues markAllAsRead past its first batch. Authorisation was settled by
+ *  the public mutation that scheduled this, which is why it takes none. */
+export const markAllAsReadContinue = internalMutation({
+  args: { mailboxId: v.id("mailboxes") },
+  handler: async (ctx, { mailboxId }) => {
+    const more = await markUnreadBatch(ctx, mailboxId);
+    if (more) {
+      await ctx.scheduler.runAfter(0, internal.emails.markAllAsReadContinue, {
+        mailboxId,
+      });
+    }
+  },
+});
+
+/** How many messages one cascade-delete transaction removes. */
+const EMAIL_SWEEP_BATCH = 500;
+
+/** Delete up to EMAIL_SWEEP_BATCH of a mailbox's messages, whatever folder.
+ *
+ *  Returns the S3 keys removed so a caller that owns the objects can delete
+ *  them too, and whether the batch was full, which means there is more.
+ *
+ *  No cursor, for the same reason markUnreadBatch needs none: the rows this
+ *  reads are gone by the time it returns, so the next call starting from the
+ *  beginning of the range sees the next batch.
+ */
+export async function sweepMailboxEmailsBatch(
+  ctx: MutationCtx,
+  mailboxId: Id<"mailboxes">
+): Promise<{ s3Keys: string[]; more: boolean }> {
+  const page = await ctx.db
+    .query("emails")
+    .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mailboxId))
+    .take(EMAIL_SWEEP_BATCH);
+
+  if (page.length === 0) return { s3Keys: [], more: false };
+
+  const s3Keys = page.map((e) => e.s3Key);
+  await deleteEmailsCounted(ctx, page);
+
+  return { s3Keys, more: page.length === EMAIL_SWEEP_BATCH };
+}
+
+/** Sweep a mailbox's messages to nothing across as many transactions as it
+ *  takes, then drop its stats row.
+ *
+ *  Used where nothing is waiting on the outcome, so the work can be spread
+ *  over scheduled steps. The S3 objects are not touched here, which matches
+ *  what the domain cascade has always done.
+ */
+export const sweepMailboxEmails = internalMutation({
+  args: { mailboxId: v.id("mailboxes") },
+  handler: async (ctx, { mailboxId }) => {
+    const { more } = await sweepMailboxEmailsBatch(ctx, mailboxId);
+    if (more) {
+      await ctx.scheduler.runAfter(0, internal.emails.sweepMailboxEmails, {
+        mailboxId,
+      });
+      return;
+    }
+    await deleteMailboxStats(ctx, mailboxId);
   },
 });
 
@@ -538,22 +646,30 @@ export const updateIngestedRecipients = internalMutation({
 // is stored. A subject that was always fine is pure ASCII and decodes to
 // itself, and a genuinely Latin-1 subject ("Caf\u00e9") is not valid UTF-8, so
 // neither is touched.
+/** Rows one hand-run repair pass reads. */
+const REPAIR_BATCH = 500;
+
 export const repairMojibakeSubjects = internalMutation({
   args: {
     mailboxId: v.id("mailboxes"),
     folder: v.optional(v.string()),
     dryRun: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
   },
-  handler: async (ctx, { mailboxId, folder, dryRun }) => {
+  handler: async (ctx, { mailboxId, folder, dryRun, limit }) => {
     const targetFolder = folder ?? "inbox";
     const isDryRun = dryRun ?? true;
 
+    // Old: .collect(), the whole folder in one transaction. This is a repair
+    // tool run by hand, so a bounded batch and a second run is a better
+    // failure mode than a read that cannot finish on the mailboxes most
+    // likely to need repairing.
     const emails = await ctx.db
       .query("emails")
       .withIndex("by_mailbox_folder", (q) =>
         q.eq("mailboxId", mailboxId).eq("folder", targetFolder)
       )
-      .collect();
+      .take(limit ?? REPAIR_BATCH);
 
     const repaired: Array<{ before: string; after: string }> = [];
 
@@ -597,20 +713,31 @@ export const getByMailboxAndMessageId = internalQuery({
   },
 });
 
-// Every row in a folder, for the repair and purge actions. Unlike
-// listByMailboxAndFolderInternal this is not capped at 50 rows.
+// A folder's rows for the repair and purge actions. Unlike
+// listByMailboxAndFolderInternal this is not capped at 50, but it is capped:
+// it used to .collect() the folder entire, which on a busy mailbox is the
+// unbounded read that broke the send quota. Callers that have more to do than
+// one batch run the action again.
 export const listForRepairInternal = internalQuery({
   args: {
     mailboxId: v.id("mailboxes"),
     folder: v.string(),
+    limit: v.optional(v.number()),
+    // For callers that want the newest rows rather than any rows. A Convex
+    // index is ordered by _creationTime after its own fields, so descending
+    // order off this one is newest first. inspectEmailS3 used to read the
+    // whole folder and sort it in memory to find five rows.
+    newestFirst: v.optional(v.boolean()),
   },
-  handler: async (ctx, { mailboxId, folder }) => {
-    return await ctx.db
+  handler: async (ctx, { mailboxId, folder, limit, newestFirst }) => {
+    const rows = ctx.db
       .query("emails")
       .withIndex("by_mailbox_folder", (q) =>
         q.eq("mailboxId", mailboxId).eq("folder", folder)
-      )
-      .collect();
+      );
+    return await (newestFirst ? rows.order("desc") : rows).take(
+      limit ?? REPAIR_BATCH
+    );
   },
 });
 
@@ -929,6 +1056,23 @@ export const markAsReplied = internalMutation({
 
 // ── Bounce stats for a domain (used by /v1/bounces) ──
 
+/** Send and failure counts for a domain over a window, for /v1/bounces.
+ *
+ *  Reads mailboxStats.byDay, the same buckets domainHealth scores a domain
+ *  from, so the API and the dashboard cannot report different bounce rates for
+ *  the same domain. It also means no email rows are read: this used to collect
+ *  every sent message in the window for every mailbox, and the window comes
+ *  from a caller-supplied days parameter, so a wide enough request reproduced
+ *  the read that refused every send on the account.
+ *
+ *  `complained` is new here, and is what a complaint actually is. The route
+ *  used to compute its complaint rate from `failed`, which the emails schema
+ *  defines as a permanent hard bounce, so it reported hard bounces as
+ *  complaints and counted real complaints nowhere.
+ *
+ *  Dropped from the return: opened, clicked and replied. This query computed
+ *  all three and no caller has ever read one.
+ */
 export const getBounceStatsForDomain = internalQuery({
   args: {
     domainId: v.id("domains"),
@@ -944,102 +1088,222 @@ export const getBounceStatsForDomain = internalQuery({
     let delivered = 0;
     let bounced = 0;
     let failed = 0;
-    let opened = 0;
-    let clicked = 0;
-    let replied = 0;
+    let complained = 0;
+
+    const since = dayKeyOf(sinceMs);
 
     for (const mb of mailboxes) {
-      // Old: collect every sent message the mailbox ever had, then skip the
-      // ones before sinceMs in the loop below. Same rows match either way, but
-      // the range read stops scanning at the window boundary.
+      // Old: a range read over by_mailbox_folder_date, bounded by the window
+      // but not by how much was sent inside it.
       //
       // const sentEmails = await ctx.db
       //   .query("emails")
-      //   .withIndex("by_mailbox_folder", (q) =>
-      //     q.eq("mailboxId", mb._id).eq("folder", "sent")
+      //   .withIndex("by_mailbox_folder_date", (q) =>
+      //     q.eq("mailboxId", mb._id).eq("folder", "sent").gte("date", sinceMs)
       //   )
       //   .collect();
-      const sentEmails = await ctx.db
-        .query("emails")
-        .withIndex("by_mailbox_folder_date", (q) =>
-          q.eq("mailboxId", mb._id).eq("folder", "sent").gte("date", sinceMs)
-        )
-        .collect();
-
-      for (const email of sentEmails) {
-        totalSent++;
-        if (email.deliveryStatus === "delivered") delivered++;
-        else if (email.deliveryStatus === "bounced") bounced++;
-        else if (email.deliveryStatus === "failed") failed++;
-        if (email.openedAt) opened++;
-        if (email.clickedLinks && email.clickedLinks.length > 0) clicked++;
-        if (email.repliedAt) replied++;
+      // for (const email of sentEmails) { ...count by deliveryStatus... }
+      const stats = await readMailboxStats(ctx, mb._id);
+      // Day keys are zero padded, so lexical order is chronological order.
+      for (const [day, tally] of Object.entries(stats.byDay)) {
+        if (day < since) continue;
+        totalSent += tally.sent;
+        delivered += tally.delivered;
+        bounced += tally.bounced;
+        failed += tally.failed;
+        complained += tally.complained;
       }
     }
 
-    return { totalSent, delivered, bounced, failed, opened, clicked, replied };
+    return { totalSent, delivered, bounced, failed, complained };
   },
 });
 
 // ── Batch stats for a domain (used by /v1/campaign-stats) ──
 
+/** Most sent rows one campaign-stats listing will touch before it refuses.
+ *
+ *  Sized in bytes, not rows. A .take(n) bounds the rows returned but not the
+ *  bytes read getting there, so n has to be a count that is safely under the
+ *  16777216 byte transaction limit on its own. The failure that started all of
+ *  this logged 18.01 MB against that limit, and at a pessimistic two kilobytes
+ *  a row five thousand rows is about ten megabytes, which leaves room for the
+ *  mailbox and stats reads around it.
+ *
+ *  It refuses rather than truncating because a truncated aggregate is a wrong
+ *  number presented as a right one: a batch cut in half reports half its sends
+ *  as its total, and every rate derived from it is wrong. Fewer batches is a
+ *  visible answer, wrong stats are not.
+ *
+ *  This caps the listing only. A single batch asked for by id is paginated
+ *  instead, so no campaign is too big to report on. */
+const BATCH_STATS_ROW_CAP = 5_000;
+
+/** Rows per page when walking one campaign by id. */
+const BATCH_BY_ID_PAGE = 2_000;
+
+type BatchTally = {
+  sentAt: number;
+  total: number;
+  delivered: number;
+  bounced: number;
+  failed: number;
+  opened: number;
+  clicked: number;
+  replied: number;
+};
+
+const foldEmailIntoBatch = (
+  batches: Record<string, BatchTally>,
+  email: Doc<"emails">
+) => {
+  if (!email.batchId) return;
+  if (!batches[email.batchId]) {
+    batches[email.batchId] = {
+      sentAt: email.date,
+      total: 0,
+      delivered: 0,
+      bounced: 0,
+      failed: 0,
+      opened: 0,
+      clicked: 0,
+      replied: 0,
+    };
+  }
+  const b = batches[email.batchId];
+  b.total++;
+  if (email.deliveryStatus === "delivered") b.delivered++;
+  else if (email.deliveryStatus === "bounced") b.bounced++;
+  else if (email.deliveryStatus === "failed") b.failed++;
+  if (email.openedAt) b.opened++;
+  if (email.clickedLinks && email.clickedLinks.length > 0) b.clicked++;
+  if (email.repliedAt) b.replied++;
+  if (email.date < b.sentAt) b.sentAt = email.date;
+};
+
+const batchRows = (batches: Record<string, BatchTally>) =>
+  Object.entries(batches).map(([batchId, stats]) => ({ batchId, ...stats }));
+
+/** Every batch on a domain, listed.
+ *
+ *  This collected every sent message on the domain, with no bound of any kind,
+ *  and it is reachable from /v1/campaign-stats. It was the last read of the
+ *  shape that refused every send on the account, and the most exposed.
+ *
+ *  It is bounded now without changing what a working caller sees. The all-time
+ *  sent count is one document per mailbox, so the query can tell before it
+ *  reads anything whether the domain is small enough to aggregate whole. Below
+ *  the cap it reads the full history exactly as it always did and returns the
+ *  same batches. Only above the cap, where the old query could not finish at
+ *  all, does it fall back to `windowSinceMs` and say so in `windowed`.
+ *
+ *  `take` is the backstop for the gap before the counters are rebuilt, when
+ *  the all-time figure reads zero and the pre-check cannot see the volume. It
+ *  refuses rather than returning a partial aggregate.
+ *
+ *  A single batch is better asked for by id: getBatchStatsById reads only that
+ *  campaign's rows, whatever its age, so nothing here makes an old batch
+ *  unreachable.
+ */
 export const getBatchStats = internalQuery({
-  args: { domainId: v.id("domains") },
-  handler: async (ctx, { domainId }) => {
+  args: { domainId: v.id("domains"), windowSinceMs: v.number() },
+  handler: async (ctx, { domainId, windowSinceMs }) => {
     const mailboxes = await ctx.db
       .query("mailboxes")
       .withIndex("by_domain_id", (q) => q.eq("domainId", domainId))
       .collect();
 
-    const batches: Record<string, {
-      sentAt: number;
-      total: number;
-      delivered: number;
-      bounced: number;
-      failed: number;
-      opened: number;
-      clicked: number;
-      replied: number;
-    }> = {};
-
+    let allTimeSent = 0;
     for (const mb of mailboxes) {
-      const sentEmails = await ctx.db
-        .query("emails")
-        .withIndex("by_mailbox_folder", (q) =>
-          q.eq("mailboxId", mb._id).eq("folder", "sent")
-        )
-        .collect();
-
-      for (const email of sentEmails) {
-        if (!email.batchId) continue;
-        if (!batches[email.batchId]) {
-          batches[email.batchId] = {
-            sentAt: email.date,
-            total: 0,
-            delivered: 0,
-            bounced: 0,
-            failed: 0,
-            opened: 0,
-            clicked: 0,
-            replied: 0,
-          };
-        }
-        const b = batches[email.batchId];
-        b.total++;
-        if (email.deliveryStatus === "delivered") b.delivered++;
-        else if (email.deliveryStatus === "bounced") b.bounced++;
-        else if (email.deliveryStatus === "failed") b.failed++;
-        if (email.openedAt) b.opened++;
-        if (email.clickedLinks && email.clickedLinks.length > 0) b.clicked++;
-        if (email.repliedAt) b.replied++;
-        if (email.date < b.sentAt) b.sentAt = email.date;
-      }
+      const stats = await readMailboxStats(ctx, mb._id);
+      allTimeSent += stats.byFolder["sent"] ?? 0;
     }
 
-    return Object.entries(batches).map(([batchId, stats]) => ({
-      batchId,
-      ...stats,
-    }));
+    // Zero is what an un-rebuilt counter reads, which lands here as "small
+    // enough to read whole": the behaviour this endpoint has today, with the
+    // cap below as the backstop.
+    const windowed = allTimeSent > BATCH_STATS_ROW_CAP;
+    const sinceMs = windowed ? windowSinceMs : 0;
+
+    const batches: Record<string, BatchTally> = {};
+    let rowsRead = 0;
+
+    for (const mb of mailboxes) {
+      const remaining = BATCH_STATS_ROW_CAP - rowsRead + 1;
+      const sentEmails = await ctx.db
+        .query("emails")
+        .withIndex("by_mailbox_folder_date", (q) =>
+          q.eq("mailboxId", mb._id).eq("folder", "sent").gte("date", sinceMs)
+        )
+        .take(remaining);
+
+      rowsRead += sentEmails.length;
+      if (rowsRead > BATCH_STATS_ROW_CAP) {
+        return { batches: [], windowed, tooLarge: true as const };
+      }
+
+      for (const email of sentEmails) foldEmailIntoBatch(batches, email);
+    }
+
+    return { batches: batchRows(batches), windowed, tooLarge: false as const };
+  },
+});
+
+/** One page of a campaign's stats, by its batch id, at any age.
+ *
+ *  Reads only that campaign's rows through by_batch rather than aggregating
+ *  the whole domain and filtering the result, so asking about one campaign
+ *  costs what that campaign costs rather than what the account's history
+ *  costs.
+ *
+ *  Paginated so no campaign is too large to report on. The caller is an
+ *  httpAction, which can loop, and each page is its own transaction with its
+ *  own read budget. Totals are added across pages, which is exact: every row
+ *  is seen once and the counts are sums.
+ *
+ *  `domainIds` scopes the answer to what the caller's key may see. A batch id
+ *  is guessable, and this must not become a way to read another account's
+ *  campaign.
+ */
+export const getBatchStatsById = internalQuery({
+  args: {
+    batchId: v.string(),
+    domainIds: v.array(v.id("domains")),
+    cursor: v.optional(v.string()),
+  },
+  handler: async (ctx, { batchId, domainIds, cursor }) => {
+    const page = await ctx.db
+      .query("emails")
+      .withIndex("by_batch", (q) => q.eq("batchId", batchId))
+      .paginate({ cursor: cursor ?? null, numItems: BATCH_BY_ID_PAGE });
+
+    // One lookup per distinct mailbox rather than per row: a campaign is many
+    // messages from few addresses.
+    const permitted = new Set(domainIds as string[]);
+    const mailboxAllowed = new Map<string, boolean>();
+    const batches: Record<string, BatchTally> = {};
+
+    for (const email of page.page) {
+      if (email.folder !== "sent") continue;
+
+      const key = email.mailboxId as string;
+      if (!mailboxAllowed.has(key)) {
+        const mailbox = await ctx.db.get(email.mailboxId);
+        mailboxAllowed.set(
+          key,
+          !!mailbox && permitted.has(mailbox.domainId as string)
+        );
+      }
+      if (!mailboxAllowed.get(key)) continue;
+
+      foldEmailIntoBatch(batches, email);
+    }
+
+    return {
+      batches: batchRows(batches),
+      cursor: page.continueCursor,
+      isDone: page.isDone,
+    };
   },
 });
 

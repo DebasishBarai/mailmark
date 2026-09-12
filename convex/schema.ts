@@ -81,6 +81,12 @@ export default defineSchema({
   })
     .index("by_user_id", ["userId"])
     .index("by_domain", ["domain"])
+    // The verification crons both want unverified domains within a creation
+    // time window. Without this they scanned the whole table and narrowed with
+    // .filter(), which reads every row before discarding it. A Convex index is
+    // ordered by _creationTime after its own fields, so this range arrives
+    // oldest first and the crons can stop at a bounded batch.
+    .index("by_verified", ["verified"])
     .index("by_aws_account", ["awsAccountId"]),
 
   // User-connected AWS accounts for BYO (bring-your-own) infrastructure.
@@ -202,7 +208,18 @@ export default defineSchema({
     // unbounded work for a bounded answer, and it is what put these queries on
     // course for the 32,000 document scan cap.
     .index("by_mailbox_folder_date", ["mailboxId", "folder", "date"])
+    // markAllAsRead wants "this folder's unread mail" and by_mailbox_folder
+    // stops at the folder, so it collected the whole inbox and skipped the
+    // already-read rows in memory. On a large mailbox that is the same
+    // unbounded read that broke quotas, reachable from a single click.
+    .index("by_mailbox_folder_read", ["mailboxId", "folder", "read"])
     .index("by_message_id", ["messageId"])
+    // One campaign's messages. /v1/campaign-stats used to find a single batch
+    // by aggregating every batch on the domain and filtering the result, which
+    // meant reading the whole sent folder to answer a question about one
+    // campaign. Rows with no batchId group under undefined and are never
+    // matched by an equality on a real id.
+    .index("by_batch", ["batchId"])
     .index("by_ses_message_id", ["sesMessageId"]),
 
   contacts: defineTable({
@@ -840,20 +857,51 @@ export default defineSchema({
     // document Convex rejects. Storing them as values keeps any folder name
     // legal.
     byFolder: v.array(v.object({ folder: v.string(), count: v.number() })),
-    // Sent messages per UTC day, "YYYY-MM-DD", newest first and pruned to the
-    // last 45. The send allowance is read from here rather than counted at
-    // send time: quotas used to scan the sent folder on every send, which is
-    // unbounded work whose only output is one integer, and which took the
-    // 16 MiB read limit down with it and refused every send on the account.
+    // Mail per UTC day, "YYYY-MM-DD", newest first and pruned to the last 45.
+    // Three readers live off this instead of scanning the emails table:
+    // the send allowance in quotas, the 30 day chart in emailStats, and the
+    // bounce and complaint rates in domainHealth. Each of those used to
+    // produce its answer by collecting rows, which is unbounded work for a
+    // handful of integers and is what took the 16 MiB read limit down and
+    // refused every send on the account.
     //
-    // A day rather than a month because the allowance runs over a subscription
-    // period anchored on subscriptions.startedAt, which begins on an arbitrary
-    // day of the month. All plans bill monthly, so 45 days covers the longest
-    // period that ever has to be summed with slack to spare.
+    // A day rather than anything coarser because the allowance runs over a
+    // subscription period anchored on subscriptions.startedAt, which begins on
+    // an arbitrary day of the month, and because the chart draws one point per
+    // day. Retention is sized by the widest window any reader asks for, which
+    // is the /v1/bounces days parameter at 90; see DAYS_KEPT in lib/counters.
+    //
+    // bounced, failed and complained are kept apart because they are different
+    // problems: per the emails table above, failed is a permanent hard bounce,
+    // bounced a transient one, and complained means it arrived and was
+    // reported. The /v1/bounces API and domainHealth both read them from here,
+    // so the dashboard and the API cannot drift apart on what a bounce is.
     //
     // Optional for the same reason byFolder never was: rows written before
     // this field existed carry nothing until the nightly
     // platformStats.startEntityStatsRebuild walk fills them in.
+    byDay: v.optional(
+      v.array(
+        v.object({
+          day: v.string(),
+          sent: v.number(),
+          received: v.number(),
+          // Optional because it was added after byDay itself, so a row written
+          // by the version between the two still validates on deploy.
+          delivered: v.optional(v.number()),
+          bounced: v.number(),
+          failed: v.number(),
+          complained: v.number(),
+        })
+      )
+    ),
+    // Legacy, and deliberately still declared. An earlier version of byDay
+    // shipped under this name carrying only a send count per day. A Convex
+    // deploy validates every existing document against the schema being
+    // pushed, so if any deployment ever ran that version, dropping the field
+    // from here would make the next deploy fail on rows that still carry it.
+    // Nothing reads it, and both writers below clear it, so it drains out as
+    // rows are rewritten.
     sentByDay: v.optional(
       v.array(v.object({ day: v.string(), count: v.number() }))
     ),

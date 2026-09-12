@@ -1,5 +1,7 @@
 import { v } from "convex/values";
 import { query, internalMutation, internalQuery } from "./_generated/server";
+import { readMailboxStats } from "./lib/counters";
+import { dayKeyOf } from "./lib/period";
 
 // ── Queries ──
 
@@ -106,6 +108,31 @@ export const getMailboxesForDomain = internalQuery({
   },
 });
 
+/** Sent volume and failure counts over the last 30 days, for the health check.
+ *
+ *  Old, and the second query on the dashboard path with the shape that took
+ *  quotas down: it collected 30 days of sent mail for every mailbox and threw
+ *  all of it away except three integers. Bounded by time but not by volume, so
+ *  a sender whose output was climbing would eventually read past the 16 MiB a
+ *  Convex transaction may read.
+ *
+ *  //   const recent = await ctx.db
+ *  //     .query("emails")
+ *  //     .withIndex("by_mailbox_folder_date", (q) =>
+ *  //       q.eq("mailboxId", mailboxId).eq("folder", "sent").gte("date", thirtyDaysAgo)
+ *  //     )
+ *  //     .collect();
+ *  //   totalSent += recent.length;
+ *  //   bounced += recent.filter((e) => e.deliveryStatus === "bounced").length;
+ *  //   complained += recent.filter((e) => e.deliveryStatus === "failed").length;
+ *
+ *  That last line is why `complained` now reports something different. It
+ *  counted deliveryStatus "failed", which the emails schema defines as a
+ *  permanent hard bounce, so the complaint rate built on it was a hard bounce
+ *  rate and genuine complaints were counted nowhere. Hard bounces now join
+ *  `bounced`, which is what SES would call the bounce rate, and `complained`
+ *  counts complaints.
+ */
 export const getEmailStatsForMailboxes = internalQuery({
   args: { mailboxIds: v.array(v.id("mailboxes")) },
   handler: async (ctx, { mailboxIds }) => {
@@ -113,26 +140,19 @@ export const getEmailStatsForMailboxes = internalQuery({
     let bounced = 0;
     let complained = 0;
 
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const since = dayKeyOf(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     for (const mailboxId of mailboxIds) {
-      // Old: collect every sent message, then keep the last 30 days in memory.
-      //
-      // const emails = await ctx.db
-      //   .query("emails")
-      //   .withIndex("by_mailbox_folder", (q) => q.eq("mailboxId", mailboxId).eq("folder", "sent"))
-      //   .collect();
-      // const recent = emails.filter((e) => e.date >= thirtyDaysAgo);
-      const recent = await ctx.db
-        .query("emails")
-        .withIndex("by_mailbox_folder_date", (q) =>
-          q.eq("mailboxId", mailboxId).eq("folder", "sent").gte("date", thirtyDaysAgo)
-        )
-        .collect();
-
-      totalSent += recent.length;
-      bounced += recent.filter((e) => e.deliveryStatus === "bounced").length;
-      complained += recent.filter((e) => e.deliveryStatus === "failed").length;
+      const stats = await readMailboxStats(ctx, mailboxId);
+      // Day keys are zero padded, so lexical order is chronological order.
+      for (const [day, tally] of Object.entries(stats.byDay)) {
+        if (day < since) continue;
+        totalSent += tally.sent;
+        // Both kinds of bounce. A permanent one is the stronger signal of the
+        // two, so leaving it out understated the rate it is most needed for.
+        bounced += tally.bounced + tally.failed;
+        complained += tally.complained;
+      }
     }
 
     return { totalSent, bounced, complained };
