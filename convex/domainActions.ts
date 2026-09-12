@@ -245,11 +245,34 @@ export const verifyDomainInternal = internalAction({
 
     // Check custom MAIL FROM domain records (mail.{domain})
     const mailFromDomain = `mail.${domain.domain}`;
-    const expectedMailFromMx = `feedback-smtp.${region}.amazonaws.com`;
+    // SES uses two different parent domains for these two MX records, and the
+    // difference is not cosmetic. Inbound receiving points at
+    // inbound-smtp.<region>.amazonaws.com, but the custom MAIL FROM feedback
+    // endpoint is amazonSES.com, not amazonAWS.com.
+    //
+    // Old value: `feedback-smtp.${region}.amazonaws.com`. Wrong, and wrong in a
+    // way that hid itself: the domain detail page published the same wrong
+    // hostname it was checked against, so a customer followed the instructions,
+    // this check matched what they published, and the row went green while SES
+    // went on polling for the amazonses.com host it actually wanted. The result
+    // was a permanently pending MailFromDomainStatus behind a verified-looking
+    // record set.
+    // const expectedMailFromMx = `feedback-smtp.${region}.amazonaws.com`;
+    const expectedMailFromMx = `feedback-smtp.${region}.amazonses.com`;
     const mailFromMxRecords = await resolveMx(mailFromDomain);
     const mailFromMxVerified = mailFromMxRecords.some(
       (mx) => mx.exchange.toLowerCase().replace(/\.$/, "") === expectedMailFromMx
     );
+    // Whether DNS gave us a definite answer that disagrees with what we expect,
+    // as opposed to giving us nothing. resolveMx swallows lookup failures into
+    // an empty array, so a non-empty list that matches nothing is the one case
+    // where we know the published record is wrong rather than merely unseen.
+    // This is what lets the stickiness below release a stale success: every
+    // domain set up against the old amazonaws.com hostname currently carries
+    // mailFromMxVerified true, and without this it would keep that green row
+    // forever no matter what its DNS says.
+    const mailFromMxContradicted =
+      mailFromMxRecords.length > 0 && !mailFromMxVerified;
     const mailFromTxtRecords = await resolveTxt(mailFromDomain);
     const mailFromSpfRecord = mailFromTxtRecords.find((parts) =>
       parts.join("").includes("v=spf1")
@@ -384,7 +407,13 @@ export const verifyDomainInternal = internalAction({
       actualMxValue: domain.mxVerified ? undefined : actualMxValue,
       actualSpfValue: domain.spfVerified ? undefined : actualSpfValue,
       actualDmarcValue: domain.dmarcVerified ? undefined : actualDmarcValue,
-      mailFromMxVerified: sticky(mailFromMxVerified, domain.mailFromMxVerified ?? false),
+      // Not plain sticky: a MAIL FROM MX that resolves to something other than
+      // the expected feedback endpoint is a known-wrong record, not a transient
+      // miss, so it must be allowed to go back to false.
+      // mailFromMxVerified: sticky(mailFromMxVerified, domain.mailFromMxVerified ?? false),
+      mailFromMxVerified: mailFromMxContradicted
+        ? false
+        : sticky(mailFromMxVerified, domain.mailFromMxVerified ?? false),
       mailFromSpfVerified: sticky(mailFromSpfVerified, domain.mailFromSpfVerified ?? false),
       // Raw SES state, stored as-is and deliberately not sticky: this is the
       // live diagnostic the admin panel reads, so it must reflect the last

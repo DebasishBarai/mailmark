@@ -90,7 +90,11 @@ export function expectedRecords(input: DomainNoticeInput): Array<PendingRecord &
       purpose: "MAIL FROM",
       type: "MX" as const,
       name: "mail",
-      value: `10 feedback-smtp.${region}.amazonaws.com`,
+      // amazonses.com, not amazonaws.com: see the note on expectedMailFromMx in
+      // convex/domainActions.ts. The inbound "Receiving" MX above really is
+      // amazonaws.com; only this one differs.
+      // value: `10 feedback-smtp.${region}.amazonaws.com`,
+      value: `10 feedback-smtp.${region}.amazonses.com`,
       verified: input.mailFromMxVerified,
     },
     {
