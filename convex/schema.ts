@@ -885,6 +885,16 @@ export default defineSchema({
         })
       )
     ),
+    // Legacy, and deliberately still declared. An earlier version of byDay
+    // shipped under this name carrying only a send count per day. A Convex
+    // deploy validates every existing document against the schema being
+    // pushed, so if any deployment ever ran that version, dropping the field
+    // from here would make the next deploy fail on rows that still carry it.
+    // Nothing reads it, and both writers below clear it, so it drains out as
+    // rows are rewritten.
+    sentByDay: v.optional(
+      v.array(v.object({ day: v.string(), count: v.number() }))
+    ),
     // Inbox messages with read === false.
     unread: v.number(),
     // The next five are over folder === "sent" only, which is the scope

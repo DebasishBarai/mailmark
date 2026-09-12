@@ -582,6 +582,8 @@ export const rebuildMailboxStats = internalMutation({
       mailboxId: args.mailboxId,
       byFolder: folderRows(byFolder),
       byDay: dayRows(byDay),
+      // See counters.applyMailboxDelta: clears the field byDay replaced.
+      sentByDay: undefined,
       unread: merge("unread"),
       delivered: merge("delivered"),
       failed: merge("failed"),

@@ -280,9 +280,18 @@ export const listPendingVerification = internalQuery({
     //   q.gt(q.field("_creationTime"), createdAfter)
     // )).take(limit);
     //
-    // Newest first, so every row inside the window sorts ahead of every row
-    // outside it. Taking `limit` and dropping the ones that fall outside
-    // therefore loses nothing the old query would have returned.
+    // Newest first, because every row inside the window sorts ahead of every
+    // row outside it, so a bounded take off that end is all matches and no
+    // waste.
+    //
+    // This does change which domains a run polls when there are more inside
+    // the window than the batch size. The old scan read the table in creation
+    // order and took the first matches it found, which were the oldest inside
+    // the window; this takes the newest. Either way the surplus waits for a
+    // later run, and newest first is what the window is for: it exists
+    // because a domain that has sat unverified for weeks is not going to flip
+    // on its own, so the recently created ones are the ones worth asking SES
+    // about.
     const newest = await ctx.db
       .query("domains")
       .withIndex("by_verified", (q) => q.eq("verified", false))

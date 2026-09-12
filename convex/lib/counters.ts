@@ -585,6 +585,9 @@ export async function applyMailboxDelta(
   await ctx.db.patch(row._id, {
     byFolder: folderRows(byFolder),
     byDay: dayRows(byDay),
+    // Drop the field byDay replaced, if this row predates the rename. Patching
+    // undefined removes it, so rows drain of it as they are written.
+    sentByDay: undefined,
     unread: Math.max(0, row.unread + delta.unread),
     delivered: Math.max(0, row.delivered + delta.delivered),
     failed: Math.max(0, row.failed + delta.failed),
