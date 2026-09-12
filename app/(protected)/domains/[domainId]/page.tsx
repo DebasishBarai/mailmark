@@ -126,7 +126,13 @@ const handleRemoveDomain = async () => {
 
   // Build DNS records list from SES data
   const dkimTokens: string[] = domain.sesDkimTokens ?? [];
-  const region = "ap-south-1"; // Match your AWS_REGION
+  // Old: hardcoded to the platform region with a comment asking whoever read
+  // it to keep the constant in step with AWS_REGION by hand. A BYO-AWS domain
+  // in any other region was then shown endpoints for a region its identity
+  // does not live in, while the verifier checked the region the domain
+  // actually uses, so the record could never match what the page asked for.
+  // const region = "ap-south-1"; // Match your AWS_REGION
+  const region = domain.region;
 
   const dkimRecordStatus = domain.dkimRecordStatus ?? [];
 
@@ -180,8 +186,13 @@ const handleRemoveDomain = async () => {
       type: "MX",
       name: `mail`,
       priority: "10",
-      value: `feedback-smtp.${region}.amazonaws.com`,
-      recommendedValue: `feedback-smtp.${region}.amazonaws.com`,
+      // amazonses.com, not amazonaws.com. AWS uses amazonaws.com for the
+      // inbound receiving endpoint above and amazonses.com for the MAIL FROM
+      // feedback endpoint, and SES will only ever accept the latter here.
+      // value: `feedback-smtp.${region}.amazonaws.com`,
+      // recommendedValue: `feedback-smtp.${region}.amazonaws.com`,
+      value: `feedback-smtp.${region}.amazonses.com`,
+      recommendedValue: `feedback-smtp.${region}.amazonses.com`,
       purpose: "MAIL FROM",
       tooltip: "Sets up a dedicated subdomain for outbound email routing. Improves deliverability.",
       verified: domain.mailFromMxVerified ?? false,

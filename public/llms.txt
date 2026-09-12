@@ -286,7 +286,7 @@ Mailmark requires four types of DNS records to fully verify a domain:
 
 ### Custom MAIL FROM (SPF/DMARC alignment)
 Mailmark also configures a custom MAIL FROM domain (`mail.yourdomain.com`) for better deliverability alignment:
-- MX record on `mail.yourdomain.com` pointing to `feedback-smtp.ap-south-1.amazonaws.com`
+- MX record on `mail.yourdomain.com` pointing to `feedback-smtp.ap-south-1.amazonses.com`
 - SPF TXT record on `mail.yourdomain.com` including `amazonses.com`
 
 Verification status for each record is shown in real time in Dashboard → Domains → [your domain].

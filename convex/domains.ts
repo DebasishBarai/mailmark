@@ -59,7 +59,14 @@ export const getById = query({
 
     if (!user || domain.userId !== user._id) return null;
 
-    return domain;
+    // The domain detail page renders the DNS record set the customer has to
+    // publish, and every SES endpoint in it is region-scoped. It used to
+    // hardcode ap-south-1, which was silently wrong for any BYO-AWS domain in
+    // another region: the page told the customer to point at an endpoint the
+    // verifier would never accept, so the row could not go green no matter how
+    // faithfully they followed it. Send the real region down with the row.
+    // return domain;
+    return { ...domain, region: await regionForDomain(ctx, domain) };
   },
 });
 
