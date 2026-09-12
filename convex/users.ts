@@ -1,7 +1,8 @@
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { Doc } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
+import { isAdmin, requireAdmin } from "./lib/admin";
 import { countCreated, userBuckets } from "./lib/counters";
 
 export const getUser = internalQuery({
@@ -189,5 +190,95 @@ export const current = query({
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .unique();
+  },
+});
+
+// ── Admin: user directory ──
+//
+// Backs /admin/users and the "open this user's dashboard" flow. Nothing here
+// mutates: an admin reads what the user reads, and the user's own session is
+// untouched.
+
+/** How many rows the directory shows when no search term is typed. Bounded so
+ *  the query stays a small range read of the by_creation_time index rather
+ *  than a collect of the whole users table. */
+const USER_DIRECTORY_PAGE_SIZE = 50;
+/** Cap on search results, for the same reason. */
+const USER_SEARCH_LIMIT = 25;
+
+type AdminUserRow = {
+  id: Id<"users">;
+  email: string;
+  name?: string;
+  imageUrl?: string;
+  category: "beta" | "normal" | "admin";
+  createdAt: number;
+  contactCount: number;
+  recipientCount: number;
+};
+
+function toAdminUserRow(user: Doc<"users">): AdminUserRow {
+  return {
+    id: user._id,
+    email: user.email,
+    name: user.name,
+    imageUrl: user.imageUrl,
+    category: user.category ?? "normal",
+    createdAt: user._creationTime,
+    contactCount: user.contactCount ?? 0,
+    recipientCount: user.recipientCount ?? 0,
+  };
+}
+
+/**
+ * The newest accounts, or the accounts matching a search term. Admin only.
+ *
+ * A blank search returns the most recent signups, which is the list an admin
+ * answering a support mail usually wants. A term goes through the email search
+ * index, so finding a six month old account does not mean reading every row
+ * created since.
+ */
+export const listAllForAdmin = query({
+  args: { search: v.optional(v.string()) },
+  handler: async (ctx, { search }): Promise<AdminUserRow[]> => {
+    await requireAdmin(ctx);
+
+    const term = (search ?? "").trim();
+
+    if (term.length === 0) {
+      const recent = await ctx.db
+        .query("users")
+        .withIndex("by_creation_time")
+        .order("desc")
+        .take(USER_DIRECTORY_PAGE_SIZE);
+      return recent.map(toAdminUserRow);
+    }
+
+    const matches = await ctx.db
+      .query("users")
+      .withSearchIndex("search_email", (q) => q.search("email", term))
+      .take(USER_SEARCH_LIMIT);
+
+    return matches.map(toAdminUserRow);
+  },
+});
+
+/**
+ * One user's profile, for the header of the admin's read only view of their
+ * dashboard. Admin only.
+ *
+ * Returns null rather than throwing for a non-admin or a missing id: the page
+ * that reads this takes the id straight off the URL, so a bad or stale id must
+ * render an empty state rather than crash the route.
+ */
+export const getForAdmin = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }): Promise<AdminUserRow | null> => {
+    if (!(await isAdmin(ctx))) return null;
+
+    const user = await ctx.db.get(userId);
+    if (!user) return null;
+
+    return toAdminUserRow(user);
   },
 });

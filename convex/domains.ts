@@ -327,6 +327,27 @@ async function requireAdminUser(ctx: QueryCtx) {
   return user;
 }
 
+// One user's domains, for an admin reading that user's dashboard. Read only.
+//
+// Same index and same order as listForCurrentUser above, so the list an admin
+// sees at /admin/users/[userId] is the list the user sees at /dashboard.
+// Returns an empty array for a non-admin or a missing user rather than
+// throwing, since the page takes the id straight off the URL.
+export const listForUserAsAdmin = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    if (!(await isAdminUser(ctx))) return [];
+
+    const user = await ctx.db.get(userId);
+    if (!user) return [];
+
+    return await ctx.db
+      .query("domains")
+      .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+      .collect();
+  },
+});
+
 // Every domain on the platform with its owner, newest first. Admin only.
 export const listAllForAdmin = query({
   args: {},

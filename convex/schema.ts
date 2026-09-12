@@ -33,7 +33,13 @@ export default defineSchema({
     // Optional for the same reason contactCount is: rows predating it carry
     // nothing until the recipientCountBackfill sweep fills them in.
     recipientCount: v.optional(v.number()),
-  }).index("by_clerk_id", ["clerkId"]),
+  })
+    .index("by_clerk_id", ["clerkId"])
+    // Lets the admin user directory find an account by address without
+    // collecting the whole users table. Convex full text search tokenises the
+    // field, so "acme" matches someone@acme.com and the last token typed is
+    // matched as a prefix.
+    .searchIndex("search_email", { searchField: "email" }),
 
   domains: defineTable({
     userId: v.id("users"),
