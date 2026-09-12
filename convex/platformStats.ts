@@ -8,6 +8,8 @@ import {
   type MailboxTally,
   applyEmailToTally,
   emptyMailboxTally,
+  emptyDayTally,
+  type DayTally,
   dayRows,
   folderRows,
   sourceRows,
@@ -538,20 +540,37 @@ export const rebuildMailboxStats = internalMutation({
     }
 
     const days = new Set([
-      ...Object.keys(tally.sentByDay),
-      ...Object.keys(current.sentByDay),
-      ...Object.keys(snapshot.sentByDay),
+      ...Object.keys(tally.byDay),
+      ...Object.keys(current.byDay),
+      ...Object.keys(snapshot.byDay),
     ]);
-    const sentByDay: Record<string, number> = {};
+    const byDay: Record<string, DayTally> = {};
     for (const day of days) {
-      const live =
-        (current.sentByDay[day] ?? 0) - (snapshot.sentByDay[day] ?? 0);
-      const value = (tally.sentByDay[day] ?? 0) + live;
-      if (value > 0) sentByDay[day] = value;
+      const walked = tally.byDay[day] ?? emptyDayTally();
+      const now = current.byDay[day] ?? emptyDayTally();
+      const then = snapshot.byDay[day] ?? emptyDayTally();
+      const field = (k: keyof DayTally) =>
+        Math.max(0, walked[k] + (now[k] - then[k]));
+      const merged: DayTally = {
+        sent: field("sent"),
+        received: field("received"),
+        bounced: field("bounced"),
+        failed: field("failed"),
+        complained: field("complained"),
+      };
+      if (
+        merged.sent > 0 ||
+        merged.received > 0 ||
+        merged.bounced > 0 ||
+        merged.failed > 0 ||
+        merged.complained > 0
+      ) {
+        byDay[day] = merged;
+      }
     }
 
     const merge = (
-      key: Exclude<keyof MailboxTally, "byFolder" | "sentByDay">
+      key: Exclude<keyof MailboxTally, "byFolder" | "byDay">
     ) => Math.max(0, tally[key] + (current[key] - snapshot[key]));
 
     const row = await ctx.db
@@ -562,7 +581,7 @@ export const rebuildMailboxStats = internalMutation({
     const values = {
       mailboxId: args.mailboxId,
       byFolder: folderRows(byFolder),
-      sentByDay: dayRows(sentByDay),
+      byDay: dayRows(byDay),
       unread: merge("unread"),
       delivered: merge("delivered"),
       failed: merge("failed"),

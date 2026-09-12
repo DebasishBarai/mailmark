@@ -126,8 +126,8 @@ async function countSentEmailsThisPeriodFor(
   for (const mailbox of mailboxes) {
     const stats = await readMailboxStats(ctx, mailbox._id);
     // Day keys are zero padded, so lexical order is chronological order.
-    for (const [day, sent] of Object.entries(stats.sentByDay)) {
-      if (day >= since) count += sent;
+    for (const [day, tally] of Object.entries(stats.byDay)) {
+      if (day >= since) count += tally.sent;
     }
   }
   return count;

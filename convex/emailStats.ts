@@ -61,40 +61,43 @@ export const getForCurrentUser = query({
       bounced += stats.bounced;
       pending += stats.pending;
       opened += stats.opened;
-    }
 
-    // The chart only ever showed the last 30 days, but the old code built its
-    // daily buckets from every message it had collected and then rendered 30 of
-    // them. This reads exactly the window it draws, using the date component of
-    // by_mailbox_folder_date.
-    const now = new Date();
-    const windowStart = new Date(now);
-    windowStart.setDate(windowStart.getDate() - 29);
-    windowStart.setHours(0, 0, 0, 0);
-    const windowStartMs = windowStart.getTime();
-
-    for (const mailbox of mailboxes) {
-      for (const folder of ["sent", "inbox"] as const) {
-        const recent = await ctx.db
-          .query("emails")
-          .withIndex("by_mailbox_folder_date", (q) =>
-            q
-              .eq("mailboxId", mailbox._id)
-              .eq("folder", folder)
-              .gte("date", windowStartMs)
-          )
-          .collect();
-
-        for (const email of recent) {
-          const dateKey = new Date(email.date).toISOString().slice(0, 10);
-          if (!dailyCounts[dateKey]) {
-            dailyCounts[dateKey] = { sent: 0, received: 0 };
-          }
-          if (folder === "sent") dailyCounts[dateKey].sent++;
-          else dailyCounts[dateKey].received++;
-        }
+      // The chart's buckets come off the same document. Every day the row
+      // carries is folded in and the render below picks the thirty it draws,
+      // so there is no window to apply here.
+      for (const [day, tally] of Object.entries(stats.byDay)) {
+        if (!dailyCounts[day]) dailyCounts[day] = { sent: 0, received: 0 };
+        dailyCounts[day].sent += tally.sent;
+        dailyCounts[day].received += tally.received;
       }
     }
+
+    // The chart only ever showed the last 30 days. It used to build its buckets
+    // by collecting every sent and every inbox message in that window, for
+    // every mailbox, on each dashboard load. That is bounded by time but not by
+    // volume, so a sender whose output was climbing would eventually read past
+    // the 16 MiB a Convex transaction may read and the page would stop
+    // rendering, which is exactly how quotas failed. The counts now come off
+    // mailboxStats.byDay, folded in above.
+    //
+    // const now = new Date();
+    // const windowStart = new Date(now);
+    // windowStart.setDate(windowStart.getDate() - 29);
+    // windowStart.setHours(0, 0, 0, 0);
+    // const windowStartMs = windowStart.getTime();
+    //
+    // for (const mailbox of mailboxes) {
+    //   for (const folder of ["sent", "inbox"] as const) {
+    //     const recent = await ctx.db
+    //       .query("emails")
+    //       .withIndex("by_mailbox_folder_date", (q) =>
+    //         q.eq("mailboxId", mailbox._id).eq("folder", folder).gte("date", windowStartMs)
+    //       )
+    //       .collect();
+    //     for (const email of recent) { ...bucket by day... }
+    //   }
+    // }
+    const now = new Date();
 
     const last30Days: { date: string; label: string; sent: number; received: number }[] = [];
     for (let i = 29; i >= 0; i--) {

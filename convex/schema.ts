@@ -840,22 +840,39 @@ export default defineSchema({
     // document Convex rejects. Storing them as values keeps any folder name
     // legal.
     byFolder: v.array(v.object({ folder: v.string(), count: v.number() })),
-    // Sent messages per UTC day, "YYYY-MM-DD", newest first and pruned to the
-    // last 45. The send allowance is read from here rather than counted at
-    // send time: quotas used to scan the sent folder on every send, which is
-    // unbounded work whose only output is one integer, and which took the
-    // 16 MiB read limit down with it and refused every send on the account.
+    // Mail per UTC day, "YYYY-MM-DD", newest first and pruned to the last 45.
+    // Three readers live off this instead of scanning the emails table:
+    // the send allowance in quotas, the 30 day chart in emailStats, and the
+    // bounce and complaint rates in domainHealth. Each of those used to
+    // produce its answer by collecting rows, which is unbounded work for a
+    // handful of integers and is what took the 16 MiB read limit down and
+    // refused every send on the account.
     //
-    // A day rather than a month because the allowance runs over a subscription
-    // period anchored on subscriptions.startedAt, which begins on an arbitrary
-    // day of the month. All plans bill monthly, so 45 days covers the longest
-    // period that ever has to be summed with slack to spare.
+    // A day rather than anything coarser because the allowance runs over a
+    // subscription period anchored on subscriptions.startedAt, which begins on
+    // an arbitrary day of the month, and because the chart draws one point per
+    // day. 45 days covers the longest monthly period and the 30 day chart with
+    // slack to spare.
+    //
+    // bounced, failed and complained are kept apart because they are different
+    // problems: per the emails table above, failed is a permanent hard bounce,
+    // bounced a transient one, and complained means it arrived and was
+    // reported.
     //
     // Optional for the same reason byFolder never was: rows written before
     // this field existed carry nothing until the nightly
     // platformStats.startEntityStatsRebuild walk fills them in.
-    sentByDay: v.optional(
-      v.array(v.object({ day: v.string(), count: v.number() }))
+    byDay: v.optional(
+      v.array(
+        v.object({
+          day: v.string(),
+          sent: v.number(),
+          received: v.number(),
+          bounced: v.number(),
+          failed: v.number(),
+          complained: v.number(),
+        })
+      )
     ),
     // Inbox messages with read === false.
     unread: v.number(),
