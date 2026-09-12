@@ -1121,63 +1121,189 @@ export const getBounceStatsForDomain = internalQuery({
 
 // ── Batch stats for a domain (used by /v1/campaign-stats) ──
 
+/** Most sent rows one campaign-stats listing will touch before it refuses.
+ *
+ *  Sized in bytes, not rows. A .take(n) bounds the rows returned but not the
+ *  bytes read getting there, so n has to be a count that is safely under the
+ *  16777216 byte transaction limit on its own. The failure that started all of
+ *  this logged 18.01 MB against that limit, and at a pessimistic two kilobytes
+ *  a row five thousand rows is about ten megabytes, which leaves room for the
+ *  mailbox and stats reads around it.
+ *
+ *  It refuses rather than truncating because a truncated aggregate is a wrong
+ *  number presented as a right one: a batch cut in half reports half its sends
+ *  as its total, and every rate derived from it is wrong. Fewer batches is a
+ *  visible answer, wrong stats are not.
+ *
+ *  This caps the listing only. A single batch asked for by id is paginated
+ *  instead, so no campaign is too big to report on. */
+const BATCH_STATS_ROW_CAP = 5_000;
+
+/** Rows per page when walking one campaign by id. */
+const BATCH_BY_ID_PAGE = 2_000;
+
+type BatchTally = {
+  sentAt: number;
+  total: number;
+  delivered: number;
+  bounced: number;
+  failed: number;
+  opened: number;
+  clicked: number;
+  replied: number;
+};
+
+const foldEmailIntoBatch = (
+  batches: Record<string, BatchTally>,
+  email: Doc<"emails">
+) => {
+  if (!email.batchId) return;
+  if (!batches[email.batchId]) {
+    batches[email.batchId] = {
+      sentAt: email.date,
+      total: 0,
+      delivered: 0,
+      bounced: 0,
+      failed: 0,
+      opened: 0,
+      clicked: 0,
+      replied: 0,
+    };
+  }
+  const b = batches[email.batchId];
+  b.total++;
+  if (email.deliveryStatus === "delivered") b.delivered++;
+  else if (email.deliveryStatus === "bounced") b.bounced++;
+  else if (email.deliveryStatus === "failed") b.failed++;
+  if (email.openedAt) b.opened++;
+  if (email.clickedLinks && email.clickedLinks.length > 0) b.clicked++;
+  if (email.repliedAt) b.replied++;
+  if (email.date < b.sentAt) b.sentAt = email.date;
+};
+
+const batchRows = (batches: Record<string, BatchTally>) =>
+  Object.entries(batches).map(([batchId, stats]) => ({ batchId, ...stats }));
+
+/** Every batch on a domain, listed.
+ *
+ *  This collected every sent message on the domain, with no bound of any kind,
+ *  and it is reachable from /v1/campaign-stats. It was the last read of the
+ *  shape that refused every send on the account, and the most exposed.
+ *
+ *  It is bounded now without changing what a working caller sees. The all-time
+ *  sent count is one document per mailbox, so the query can tell before it
+ *  reads anything whether the domain is small enough to aggregate whole. Below
+ *  the cap it reads the full history exactly as it always did and returns the
+ *  same batches. Only above the cap, where the old query could not finish at
+ *  all, does it fall back to `windowSinceMs` and say so in `windowed`.
+ *
+ *  `take` is the backstop for the gap before the counters are rebuilt, when
+ *  the all-time figure reads zero and the pre-check cannot see the volume. It
+ *  refuses rather than returning a partial aggregate.
+ *
+ *  A single batch is better asked for by id: getBatchStatsById reads only that
+ *  campaign's rows, whatever its age, so nothing here makes an old batch
+ *  unreachable.
+ */
 export const getBatchStats = internalQuery({
-  args: { domainId: v.id("domains") },
-  handler: async (ctx, { domainId }) => {
+  args: { domainId: v.id("domains"), windowSinceMs: v.number() },
+  handler: async (ctx, { domainId, windowSinceMs }) => {
     const mailboxes = await ctx.db
       .query("mailboxes")
       .withIndex("by_domain_id", (q) => q.eq("domainId", domainId))
       .collect();
 
-    const batches: Record<string, {
-      sentAt: number;
-      total: number;
-      delivered: number;
-      bounced: number;
-      failed: number;
-      opened: number;
-      clicked: number;
-      replied: number;
-    }> = {};
-
+    let allTimeSent = 0;
     for (const mb of mailboxes) {
-      const sentEmails = await ctx.db
-        .query("emails")
-        .withIndex("by_mailbox_folder", (q) =>
-          q.eq("mailboxId", mb._id).eq("folder", "sent")
-        )
-        .collect();
-
-      for (const email of sentEmails) {
-        if (!email.batchId) continue;
-        if (!batches[email.batchId]) {
-          batches[email.batchId] = {
-            sentAt: email.date,
-            total: 0,
-            delivered: 0,
-            bounced: 0,
-            failed: 0,
-            opened: 0,
-            clicked: 0,
-            replied: 0,
-          };
-        }
-        const b = batches[email.batchId];
-        b.total++;
-        if (email.deliveryStatus === "delivered") b.delivered++;
-        else if (email.deliveryStatus === "bounced") b.bounced++;
-        else if (email.deliveryStatus === "failed") b.failed++;
-        if (email.openedAt) b.opened++;
-        if (email.clickedLinks && email.clickedLinks.length > 0) b.clicked++;
-        if (email.repliedAt) b.replied++;
-        if (email.date < b.sentAt) b.sentAt = email.date;
-      }
+      const stats = await readMailboxStats(ctx, mb._id);
+      allTimeSent += stats.byFolder["sent"] ?? 0;
     }
 
-    return Object.entries(batches).map(([batchId, stats]) => ({
-      batchId,
-      ...stats,
-    }));
+    // Zero is what an un-rebuilt counter reads, which lands here as "small
+    // enough to read whole": the behaviour this endpoint has today, with the
+    // cap below as the backstop.
+    const windowed = allTimeSent > BATCH_STATS_ROW_CAP;
+    const sinceMs = windowed ? windowSinceMs : 0;
+
+    const batches: Record<string, BatchTally> = {};
+    let rowsRead = 0;
+
+    for (const mb of mailboxes) {
+      const remaining = BATCH_STATS_ROW_CAP - rowsRead + 1;
+      const sentEmails = await ctx.db
+        .query("emails")
+        .withIndex("by_mailbox_folder_date", (q) =>
+          q.eq("mailboxId", mb._id).eq("folder", "sent").gte("date", sinceMs)
+        )
+        .take(remaining);
+
+      rowsRead += sentEmails.length;
+      if (rowsRead > BATCH_STATS_ROW_CAP) {
+        return { batches: [], windowed, tooLarge: true as const };
+      }
+
+      for (const email of sentEmails) foldEmailIntoBatch(batches, email);
+    }
+
+    return { batches: batchRows(batches), windowed, tooLarge: false as const };
+  },
+});
+
+/** One page of a campaign's stats, by its batch id, at any age.
+ *
+ *  Reads only that campaign's rows through by_batch rather than aggregating
+ *  the whole domain and filtering the result, so asking about one campaign
+ *  costs what that campaign costs rather than what the account's history
+ *  costs.
+ *
+ *  Paginated so no campaign is too large to report on. The caller is an
+ *  httpAction, which can loop, and each page is its own transaction with its
+ *  own read budget. Totals are added across pages, which is exact: every row
+ *  is seen once and the counts are sums.
+ *
+ *  `domainIds` scopes the answer to what the caller's key may see. A batch id
+ *  is guessable, and this must not become a way to read another account's
+ *  campaign.
+ */
+export const getBatchStatsById = internalQuery({
+  args: {
+    batchId: v.string(),
+    domainIds: v.array(v.id("domains")),
+    cursor: v.optional(v.string()),
+  },
+  handler: async (ctx, { batchId, domainIds, cursor }) => {
+    const page = await ctx.db
+      .query("emails")
+      .withIndex("by_batch", (q) => q.eq("batchId", batchId))
+      .paginate({ cursor: cursor ?? null, numItems: BATCH_BY_ID_PAGE });
+
+    // One lookup per distinct mailbox rather than per row: a campaign is many
+    // messages from few addresses.
+    const permitted = new Set(domainIds as string[]);
+    const mailboxAllowed = new Map<string, boolean>();
+    const batches: Record<string, BatchTally> = {};
+
+    for (const email of page.page) {
+      if (email.folder !== "sent") continue;
+
+      const key = email.mailboxId as string;
+      if (!mailboxAllowed.has(key)) {
+        const mailbox = await ctx.db.get(email.mailboxId);
+        mailboxAllowed.set(
+          key,
+          !!mailbox && permitted.has(mailbox.domainId as string)
+        );
+      }
+      if (!mailboxAllowed.get(key)) continue;
+
+      foldEmailIntoBatch(batches, email);
+    }
+
+    return {
+      batches: batchRows(batches),
+      cursor: page.continueCursor,
+      isDone: page.isDone,
+    };
   },
 });
 

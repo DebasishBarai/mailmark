@@ -214,6 +214,12 @@ export default defineSchema({
     // unbounded read that broke quotas, reachable from a single click.
     .index("by_mailbox_folder_read", ["mailboxId", "folder", "read"])
     .index("by_message_id", ["messageId"])
+    // One campaign's messages. /v1/campaign-stats used to find a single batch
+    // by aggregating every batch on the domain and filtering the result, which
+    // meant reading the whole sent folder to answer a question about one
+    // campaign. Rows with no batchId group under undefined and are never
+    // matched by an equality on a real id.
+    .index("by_batch", ["batchId"])
     .index("by_ses_message_id", ["sesMessageId"]),
 
   contacts: defineTable({

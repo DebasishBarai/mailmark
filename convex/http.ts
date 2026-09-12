@@ -1683,6 +1683,23 @@ http.route({
 
 // ── Campaign Stats API ─────────────────────────────────────────────────────
 
+/** Refusal for a campaign-stats read that would not fit in one transaction.
+ *
+ *  A refusal rather than a partial aggregate: cutting a batch in half reports
+ *  half its sends as its total and every rate derived from it is wrong. This
+ *  says what to do instead, and 400 rather than 500 because the caller can fix
+ *  it by narrowing the request. */
+const campaignStatsTooLarge = () =>
+  jsonResponse(
+    {
+      error: "Too much sent mail in range",
+      message:
+        "This range covers more sent mail than can be aggregated in one request. Narrow it with a smaller days parameter, or fetch a single campaign with batchId.",
+    },
+    400
+  );
+
+
 http.route({
   path: "/v1/campaign-stats",
   method: "GET",
@@ -1696,6 +1713,17 @@ http.route({
     const batchIdParam = url.searchParams.get("batchId");
     const isOrgKey = apiKey.scope === "org" || !apiKey.domainId;
 
+    // Only used on domains too large to aggregate whole, which are the domains
+    // where this endpoint could not answer at all before. Everywhere else the
+    // full history is still listed and this is ignored. Same shape and bounds
+    // as the days parameter on /v1/bounces.
+    const batchDaysParam = url.searchParams.get("days");
+    const batchDays = Math.min(
+      Math.max(parseInt(batchDaysParam ?? "90", 10) || 90, 1),
+      90
+    );
+    const batchWindowSinceMs = Date.now() - batchDays * 24 * 60 * 60 * 1000;
+
     let domainIds: string[];
     if (apiKey.domainId && !isOrgKey) {
       domainIds = [apiKey.domainId];
@@ -1703,7 +1731,16 @@ http.route({
       domainIds = await getDomainIdsForKey(ctx, apiKey);
     }
 
-    const response: { sequences?: any[]; batches?: any[] } = {};
+    const response: {
+      sequences?: any[];
+      batches?: any[];
+      batchWindow?: {
+        applied: boolean;
+        days: number;
+        from: number;
+        note: string;
+      };
+    } = {};
 
     if (typeFilter === "all" || typeFilter === "sequence") {
       const allSequences: any[] = [];
@@ -1737,14 +1774,77 @@ http.route({
 
     if (typeFilter === "all" || typeFilter === "batch") {
       const allBatches: any[] = [];
-      for (const domainId of domainIds) {
-        const batches = await ctx.runQuery(internal.emails.getBatchStats, { domainId: domainId as any });
-        allBatches.push(...batches);
+      let anyWindowed = false;
+
+      if (batchIdParam) {
+        // One campaign, read through by_batch, so its age does not matter and
+        // the cost is the campaign's rather than the account's history. This
+        // is what keeps a batch older than any window reachable, and it is
+        // paginated so no campaign is too large to report on. Totals add
+        // across pages because every row is seen once and the counts are sums.
+        const merged: Record<string, any> = {};
+        let cursor: string | undefined = undefined;
+        let done = false;
+        while (!done) {
+          const page: {
+            batches: any[];
+            cursor: string;
+            isDone: boolean;
+          } = await ctx.runQuery(internal.emails.getBatchStatsById, {
+            batchId: batchIdParam,
+            domainIds: domainIds as any,
+            cursor,
+          });
+          for (const b of page.batches) {
+            const into = merged[b.batchId];
+            if (!into) {
+              merged[b.batchId] = { ...b };
+              continue;
+            }
+            into.total += b.total;
+            into.delivered += b.delivered;
+            into.bounced += b.bounced;
+            into.failed += b.failed;
+            into.opened += b.opened;
+            into.clicked += b.clicked;
+            into.replied += b.replied;
+            if (b.sentAt < into.sentAt) into.sentAt = b.sentAt;
+          }
+          cursor = page.cursor;
+          done = page.isDone;
+        }
+        allBatches.push(...Object.values(merged));
+      } else {
+        for (const domainId of domainIds) {
+          const result = await ctx.runQuery(internal.emails.getBatchStats, {
+            domainId: domainId as any,
+            windowSinceMs: batchWindowSinceMs,
+          });
+          if (result.tooLarge) return campaignStatsTooLarge();
+          if (result.windowed) anyWindowed = true;
+          allBatches.push(...result.batches);
+        }
       }
 
-      const filtered = batchIdParam
-        ? allBatches.filter((b) => b.batchId === batchIdParam)
-        : allBatches;
+      // Old: every batch on every domain was aggregated and then filtered down
+      // to the one asked for, which read the whole sent folder to answer a
+      // question about a single campaign.
+      //
+      // const filtered = batchIdParam
+      //   ? allBatches.filter((b) => b.batchId === batchIdParam)
+      //   : allBatches;
+      const filtered = allBatches;
+
+      // Additive, and only present when a window was actually applied, so a
+      // caller reading this endpoint today sees a byte-identical response.
+      if (anyWindowed) {
+        response.batchWindow = {
+          applied: true,
+          days: batchDays,
+          from: batchWindowSinceMs,
+          note: "This domain has too much sent mail to list every batch at once. Batches older than the window are omitted from this list and can still be fetched individually with ?batchId=.",
+        };
+      }
 
       response.batches = filtered.map((b: any) => ({
         batchId: b.batchId,
