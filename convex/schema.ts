@@ -65,6 +65,13 @@ export default defineSchema({
     sesDkimStatus: v.optional(v.string()),
     sesMailFromStatus: v.optional(v.string()),
     sesVerifiedForSending: v.optional(v.boolean()),
+    // When a MAIL FROM retry was last requested from the domain page.
+    // Once SES reports FAILED it has stopped polling DNS for the MAIL FROM MX
+    // and nothing brings it back on its own, so the owner can re-submit the
+    // MAIL FROM attributes to restart verification. Recorded to rate limit
+    // that button: each retry restarts SES's own 72 hour window, and the
+    // identity APIs are rate limited to roughly one request per second.
+    mailFromRetryRequestedAt: v.optional(v.number()),
     // When the verification check last ran, and the error it hit (if any).
     lastVerificationCheckAt: v.optional(v.number()),
     lastVerificationError: v.optional(v.string()),

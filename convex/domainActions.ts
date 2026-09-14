@@ -39,6 +39,10 @@ import {
   getAwsClientsForAccount,
   type AwsClientBundle,
 } from "./lib/awsClients";
+import {
+  mailFromCheckStopped,
+  retryCooldownRemainingMs,
+} from "./lib/mailFromRetry";
 import type { Doc } from "./_generated/dataModel";
 
 // DNS resolution helpers - use Google's public DNS to avoid stale
@@ -68,6 +72,17 @@ async function resolveTxt(hostname: string): Promise<string[][]> {
   } catch {
     return [];
   }
+}
+
+// The MAIL FROM feedback endpoint SES polls for, per region.
+//
+// Defined once because the last bug here was two copies disagreeing: the page
+// published feedback-smtp.<region>.amazonaws.com while SES waited on
+// amazonses.com, and the checker matched the published value, so the row went
+// green over a MAIL FROM that could never verify. Both the verification pass
+// and the retry below read this.
+function mailFromMxHost(region: string): string {
+  return `feedback-smtp.${region}.amazonses.com`;
 }
 
 // Admin gate for actions. Actions have no database access, so the user row is
@@ -258,7 +273,8 @@ export const verifyDomainInternal = internalAction({
     // was a permanently pending MailFromDomainStatus behind a verified-looking
     // record set.
     // const expectedMailFromMx = `feedback-smtp.${region}.amazonaws.com`;
-    const expectedMailFromMx = `feedback-smtp.${region}.amazonses.com`;
+    // const expectedMailFromMx = `feedback-smtp.${region}.amazonses.com`;
+    const expectedMailFromMx = mailFromMxHost(region);
     const mailFromMxRecords = await resolveMx(mailFromDomain);
     const mailFromMxVerified = mailFromMxRecords.some(
       (mx) => mx.exchange.toLowerCase().replace(/\.$/, "") === expectedMailFromMx
@@ -500,6 +516,137 @@ export const adminVerifyDomain = action({
     return await ctx.runAction(internal.domainActions.verifyDomainInternal, {
       domainId,
     });
+  },
+});
+
+// Result of a MAIL FROM retry. `status` is whatever SES reported immediately
+// after the re-submission, which is PENDING on success: the point of the call
+// is to put SES back to work, not to produce a verdict.
+export type MailFromRetryResult = {
+  status?: string;
+  retriedAt: number;
+};
+
+// Re-submit the custom MAIL FROM configuration to restart SES verification.
+//
+// Once SES reports FAILED it has given up polling DNS for the MAIL FROM MX and
+// will not look again on its own, so correcting the record changes nothing:
+// the domain page shows a green MAIL FROM row (our own lookup) above an amber
+// banner (SES's stale verdict) forever. Re-submitting the attributes is the
+// only lever that restarts it, and it is exactly what the Retry button in the
+// SES console sends.
+//
+// This lives outside verifyDomainInternal on purpose. Putting the MAIL FROM
+// attributes resets MailFromDomainStatus to PENDING, so a verification pass
+// that wrote them on every run could never read a settled status back. That
+// was a real bug (see the commented block in verifyDomainInternal), and the
+// guard that fixed it is what makes this separate, explicitly requested action
+// necessary.
+export const retryMailFromVerification = action({
+  args: { domainId: v.id("domains") },
+  handler: async (ctx, { domainId }): Promise<MailFromRetryResult> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.runQuery(internal.domains.getUserByClerkId, {
+      clerkId: identity.subject,
+    });
+    if (!user) throw new Error("User not found");
+
+    const domain = await ctx.runQuery(internal.domains.getByIdInternal, {
+      domainId,
+    });
+    if (!domain) throw new Error("Domain not found");
+
+    // Same ownership rule as verifyDns. This action drives a write against
+    // SES, so it must never accept a domainId from someone who does not own
+    // the domain.
+    if (domain.userId !== user._id && user.category !== "admin") {
+      throw new Error("Not authorized");
+    }
+
+    // Every condition the button renders on is re-checked here. The client
+    // decides what to show; the server decides what may happen.
+    const status = domain.sesMailFromStatus;
+    if (status === "SUCCESS") {
+      throw new Error("MAIL FROM is already verified for this domain");
+    }
+    if (!mailFromCheckStopped(status)) {
+      // PENDING, or never checked. SES is still polling on its own and a
+      // retry would only restart its clock.
+      throw new Error(
+        "AWS is still checking this record. Retrying now would restart its 72 hour window for nothing."
+      );
+    }
+
+    const cooldownRemaining = retryCooldownRemainingMs(
+      domain.mailFromRetryRequestedAt,
+      Date.now()
+    );
+    if (cooldownRemaining > 0) {
+      const minutes = Math.ceil(cooldownRemaining / 60000);
+      throw new Error(
+        `A retry was requested recently. Please wait ${minutes} more minute(s) before trying again.`
+      );
+    }
+
+    const awsAccount = await ctx.runQuery(
+      internal.domains.getAwsAccountForDomain,
+      { domainId }
+    );
+    const clients: AwsClientBundle = awsAccount
+      ? await getAwsClientsForAccount(awsAccount)
+      : getPlatformAwsClients();
+
+    const mailFromDomain = `mail.${domain.domain}`;
+    const expectedMailFromMx = mailFromMxHost(clients.region);
+
+    // Look the record up again rather than trusting domain.mailFromMxVerified.
+    // That flag is sticky and can be minutes or days old, and a retry spent
+    // against DNS that is still wrong burns another full SES polling window.
+    const mailFromMxRecords = await resolveMx(mailFromDomain);
+    const mailFromMxVerified = mailFromMxRecords.some(
+      (mx) => mx.exchange.toLowerCase().replace(/\.$/, "") === expectedMailFromMx
+    );
+    if (!mailFromMxVerified) {
+      const found = mailFromMxRecords.length > 0
+        ? mailFromMxRecords
+            .map((mx) => `${mx.priority} ${mx.exchange.replace(/\.$/, "")}`)
+            .join(", ")
+        : "nothing";
+      throw new Error(
+        `The MX record for ${mailFromDomain} does not match yet. Expected "10 ${expectedMailFromMx}" but found ${found}. Publish the record first, then retry.`
+      );
+    }
+
+    // The retry itself. Identical to what the SES console's Retry button
+    // sends, and the only call that restarts MAIL FROM verification.
+    await clients.sesv2.send(
+      new PutEmailIdentityMailFromAttributesCommand({
+        EmailIdentity: domain.domain,
+        MailFromDomain: mailFromDomain,
+        BehaviorOnMxFailure: "USE_DEFAULT_VALUE",
+      })
+    );
+
+    // Read back so the stored status reflects the identity after the write.
+    // This reads PENDING, which is the truth: SES has just started polling
+    // again, and the next verification pass picks up the result.
+    const result = await clients.sesv2.send(
+      new GetEmailIdentityCommand({
+        EmailIdentity: domain.domain,
+      })
+    );
+    const newStatus = result.MailFromAttributes?.MailFromDomainStatus;
+
+    const retriedAt = Date.now();
+    await ctx.runMutation(internal.domains.recordMailFromRetry, {
+      domainId,
+      sesMailFromStatus: newStatus,
+      mailFromRetryRequestedAt: retriedAt,
+    });
+
+    return { status: newStatus, retriedAt };
   },
 });
 

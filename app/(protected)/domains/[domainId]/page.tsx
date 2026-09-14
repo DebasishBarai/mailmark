@@ -6,6 +6,10 @@ import Link from "next/link";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
+import {
+  canRetryMailFrom,
+  mailFromCheckStopped,
+} from "../../../../convex/lib/mailFromRetry";
 import { Tooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
 
@@ -22,6 +26,7 @@ export default function DomainDetailPage() {
   const updateDisplayName = useMutation(api.mailboxes.updateDisplayName);
   const removeDomain = useAction(api.domainActions.remove);
   const verifyDns = useAction(api.domainActions.verifyDns);
+  const retryMailFrom = useAction(api.domainActions.retryMailFromVerification);
   const usageAndLimits = useQuery(api.quotas.getUsageAndLimits);
 
   const isLoading = domain === undefined || mailboxes === undefined;
@@ -35,6 +40,8 @@ export default function DomainDetailPage() {
   const [newDisplayName, setNewDisplayName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isRetryingMailFrom, setIsRetryingMailFrom] = useState(false);
+  const [mailFromRetryError, setMailFromRetryError] = useState<string | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [editingMailbox, setEditingMailbox] = useState<Doc<"mailboxes"> | null>(null);
   const [editDisplayName, setEditDisplayName] = useState("");
@@ -86,6 +93,24 @@ const [copiedKey, setCopiedKey] = useState<string | null>(null);
       await verifyDns({ domainId: domainId as Id<"domains"> });
     } finally {
       setIsVerifying(false);
+    }
+  };
+
+  // Ask SES to start checking the MAIL FROM record again. Every guard the
+  // button renders on is enforced again server side, so a failure here is a
+  // real answer worth showing rather than a validation slip.
+  const handleRetryMailFrom = async () => {
+    setIsRetryingMailFrom(true);
+    setMailFromRetryError(null);
+    try {
+      await retryMailFrom({ domainId: domainId as Id<"domains"> });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      // Convex prefixes thrown errors with its own framing. Show the sentence
+      // the action wrote, not the stack trail around it.
+      setMailFromRetryError(message.split("Uncaught Error:").pop()?.trim() || message);
+    } finally {
+      setIsRetryingMailFrom(false);
     }
   };
 
@@ -209,6 +234,17 @@ const handleRemoveDomain = async () => {
   ];
 
   const allDnsVerified = dnsRecords.length > 0 && dnsRecords.every((r) => r.verified);
+
+  // SES polls DNS for the MAIL FROM MX on its own while the status is PENDING,
+  // but once it reports FAILED it has given up and never looks again. At that
+  // point correcting the record moves our own row to verified and leaves SES
+  // exactly where it was, so the fix needs a re-submission to take.
+  const checkStopped = mailFromCheckStopped(domain.sesMailFromStatus);
+  // Only worth offering once our own lookup agrees the record is correct.
+  // Retrying against DNS that is still wrong spends another 72 hour window.
+  // The cooldown is enforced server side rather than here, so the message
+  // comes from the action that knows when the last retry actually happened.
+  const showMailFromRetry = canRetryMailFrom(domain);
 
   function generateZoneFile(): string {
     const lines: string[] = [
@@ -337,6 +373,10 @@ const handleRemoveDomain = async () => {
             <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
           </svg>
           <div>
+            {/* Old copy said "AWS is still confirming" for every status other
+                than SUCCESS, which reads as reassurance in the one case where
+                it is wrong: once SES reports FAILED it has stopped checking,
+                and waiting achieves nothing.
             <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
               Your domain is ready to use. AWS is still confirming one optional record.
             </p>
@@ -345,6 +385,53 @@ const handleRemoveDomain = async () => {
               You can create mailboxes and send and receive email now. Until AWS confirms it,
               messages use the default Amazon sending domain, which changes nothing you will notice.
             </p>
+            */}
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              {checkStopped
+                ? "Your domain is ready to use. AWS stopped checking one optional record."
+                : "Your domain is ready to use. AWS is still confirming one optional record."}
+            </p>
+            <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+              The custom MAIL FROM subdomain improves deliverability but is not required.
+              You can create mailboxes and send and receive email now. Until AWS confirms it,
+              messages use the default Amazon sending domain, which changes nothing you will notice.
+            </p>
+            {checkStopped && (
+              <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                {showMailFromRetry
+                  ? "The MAIL FROM record now looks correct in your DNS, but AWS gave up checking it after 72 hours and will not look again on its own. Ask it to check once more."
+                  : "AWS gave up checking after 72 hours and will not look again on its own. Publish the MAIL FROM MX record shown below, run Re-verify DNS, and a retry option will appear here."}
+              </p>
+            )}
+            {showMailFromRetry && (
+              <button
+                onClick={handleRetryMailFrom}
+                disabled={isRetryingMailFrom}
+                className="mt-2.5 inline-flex items-center gap-2 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
+              >
+                {isRetryingMailFrom ? (
+                  <>
+                    <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Asking AWS...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+                    </svg>
+                    Retry AWS verification
+                  </>
+                )}
+              </button>
+            )}
+            {mailFromRetryError && (
+              <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-400">
+                {mailFromRetryError}
+              </p>
+            )}
           </div>
         </div>
       )}
