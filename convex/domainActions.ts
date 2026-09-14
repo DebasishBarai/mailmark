@@ -621,6 +621,20 @@ export const retryMailFromVerification = action({
             .map((mx) => `${mx.priority} ${mx.exchange.replace(/\.$/, "")}`)
             .join(", ")
         : "nothing";
+      // The stored flag is what put the button on screen, so if it disagrees
+      // with what we just resolved it is stale and will keep inviting clicks
+      // that cannot succeed. Domains set up before the feedback hostname was
+      // corrected all carry it green, and their owners only ever see it
+      // rechecked by hand. Record what this lookup actually found.
+      //
+      // The throw below does not undo this: an action's runMutation commits on
+      // its own, so the row and the button correct themselves either way.
+      if (domain.mailFromMxVerified) {
+        await ctx.runMutation(internal.domains.recordMailFromRetry, {
+          domainId,
+          mailFromMxVerified: false,
+        });
+      }
       throw new ConvexError(
         `The MX record for ${mailFromDomain} does not match yet. Expected "10 ${expectedMailFromMx}" but found ${found}. Publish the record first, then retry.`
       );

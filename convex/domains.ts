@@ -169,15 +169,19 @@ export const updateVerification = internalMutation({
 
 // Persist the outcome of a MAIL FROM retry.
 //
-// Deliberately narrow: it writes the one status the retry can change plus the
-// rate limit timestamp, and never touches the DNS booleans. Those belong to
-// the verification pass, which does its own lookups; a retry that reached
-// through and set them would report a DNS result nobody had checked.
+// Deliberately narrow: every field is one the retry path has just observed
+// first hand. The status and the rate limit timestamp come from the retry
+// itself; mailFromMxVerified is written only to record a contradiction the
+// retry's own fresh lookup found, never to claim a result nobody checked.
 export const recordMailFromRetry = internalMutation({
   args: {
     domainId: v.id("domains"),
     sesMailFromStatus: v.optional(v.string()),
-    mailFromRetryRequestedAt: v.number(),
+    mailFromRetryRequestedAt: v.optional(v.number()),
+    // Written only when the retry's own lookup contradicts the stored flag.
+    // The retry resolves the record fresh, so in that one case it has checked
+    // the DNS itself and is not reporting someone else's result.
+    mailFromMxVerified: v.optional(v.boolean()),
   },
   handler: async (ctx, { domainId, ...fields }) => {
     await ctx.db.patch(domainId, fields);
