@@ -6,7 +6,7 @@ if (typeof globalThis.DOMParser === "undefined") {
   (globalThis as any).DOMParser = DOMParser;
 }
 
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import {
   action,
   internalAction,
@@ -536,6 +536,13 @@ export type MailFromRetryResult = {
 // only lever that restarts it, and it is exactly what the Retry button in the
 // SES console sends.
 //
+// Refusals here throw ConvexError, not Error: Convex redacts a plain Error on
+// a production deployment and hands the client "Server Error" with the message
+// dropped. Every refusal below was written to tell the owner what to do next
+// (publish the record, wait for AWS, wait out the cooldown), which is worth
+// nothing if it arrives as "[CONVEX A(domainActions:retryMailFromVerification)]
+// Server Error Called by client".
+//
 // This lives outside verifyDomainInternal on purpose. Putting the MAIL FROM
 // attributes resets MailFromDomainStatus to PENDING, so a verification pass
 // that wrote them on every run could never read a settled status back. That
@@ -546,35 +553,35 @@ export const retryMailFromVerification = action({
   args: { domainId: v.id("domains") },
   handler: async (ctx, { domainId }): Promise<MailFromRetryResult> => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    if (!identity) throw new ConvexError("Not authenticated");
 
     const user = await ctx.runQuery(internal.domains.getUserByClerkId, {
       clerkId: identity.subject,
     });
-    if (!user) throw new Error("User not found");
+    if (!user) throw new ConvexError("User not found");
 
     const domain = await ctx.runQuery(internal.domains.getByIdInternal, {
       domainId,
     });
-    if (!domain) throw new Error("Domain not found");
+    if (!domain) throw new ConvexError("Domain not found");
 
     // Same ownership rule as verifyDns. This action drives a write against
     // SES, so it must never accept a domainId from someone who does not own
     // the domain.
     if (domain.userId !== user._id && user.category !== "admin") {
-      throw new Error("Not authorized");
+      throw new ConvexError("Not authorized");
     }
 
     // Every condition the button renders on is re-checked here. The client
     // decides what to show; the server decides what may happen.
     const status = domain.sesMailFromStatus;
     if (status === "SUCCESS") {
-      throw new Error("MAIL FROM is already verified for this domain");
+      throw new ConvexError("MAIL FROM is already verified for this domain");
     }
     if (!mailFromCheckStopped(status)) {
       // PENDING, or never checked. SES is still polling on its own and a
       // retry would only restart its clock.
-      throw new Error(
+      throw new ConvexError(
         "AWS is still checking this record. Retrying now would restart its 72 hour window for nothing."
       );
     }
@@ -585,7 +592,7 @@ export const retryMailFromVerification = action({
     );
     if (cooldownRemaining > 0) {
       const minutes = Math.ceil(cooldownRemaining / 60000);
-      throw new Error(
+      throw new ConvexError(
         `A retry was requested recently. Please wait ${minutes} more minute(s) before trying again.`
       );
     }
@@ -614,30 +621,42 @@ export const retryMailFromVerification = action({
             .map((mx) => `${mx.priority} ${mx.exchange.replace(/\.$/, "")}`)
             .join(", ")
         : "nothing";
-      throw new Error(
+      throw new ConvexError(
         `The MX record for ${mailFromDomain} does not match yet. Expected "10 ${expectedMailFromMx}" but found ${found}. Publish the record first, then retry.`
       );
     }
 
-    // The retry itself. Identical to what the SES console's Retry button
-    // sends, and the only call that restarts MAIL FROM verification.
-    await clients.sesv2.send(
-      new PutEmailIdentityMailFromAttributesCommand({
-        EmailIdentity: domain.domain,
-        MailFromDomain: mailFromDomain,
-        BehaviorOnMxFailure: "USE_DEFAULT_VALUE",
-      })
-    );
+    let newStatus: string | undefined;
+    try {
+      // The retry itself. Identical to what the SES console's Retry button
+      // sends, and the only call that restarts MAIL FROM verification.
+      await clients.sesv2.send(
+        new PutEmailIdentityMailFromAttributesCommand({
+          EmailIdentity: domain.domain,
+          MailFromDomain: mailFromDomain,
+          BehaviorOnMxFailure: "USE_DEFAULT_VALUE",
+        })
+      );
 
-    // Read back so the stored status reflects the identity after the write.
-    // This reads PENDING, which is the truth: SES has just started polling
-    // again, and the next verification pass picks up the result.
-    const result = await clients.sesv2.send(
-      new GetEmailIdentityCommand({
-        EmailIdentity: domain.domain,
-      })
-    );
-    const newStatus = result.MailFromAttributes?.MailFromDomainStatus;
+      // Read back so the stored status reflects the identity after the write.
+      // This reads PENDING, which is the truth: SES has just started polling
+      // again, and the next verification pass picks up the result.
+      const result = await clients.sesv2.send(
+        new GetEmailIdentityCommand({
+          EmailIdentity: domain.domain,
+        })
+      );
+      newStatus = result.MailFromAttributes?.MailFromDomainStatus;
+    } catch (error: unknown) {
+      // An AWS refusal (throttling, an identity deleted underneath us, expired
+      // BYO credentials) is the owner's problem to see, not a silent failure.
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error(
+        `[mailFromRetry] SES retry failed for ${domain.domain}:`,
+        error
+      );
+      throw new ConvexError(`AWS rejected the retry: ${reason}`);
+    }
 
     const retriedAt = Date.now();
     await ctx.runMutation(internal.domains.recordMailFromRetry, {

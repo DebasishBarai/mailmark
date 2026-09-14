@@ -10,6 +10,7 @@ import {
   canRetryMailFrom,
   mailFromCheckStopped,
 } from "../../../../convex/lib/mailFromRetry";
+import { ConvexError } from "convex/values";
 import { Tooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
 
@@ -105,10 +106,14 @@ const [copiedKey, setCopiedKey] = useState<string | null>(null);
     try {
       await retryMailFrom({ domainId: domainId as Id<"domains"> });
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      // Convex prefixes thrown errors with its own framing. Show the sentence
-      // the action wrote, not the stack trail around it.
-      setMailFromRetryError(message.split("Uncaught Error:").pop()?.trim() || message);
+      // Convex redacts a plain Error in production, so only a ConvexError
+      // carries a message worth showing. Anything else reaches the client as
+      // "Server Error" with no reason attached.
+      setMailFromRetryError(
+        error instanceof ConvexError && typeof error.data === "string"
+          ? error.data
+          : "Could not reach AWS to retry. Please try again in a moment."
+      );
     } finally {
       setIsRetryingMailFrom(false);
     }
