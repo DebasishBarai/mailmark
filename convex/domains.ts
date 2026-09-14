@@ -167,6 +167,23 @@ export const updateVerification = internalMutation({
   },
 });
 
+// Persist the outcome of a MAIL FROM retry.
+//
+// Deliberately narrow: it writes the one status the retry can change plus the
+// rate limit timestamp, and never touches the DNS booleans. Those belong to
+// the verification pass, which does its own lookups; a retry that reached
+// through and set them would report a DNS result nobody had checked.
+export const recordMailFromRetry = internalMutation({
+  args: {
+    domainId: v.id("domains"),
+    sesMailFromStatus: v.optional(v.string()),
+    mailFromRetryRequestedAt: v.number(),
+  },
+  handler: async (ctx, { domainId, ...fields }) => {
+    await ctx.db.patch(domainId, fields);
+  },
+});
+
 export const markReceiptRuleCreated = internalMutation({
   args: { domainId: v.id("domains") },
   handler: async (ctx, { domainId }) => {
