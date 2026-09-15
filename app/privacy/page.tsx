@@ -140,6 +140,20 @@ We aim to respond to all privacy inquiries within 30 days.`,
   },
 ];
 
+// Renders the **bold** spans used throughout the section copy. Shared by
+// paragraphs and list items so both mark up the same way.
+function renderInline(text: string) {
+  return text.split("**").map((part, i) =>
+    i % 2 === 1 ? (
+      <strong key={i} className="font-semibold text-gray-800 dark:text-gray-100">
+        {part}
+      </strong>
+    ) : (
+      part
+    )
+  );
+}
+
 export default function PrivacyPage() {
   return (
     <main className="bg-white dark:bg-gray-900">
@@ -172,7 +186,10 @@ export default function PrivacyPage() {
               <div key={section.title} className="border-b border-gray-100 pb-10 last:border-0 dark:border-gray-700">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">{section.title}</h2>
                 <div className="mt-4 space-y-3">
-                  {section.content.split("\n\n").map((para, i) => (
+                  {/* Old renderer: every block became a <p>, so blocks written as
+                      "- " lines collapsed into one run-on paragraph with the
+                      dashes showing as literal text. Kept for reference. */}
+                  {/* {section.content.split("\n\n").map((para, i) => (
                     <p key={i} className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                       {para.split("**").map((part, j) =>
                         j % 2 === 1 ? (
@@ -184,7 +201,25 @@ export default function PrivacyPage() {
                         )
                       )}
                     </p>
-                  ))}
+                  ))} */}
+                  {section.content.split("\n\n").map((block, i) =>
+                    block.trimStart().startsWith("- ") ? (
+                      <ul key={i} className="list-disc space-y-2 pl-5 marker:text-violet-600 dark:marker:text-violet-400">
+                        {block
+                          .split("\n")
+                          .filter((line) => line.trim().length > 0)
+                          .map((line, j) => (
+                            <li key={j} className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                              {renderInline(line.replace(/^\s*-\s+/, ""))}
+                            </li>
+                          ))}
+                      </ul>
+                    ) : (
+                      <p key={i} className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                        {renderInline(block)}
+                      </p>
+                    )
+                  )}
                 </div>
               </div>
             ))}
