@@ -39,7 +39,16 @@ We reserve the right to modify, suspend, or discontinue any aspect of the Servic
   },
   {
     title: "4. Acceptable use",
-    content: `You agree not to use the Service to:
+    content: `**Your obligations as a sender:** Before you send through Mailmark, you are responsible for the following:
+
+- You warrant that every recipient has given verifiable opt-in consent to receive email from you, or that you have a prior business relationship with that recipient and the law in their jurisdiction allows you to send on that basis.
+- You must retain proof of consent for every recipient and provide it to us on request.
+- You must include a working unsubscribe mechanism in every message and honour opt-out requests promptly.
+- You must use accurate sender identity, headers, and subject lines.
+
+We may monitor bounce rates, spam complaint rates, and spam-trap hits on your account, and suspend your sending where these exceed the thresholds we consider safe.
+
+You agree not to use the Service to:
 
 - Send spam, unsolicited bulk email, or email to addresses obtained through scraping or purchased lists.
 - Harass, threaten, or impersonate others.
@@ -117,6 +126,20 @@ Legal Department
   },
 ];
 
+// Renders the **bold** spans used throughout the section copy. Shared by
+// paragraphs and list items so both mark up the same way.
+function renderInline(text: string) {
+  return text.split("**").map((part, i) =>
+    i % 2 === 1 ? (
+      <strong key={i} className="font-semibold text-gray-800 dark:text-gray-100">
+        {part}
+      </strong>
+    ) : (
+      part
+    )
+  );
+}
+
 export default function TermsPage() {
   return (
     <main className="bg-white dark:bg-gray-900">
@@ -132,7 +155,8 @@ export default function TermsPage() {
             Terms of Service
           </h1>
           <p className="mt-4 text-gray-500 dark:text-gray-400">
-            Last updated: <strong>January 15, 2026</strong>
+            {/* Last updated: <strong>January 15, 2026</strong> */}
+            Last updated: <strong>September 15, 2026</strong>
           </p>
           <p className="mt-4 text-gray-600 dark:text-gray-300">
             Please read these terms carefully before using Mailmark. They
@@ -149,7 +173,10 @@ export default function TermsPage() {
               <div key={section.title} className="border-b border-gray-100 pb-10 last:border-0 dark:border-gray-700">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">{section.title}</h2>
                 <div className="mt-4 space-y-3">
-                  {section.content.split("\n\n").map((para, i) => (
+                  {/* Old renderer: every block became a <p>, so blocks written as
+                      "- " lines collapsed into one run-on paragraph with the
+                      dashes showing as literal text. Kept for reference. */}
+                  {/* {section.content.split("\n\n").map((para, i) => (
                     <p key={i} className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                       {para.split("**").map((part, j) =>
                         j % 2 === 1 ? (
@@ -161,7 +188,25 @@ export default function TermsPage() {
                         )
                       )}
                     </p>
-                  ))}
+                  ))} */}
+                  {section.content.split("\n\n").map((block, i) =>
+                    block.trimStart().startsWith("- ") ? (
+                      <ul key={i} className="list-disc space-y-2 pl-5 marker:text-violet-600 dark:marker:text-violet-400">
+                        {block
+                          .split("\n")
+                          .filter((line) => line.trim().length > 0)
+                          .map((line, j) => (
+                            <li key={j} className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                              {renderInline(line.replace(/^\s*-\s+/, ""))}
+                            </li>
+                          ))}
+                      </ul>
+                    ) : (
+                      <p key={i} className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                        {renderInline(block)}
+                      </p>
+                    )
+                  )}
                 </div>
               </div>
             ))}
