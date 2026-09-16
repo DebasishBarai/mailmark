@@ -9,8 +9,7 @@ export default function CTABanner() {
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-lg text-violet-100">
           Add your domains, create mailboxes, send updates to your users, and
-          wire up the API, all from one dashboard. Try free for 7 days, no
-          credit card required.
+          wire up the API, all from one dashboard. Try free for 7 days.
         </p>
         <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
           <CTAButton className="inline-flex items-center gap-2 rounded-full bg-white px-8 py-3.5 text-base font-semibold text-violet-700 shadow-lg transition-all hover:bg-gray-50 hover:shadow-xl">
