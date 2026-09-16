@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "dodopayments": {
+      "source": {
+        "source": "github",
+        "repo": "dodopayments/dodo-agent-plugin"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "dodopayments@dodopayments": true
+  }
+}
