@@ -11,7 +11,7 @@ const plans = [
     name: "Starter",
     price: "$10",
     features: ["1,000 emails / month", "1 domain", "3 mailboxes", "Full email UI", "Email campaigns", "Campaign analytics"],
-    // Starter and Pro carry the 7 day Polar trial, Business does not (see Pricing.tsx)
+    // Starter and Pro carry the 7 day trial, Business does not (see Pricing.tsx)
     hasTrial: true,
   },
   {
@@ -184,7 +184,7 @@ export default function UpgradeModal({ reason = "trial_ended" }: { reason?: Upgr
         {/* Footer */}
         <div className="shrink-0 px-6 pb-6 text-center md:px-8">
           <p className="text-xs text-gray-400 dark:text-gray-500">
-            Secure checkout via Polar &middot; Cancel anytime &middot; All prices in USD
+            Secure checkout &middot; Cancel anytime &middot; All prices in USD
           </p>
           <button
             onClick={() => signOut({ redirectUrl: "/" })}

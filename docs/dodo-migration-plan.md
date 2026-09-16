@@ -1,6 +1,14 @@
 # Migrating billing from Polar to Dodo Payments
 
-Status: proposal, not yet implemented.
+Status: **implemented**. This document is the audit and the reasoning behind
+the change. For the deploy order and the manual step that moves the existing
+paying customer, see `docs/dodo-cutover-runbook.md`.
+
+The six phase plan below was written for an unknown number of subscribers. With
+one paying customer it collapsed into a single change plus a manual relink, and
+Route B (self serve re-subscribe) was taken. Sections 2 to 4 and 7 still
+describe the codebase accurately and are why the change looks the way it does;
+sections 8 and 9 describe a staged rollout that was not needed.
 Scope: replace Polar.sh as merchant of record with Dodo Payments without
 interrupting any live subscription, entitlement, quota window or affiliate
 commission.

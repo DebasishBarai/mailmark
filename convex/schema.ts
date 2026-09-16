@@ -7,7 +7,14 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
+    // Legacy Polar customer id. Retained because live documents still carry it
+    // and Convex rejects a deploy whose schema drops a field that exists in
+    // stored data. Nothing writes it any more.
     polarCustomerId: v.optional(v.string()),
+    // Dodo Payments customer id, learned from the first subscription webhook.
+    // Optional because it is not known until a user reaches checkout: unlike
+    // the Polar integration, signup no longer calls the payment provider.
+    dodoCustomerId: v.optional(v.string()),
     // User category: "beta" users bypass the paywall
     category: v.optional(v.union(v.literal("beta"), v.literal("normal"), v.literal("admin"))),
     // Appearance preferences
@@ -17,7 +24,7 @@ export default defineSchema({
     // When the Google Ads trial-signup conversion was reported for this user.
     // Absent means it is still owed. The old design carried that fact only in
     // addUser's in-memory isNew reply, so a fire lost on the signup page load
-    // (tag blocked, tab closed, user clicked through to Polar checkout) could
+    // (tag blocked, tab closed, user clicked through to checkout) could
     // never be retried: every later addUser found the row and answered false.
     // Persisting it lets the client settle the debt on any later visit.
     signupConversionReportedAt: v.optional(v.number()),
@@ -276,11 +283,32 @@ export default defineSchema({
       v.literal("past_due")
     ),
     priceMonthly: v.number(), // cents
+    // The billing anchor. lib/period.periodStartDayKey derives the monthly send
+    // allowance window from this, so it is set once on insert and never moved,
+    // including when a row is relinked from Polar to Dodo.
     startedAt: v.number(),
     canceledAt: v.optional(v.number()),
+    // Legacy Polar subscription id, retained for the same reason as
+    // users.polarCustomerId. Cleared into migratedFromPolarId when Dodo takes
+    // the row over, so no late Polar event can ever match it again.
     polarSubscriptionId: v.optional(v.string()),
+    dodoSubscriptionId: v.optional(v.string()),
+    // End of the paid period, from Dodo's next_billing_date. Absent on rows
+    // that predate the migration.
+    currentPeriodEnd: v.optional(v.number()),
+    // End of the trial, derived from Dodo's created_at + trial_period_days.
+    // Dodo has no "trialing" status, so this is what "trialing" is computed
+    // from. The billing page used to hardcode startedAt + 7 days instead.
+    trialEndsAt: v.optional(v.number()),
+    // Set when the customer has cancelled but has paid through
+    // currentPeriodEnd. The row stays active or trialing until Dodo sends the
+    // terminal event, so cancelling no longer revokes access mid-period.
+    cancelAtPeriodEnd: v.optional(v.boolean()),
+    // Audit trail: the Polar subscription this row used to be billed through.
+    migratedFromPolarId: v.optional(v.string()),
   })
-    .index("by_user_id", ["userId"]),
+    .index("by_user_id", ["userId"])
+    .index("by_dodoSubscriptionId", ["dodoSubscriptionId"]),
 
   affiliates: defineTable({
     userId: v.id("users"),
@@ -307,11 +335,14 @@ export default defineSchema({
     plan: v.optional(v.union(v.literal("starter"), v.literal("pro"), v.literal("business"))),
     commissionCents: v.number(),
     status: v.union(v.literal("pending"), v.literal("active"), v.literal("paid"), v.literal("canceled")),
+    // Legacy, retained. Commissions are keyed on dodoSubscriptionId now.
     polarSubscriptionId: v.optional(v.string()),
+    dodoSubscriptionId: v.optional(v.string()),
   })
     .index("by_affiliateId", ["affiliateId"])
     .index("by_referredUserId", ["referredUserId"])
-    .index("by_polarSubscriptionId", ["polarSubscriptionId"]),
+    .index("by_polarSubscriptionId", ["polarSubscriptionId"])
+    .index("by_dodoSubscriptionId", ["dodoSubscriptionId"]),
 
   affiliatePayouts: defineTable({
     affiliateId: v.id("affiliates"),
@@ -1082,4 +1113,20 @@ export default defineSchema({
   })
     .index("by_user_id", ["userId"])
     .index("by_key_hash", ["keyHash"]),
+
+  // Webhook deliveries already applied, so a retry cannot be applied twice.
+  //
+  // Dodo retries a delivery it did not get a 2xx for, and reuses the same
+  // webhook-id when it does. The Polar handler had no idempotency at all: a
+  // redelivered subscription.created re-ran the affiliate commission and paid
+  // the referrer a second time. Rows are pruned nightly by
+  // subscriptions.pruneWebhookEvents.
+  webhookEvents: defineTable({
+    provider: v.union(v.literal("polar"), v.literal("dodo")),
+    eventId: v.string(),
+    eventType: v.optional(v.string()),
+    receivedAt: v.number(),
+  })
+    .index("by_provider_event", ["provider", "eventId"])
+    .index("by_receivedAt", ["receivedAt"]),
 });

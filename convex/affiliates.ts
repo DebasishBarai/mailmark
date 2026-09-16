@@ -3,10 +3,17 @@ import { internalMutation, internalQuery, mutation, query } from "./_generated/s
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
+// 30% recurring, which is what app/affiliate-program/page.tsx advertises.
+//
+// Old: 300 / 750 / 2250. Those were 30% of the stale prices that used to sit in
+// subscriptions.ts ($10 / $25 / $75), so every Pro referral paid $7.50 against
+// an advertised $15 and every Business referral $22.50 against $30. Existing
+// referral rows keep the amount they were written with, so no historical total
+// moves; only commissions recorded from here on are affected.
 const COMMISSION_CENTS: Record<string, number> = {
-  starter: 300,   // $3.00
-  pro: 750,       // $7.50
-  business: 2250, // $22.50
+  starter: 300,   // $3.00 of $10
+  pro: 1500,      // $15.00 of $50
+  business: 3000, // $30.00 of $100
 };
 
 function generateCode(): string {
@@ -241,7 +248,7 @@ export const attributeReferral = mutation({
   },
 });
 
-// ─── Internal (called from Polar webhook) ────────────────────────────────────
+// ─── Internal (called from the Dodo webhook) ─────────────────────────────────
 
 export const getReferralByUserId = internalQuery({
   args: { userId: v.id("users") },
@@ -258,7 +265,7 @@ export const recordCommission = internalMutation({
   args: {
     referredUserId: v.id("users"),
     plan: v.union(v.literal("starter"), v.literal("pro"), v.literal("business")),
-    polarSubscriptionId: v.string(),
+    dodoSubscriptionId: v.string(),
   },
   handler: async (ctx, args) => {
     const referral = await ctx.db
@@ -274,7 +281,7 @@ export const recordCommission = internalMutation({
       plan: args.plan,
       commissionCents,
       status: "active",
-      polarSubscriptionId: args.polarSubscriptionId,
+      dodoSubscriptionId: args.dodoSubscriptionId,
     });
 
     const affiliate = await ctx.db.get(referral.affiliateId);
@@ -290,12 +297,12 @@ export const recordCommission = internalMutation({
 
 /** Cancel commission when a referred user's subscription is canceled */
 export const cancelCommission = internalMutation({
-  args: { polarSubscriptionId: v.string() },
+  args: { dodoSubscriptionId: v.string() },
   handler: async (ctx, args) => {
     const referral = await ctx.db
       .query("referrals")
-      .withIndex("by_polarSubscriptionId", (q) =>
-        q.eq("polarSubscriptionId", args.polarSubscriptionId)
+      .withIndex("by_dodoSubscriptionId", (q) =>
+        q.eq("dodoSubscriptionId", args.dodoSubscriptionId)
       )
       .first();
 

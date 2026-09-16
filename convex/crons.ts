@@ -158,4 +158,14 @@ crons.daily(
   {}
 );
 
+// Every day at 3am UTC: drop webhook receipts older than 30 days. They exist
+// only so a retried delivery is not applied twice, which is settled within
+// minutes, so nothing needs them after that.
+crons.daily(
+  "prune webhook events",
+  { hourUTC: 3, minuteUTC: 0 },
+  internal.subscriptions.pruneWebhookEvents,
+  {}
+);
+
 export default crons;
