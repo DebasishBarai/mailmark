@@ -40,14 +40,14 @@ export type DodoSubscription = {
 
 /** Trailing slashes are stripped so `${base}/subscriptions` cannot double up. */
 function baseUrl(): string {
-  const raw = process.env.DODO_BASE_URL;
-  if (!raw) throw new Error("DODO_BASE_URL is not configured");
+  const raw = process.env.DODO_PAYMENTS_BASE_URL;
+  if (!raw) throw new Error("DODO_PAYMENTS_BASE_URL is not configured");
   return raw.replace(/\/+$/, "");
 }
 
 function apiKey(): string {
-  const key = process.env.DODO_API_KEY;
-  if (!key) throw new Error("DODO_API_KEY is not configured");
+  const key = process.env.DODO_PAYMENTS_API_KEY;
+  if (!key) throw new Error("DODO_PAYMENTS_API_KEY is not configured");
   return key;
 }
 

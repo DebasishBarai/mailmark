@@ -296,7 +296,7 @@ correctly on the first request after the new code ships.
 | Operation | Polar (today) | Dodo |
 |---|---|---|
 | Base URL | `POLAR_BASE_URL` | `https://test.dodopayments.com` / `https://live.dodopayments.com` |
-| Auth | `Authorization: Bearer POLAR_ACCESS_TOKEN` | `Authorization: Bearer DODO_API_KEY` |
+| Auth | `Authorization: Bearer POLAR_ACCESS_TOKEN` | `Authorization: Bearer DODO_PAYMENTS_API_KEY` |
 | Create customer | `POST /v1/customers` with `external_id` | not needed up front. Pass `customer: { email, name }` to the subscription call and keep the returned `customer_id`. |
 | Start checkout | `POST /v1/checkouts` `{ product_price_id, customer_external_id, success_url }` | `POST /subscriptions` `{ product_id, quantity: 1, customer, billing: { country }, trial_period_days, return_url, metadata, payment_link: true }` returns `payment_link` |
 | Change plan | not supported, user re-checks-out | `POST /subscriptions/{id}/change-plan` `{ product_id, proration_billing_mode, quantity }` |
@@ -625,7 +625,7 @@ http.route({
     const webhookId = request.headers.get("webhook-id");
     const webhookTimestamp = request.headers.get("webhook-timestamp");
     const webhookSignature = request.headers.get("webhook-signature");
-    const secret = process.env.DODO_WEBHOOK_SECRET;
+    const secret = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
 
     if (!secret || !webhookId || !webhookTimestamp || !webhookSignature) {
       return new Response("Unauthorized", { status: 401 });
@@ -672,9 +672,9 @@ Add a cron to `convex/crons.ts` to prune rows older than 30 days.
 | `POLAR_WEBHOOK_SECRET` | Convex | keep, and make it actually enforce in Phase 1 |
 | `POLAR_PRICE_ID_{STARTER,PRO,BUSINESS}` | Convex | keep until Phase 6 |
 | `POLAR_PRODUCT_ID_{STARTER,PRO,BUSINESS}` | Convex | keep until Phase 6 |
-| `DODO_API_KEY` | Convex | new |
-| `DODO_BASE_URL` | Convex | new, `https://test.dodopayments.com` then `https://live.dodopayments.com` |
-| `DODO_WEBHOOK_SECRET` | Convex | new |
+| `DODO_PAYMENTS_API_KEY` | Convex | new |
+| `DODO_PAYMENTS_BASE_URL` | Convex | new, `https://test.dodopayments.com` then `https://live.dodopayments.com` |
+| `DODO_PAYMENTS_WEBHOOK_KEY` | Convex | new |
 | `DODO_PRODUCT_ID_{STARTER,PRO,BUSINESS}` | Convex | new |
 | `BILLING_PROVIDER` | Convex | new, `polar` then `dodo`. The single flag that flips new signups. |
 | `APP_URL` | Convex | unchanged, used for `return_url` |

@@ -1879,7 +1879,7 @@ http.route({
 
 // ── Dodo Payments Webhook ────────────────────────────────────────────────────
 // Receives subscription lifecycle events from Dodo Payments and updates the DB.
-// Set DODO_WEBHOOK_SECRET to the signing secret shown on the endpoint's
+// Set DODO_PAYMENTS_WEBHOOK_KEY to the signing secret shown on the endpoint's
 // Overview tab in the Dodo dashboard.
 //
 // Replaces /polar-webhook, which is commented out below.
@@ -1896,13 +1896,13 @@ http.route({
     const webhookId = request.headers.get("webhook-id");
     const webhookTimestamp = request.headers.get("webhook-timestamp");
     const webhookSignature = request.headers.get("webhook-signature");
-    const secret = process.env.DODO_WEBHOOK_SECRET;
+    const secret = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
 
     if (!secret) {
       // Fail closed. An unsigned endpoint that writes subscriptions lets anyone
       // grant themselves a plan or cancel someone else's. Dodo retries a
       // non-2xx, so a secret set late is recovered rather than lost.
-      console.error("[dodo-webhook] DODO_WEBHOOK_SECRET is not configured");
+      console.error("[dodo-webhook] DODO_PAYMENTS_WEBHOOK_KEY is not configured");
       return new Response("Unauthorized", { status: 401 });
     }
     if (!webhookId || !webhookTimestamp || !webhookSignature) {

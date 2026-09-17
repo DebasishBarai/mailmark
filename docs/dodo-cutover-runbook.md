@@ -45,9 +45,9 @@ and what `subscriptions.PLANS` now records as `priceMonthly`.
 On the Convex **dev** deployment first:
 
 ```bash
-bunx convex env set DODO_BASE_URL       https://test.dodopayments.com
-bunx convex env set DODO_API_KEY        <test api key>
-bunx convex env set DODO_WEBHOOK_SECRET <test signing secret>
+bunx convex env set DODO_PAYMENTS_BASE_URL       https://test.dodopayments.com
+bunx convex env set DODO_PAYMENTS_API_KEY        <test api key>
+bunx convex env set DODO_PAYMENTS_WEBHOOK_KEY <test signing secret>
 bunx convex env set DODO_PRODUCT_ID_STARTER  <test product id>
 bunx convex env set DODO_PRODUCT_ID_PRO      <test product id>
 bunx convex env set DODO_PRODUCT_ID_BUSINESS <test product id>
@@ -60,11 +60,13 @@ are the audit trail if something needs checking against Polar.
 
 ### The webhook secret is load-bearing
 
-`/dodo-webhook` fails closed. With no `DODO_WEBHOOK_SECRET` it answers 401 to
+`/dodo-webhook` fails closed. With no `DODO_PAYMENTS_WEBHOOK_KEY` it answers 401 to
 everything, and no subscription is ever recorded. **Set the secret before
-pointing Dodo at the endpoint.** Dodo retries a non-2xx, so a secret set a few
-minutes late is recovered rather than lost, but a secret never set means a
-customer pays and gets nothing.
+pointing Dodo at the endpoint.**
+
+Dodo retries a non-2xx eight times: immediately, then after 5s, 5m, 30m, 2h, 5h,
+10h and 10h. So a secret set within about a day is recovered on its own, and a
+secret never set means a customer pays and gets nothing.
 
 ## 3. Point Dodo at the webhook and test the whole lifecycle
 
@@ -176,6 +178,38 @@ bunx convex run --prod subscriptions:relinkSubscriptionToDodo '{
 It patches and refuses to insert, so `startedAt` cannot be clobbered. It returns
 the old Polar id it retired, so you can confirm you relinked the right row.
 
+## Known limits
+
+**Delivery order is not guaranteed.** Dodo says so explicitly, and events can
+arrive out of order across its retry window. `webhookEvents` stops the same
+delivery being applied twice, and the stale-subscription guard stops a terminal
+event for an old subscription touching a row that has moved on, but a retried
+`subscription.active` arriving after a `subscription.cancelled` for the *same*
+subscription would re-apply the older state. It self-heals on the next event,
+because every delivery carries the subscription's current state and Dodo emits
+`subscription.updated` on any change. With one subscriber this is not worth
+building sequence tracking for. Revisit it if the customer count grows.
+
+**The `@dodopayments/convex` adapter was not used.** It exists and is the
+vendor's blessed path for this stack, but it installs as a Convex *component*,
+which means adding a `convex.config.ts` this repo does not have and taking on
+its own tables and its own model of a subscription alongside the `subscriptions`
+table that the whole entitlement chain already reads. That is a re-architecture,
+not a one for one provider swap. The hand-written client in `convex/lib/billing.ts`
+is the smaller change. If the adapter is adopted later, do it as its own piece
+of work with its own testing.
+
+**Webhook verification is hand-written on purpose.** Dodo's guidance is to use
+`client.webhooks.unwrap()`, and its fallback suggestion is the `standardwebhooks`
+package. Both need Node's `crypto`, which the Convex default runtime that
+`http.ts` runs in does not have. Moving verification into a `"use node"` action
+would mean an httpAction hopping to a second function before it can trust its
+own body. `verifyWebhookSignature` implements the same spec on Web Crypto, which
+Convex does provide: HMAC-SHA256 over `webhook-id.webhook-timestamp.raw_body`,
+base64, with timestamp tolerance and multi-signature rotation support. It is
+covered by 12 tests including tampered body, wrong secret, wrong webhook id,
+expired and future timestamps, rotation, and malformed headers.
+
 ## 6. Afterwards
 
 - [ ] Watch the Convex logs for `[dodo-webhook] signature verification failed`.
@@ -197,5 +231,5 @@ Nothing in this change is destructive, so rollback is a revert and a redeploy.
 |---|---|
 | Checkout broken, nobody has subscribed on Dodo yet | `git revert` the commit, redeploy, re-add the Polar webhook endpoint in Polar. The retained `POLAR_*` vars and schema fields mean the old code still works. |
 | Somebody has already subscribed on Dodo | Do not revert. The revert has no `/dodo-webhook`, so their renewals would go unrecorded. Fix forward. |
-| Webhooks 401ing | Check `DODO_WEBHOOK_SECRET` matches the endpoint's Overview tab. Dodo redelivers, so nothing is lost once it matches. |
+| Webhooks 401ing | Check `DODO_PAYMENTS_WEBHOOK_KEY` matches the endpoint's Overview tab. Dodo redelivers, so nothing is lost once it matches. |
 | A customer wrongly shows as unsubscribed | `subscriptions:relinkSubscriptionToDodo` restores the row. Their `startedAt` is preserved either way. |
