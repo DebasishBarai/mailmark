@@ -44,10 +44,19 @@ if (!KEY) {
   console.error("  PowerShell  : $env:DODO_PAYMENTS_API_KEY='dodo_" + mode + "_...'; node scripts/create-dodo-products.mjs " + mode);
   process.exit(2);
 }
-// Refuse a key that does not match the mode, so live products cannot be created
-// with a test key or the reverse.
-if (!KEY.startsWith(`dodo_${mode}_`)) {
-  console.error(`The key does not look like a ${mode} key (expected it to start with "dodo_${mode}_"). Refusing.`);
+// A mismatched key is not blocked here, only flagged. Dodo's own API is the
+// authority: a test key against live.dodopayments.com, or the reverse, comes
+// back 401 and creates nothing, so refusing on the prefix protected against
+// nothing and rejected real keys whose format did not match the documented one.
+const otherMode = mode === "live" ? "test" : "live";
+if (KEY.startsWith(`dodo_${otherMode}_`)) {
+  console.error(`\nThat key looks like a ${otherMode} key but you asked for ${mode} mode.`);
+  console.error(`Dodo would reject it, so stopping here instead.\n`);
+  process.exit(2);
+}
+if (KEY.startsWith("whsec_")) {
+  console.error("\nThat is a webhook signing secret, not an API key.");
+  console.error("The API key is under Settings, API Keys in the Dodo dashboard.\n");
   process.exit(2);
 }
 
