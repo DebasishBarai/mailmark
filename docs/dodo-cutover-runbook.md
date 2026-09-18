@@ -27,6 +27,66 @@ Entitlement is untouched. `quotas.ts`, `mailboxes.ts`, `lib/counters.ts` and
 
 ## 1. Create the products in Dodo
 
+### Doing all of this without a terminal
+
+Nothing in this runbook needs a local checkout. Both sides are web dashboards:
+
+- **Dodo dashboard** creates the products and the webhook endpoint.
+- **Convex dashboard** sets the environment variables, under Settings then
+  Environment Variables. It is the same thing `bunx convex env set --prod` does,
+  and it needs no CLI login.
+
+The script in `scripts/create-dodo-products.sh` is a convenience for getting the
+three ids without copying them by hand. For three products the dashboard is
+about as quick, and it is the better choice if you are not set up to run bash
+locally.
+
+### Values to enter, either way
+
+| Field | Starter | Pro | Business |
+|---|---|---|---|
+| Name | Mailmark Starter | Mailmark Pro | Mailmark Business |
+| Pricing model | Recurring | Recurring | Recurring |
+| Price | $10.00 | $50.00 | $100.00 |
+| Currency | USD | USD | USD |
+| Billing period | Monthly | Monthly | Monthly |
+| Tax category | SaaS | SaaS | SaaS |
+| Free trial | **leave off** | **leave off** | **leave off** |
+
+Two things that are easy to get wrong:
+
+- **Check whether the price field wants dollars or cents.** The API takes the
+  smallest currency unit, so $10.00 is `1000`. If the dashboard field is labelled
+  in dollars, enter `10`. Getting this wrong is a factor of 100 in either
+  direction.
+- **Leave the trial off on all three products.** A recurring price can carry
+  `trial_period_days`, but `lib/billing.trialDaysForPlan` sends it per checkout:
+  7 days for Starter and Pro, none for Business. Setting it in both places gives
+  two sources of truth for the same number.
+
+Copy each product's `pdt_...` id as you go. Those are the three
+`DODO_PRODUCT_ID_*` values.
+
+### If you would rather run the script
+
+It lives on the migration branch, which is not merged yet, so check the branch
+out rather than `main`. It needs `bash`, `curl` and `node`, so on Windows use
+Git Bash or WSL rather than PowerShell.
+
+```bash
+git fetch origin claude/relaxed-darwin-8jb5io
+git checkout claude/relaxed-darwin-8jb5io
+DODO_PAYMENTS_API_KEY=dodo_live_... ./scripts/create-dodo-products.sh live
+```
+
+It prints the six `bunx convex env set --prod` lines with the ids filled in. To
+run those you need the Convex CLI logged in (`bunx convex login`); otherwise
+paste the values into the Convex dashboard instead.
+
+### Product reference
+
+
+
 Test mode first, then repeat in live mode. The ids differ between modes.
 
 | Plan | Price | Trial | Env var |
