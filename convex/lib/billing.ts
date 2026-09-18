@@ -290,15 +290,6 @@ export async function cancelAtPeriodEnd(input: {
   })) as DodoSubscription;
 }
 
-/** Read a subscription back. Used by the one-shot relink tool. */
-export async function getSubscription(
-  dodoSubscriptionId: string
-): Promise<DodoSubscription> {
-  return (await dodoFetch(`/subscriptions/${dodoSubscriptionId}`, {
-    method: "GET",
-  })) as DodoSubscription;
-}
-
 // ─── Webhook signature ───────────────────────────────────────────────────────
 
 /** Length-independent compare, so a mismatch leaks nothing through timing. */
