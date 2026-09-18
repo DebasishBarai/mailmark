@@ -142,6 +142,12 @@ export default function BillingPage() {
   const periodEnd = status?.subscription?.currentPeriodEnd;
   const cancelAtPeriodEnd = status?.subscription?.cancelAtPeriodEnd === true;
   const isActive = status?.hasActiveSubscription;
+  // Still billed through the provider we left. Their subscription is live, so
+  // they see no paywall and nothing prompts them to act, and the button for the
+  // plan they are already on is disabled as "Current plan". Without this they
+  // have no route to a Dodo mandate except picking a plan they do not want.
+  const needsProviderMigration =
+    isActive && !status?.subscription?.dodoSubscriptionId;
   const trialEndsAt = status?.trialEndsAt;
   const trialExpired = status?.trialExpired;
   // A brand new account has no in-app trial time at all, so "expired" here means
@@ -185,6 +191,19 @@ export default function BillingPage() {
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   Trial ends {new Date(subTrialEndsAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
                 </p>
+              )}
+              {needsProviderMigration && (
+                <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800/60 dark:bg-amber-900/20">
+                  <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                    Action needed: re-enter your payment details
+                  </p>
+                  <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+                    We have moved to a new payment provider. Choose your current
+                    plan below to set your card up again. Your plan, your data and
+                    your sending limits all stay exactly as they are, and you keep
+                    full access while you do it.
+                  </p>
+                </div>
               )}
               {cancelAtPeriodEnd && periodEnd && (
                 <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">
@@ -345,18 +364,18 @@ export default function BillingPage() {
                 {p.highlighted ? (
                   <button
                     onClick={() => handleUpgrade(p.key)}
-                    disabled={loading !== null || (isActive && plan === p.key)}
+                    disabled={loading !== null || (isActive && plan === p.key && !needsProviderMigration)}
                     className="inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-violet-700 shadow transition-all hover:bg-gray-50 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {loading === p.key ? "Redirecting..." : isActive && plan === p.key ? "Current plan" : "Choose Pro"}
+                    {loading === p.key ? "Redirecting..." : needsProviderMigration && plan === p.key ? "Move to new payment" : isActive && plan === p.key ? "Current plan" : "Choose Pro"}
                   </button>
                 ) : (
                   <button
                     onClick={() => handleUpgrade(p.key)}
-                    disabled={loading !== null || (isActive && plan === p.key)}
+                    disabled={loading !== null || (isActive && plan === p.key && !needsProviderMigration)}
                     className="inline-flex w-full items-center justify-center rounded-full border border-violet-600 bg-white px-6 py-3 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-700 dark:text-violet-300 dark:hover:bg-violet-900/30"
                   >
-                    {loading === p.key ? "Redirecting..." : isActive && plan === p.key ? "Current plan" : `Choose ${p.name}`}
+                    {loading === p.key ? "Redirecting..." : needsProviderMigration && plan === p.key ? "Move to new payment" : isActive && plan === p.key ? "Current plan" : `Choose ${p.name}`}
                   </button>
                 )}
               </div>
