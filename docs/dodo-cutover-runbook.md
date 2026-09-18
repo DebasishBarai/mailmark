@@ -42,6 +42,42 @@ and what `subscriptions.PLANS` now records as `priceMonthly`.
 
 ## 2. Set the environment variables
 
+### These are Convex deployment config, not repository config
+
+`bunx convex deploy` pushes code and schema. **It does not set environment
+variables.** They live on the Convex deployment and have to be set separately,
+through the dashboard or the CLI, and they survive deploys.
+
+That matters here because deployment is a GitHub Action on merge to `main`. The
+moment the merge lands, the new code is live. **Set the variables before you
+merge.** Setting them early is completely safe: nothing reads them until the
+code that reads them exists.
+
+If the code lands first, the gap costs you this:
+
+- a new signup clicking a plan gets `DODO_PAYMENTS_BASE_URL is not configured`
+- `/dodo-webhook` answers 401 to everything, which is harmless while no Dodo
+  webhook is configured yet
+- **the existing customer is unaffected**, because their row is untouched and
+  `needsUpgrade` is false for anyone holding an active subscription
+
+Nothing is corrupted by the gap, but new signups cannot pay during it.
+
+### The six variables
+
+All six are Convex, backend only. **Nothing goes in Vercel**: no `NEXT_PUBLIC_`
+variable is involved, because no payment code runs in the browser.
+
+| Variable | Value | Status |
+|---|---|---|
+| `DODO_PAYMENTS_BASE_URL` | `https://live.dodopayments.com` (or `https://test.dodopayments.com`) | new |
+| `DODO_PAYMENTS_API_KEY` | `dodo_live_...` / `dodo_test_...` | new |
+| `DODO_PAYMENTS_WEBHOOK_KEY` | `whsec_...` from the endpoint's Overview tab | new |
+| `DODO_PRODUCT_ID_STARTER` | `pdt_...` | new |
+| `DODO_PRODUCT_ID_PRO` | `pdt_...` | new |
+| `DODO_PRODUCT_ID_BUSINESS` | `pdt_...` | new |
+| `APP_URL` | your site origin | already set, seven other call sites use it. Verify only. |
+
 On the Convex **dev** deployment first:
 
 ```bash
@@ -88,6 +124,16 @@ secret never set means a customer pays and gets nothing.
 
 Endpoint URL: `https://<your-deployment>.convex.site/dodo-webhook`
 
+Find it in the Convex dashboard under Settings, as the HTTP Actions URL. It is
+the deployment URL with `.convex.site` in place of `.convex.cloud`.
+
+**Use that URL directly. Do not use `https://api.mailmark.dev/dodo-webhook`**,
+even though `next.config.ts` rewrites that host to Convex and it would appear to
+work. Signature verification hashes the exact bytes Dodo sent, and that route
+proxies the request through Vercel and Next.js first, which is one more place
+the body can be re-encoded. It also makes webhook delivery depend on the
+frontend being up. Point Dodo straight at Convex.
+
 Subscribe it to at least: `subscription.active`, `subscription.renewed`,
 `subscription.plan_changed`, `subscription.on_hold`, `subscription.past_due`,
 `subscription.cancelled`, `subscription.expired`, `subscription.failed`,
@@ -127,12 +173,37 @@ curl -si -X POST https://<deployment>.convex.site/dodo-webhook \
 
 ## 4. Go live
 
-1. Repeat steps 1 and 2 against live mode and the **prod** Convex deployment.
-2. Add the live webhook endpoint in Dodo and confirm the 401 check above.
-3. Merge and deploy. `.github/workflows/convex-dev.yml` runs `bunx convex deploy`
-   on a push to `main`, which applies the schema additions. Every added field is
-   optional, so existing documents validate unchanged and no backfill runs.
-4. Vercel deploys the frontend.
+Deployment is `.github/workflows/convex-dev.yml`, which runs `bunx convex deploy`
+on every push to `main`. So the merge *is* the deploy, and the order around it is
+what matters:
+
+1. Set the six variables on the **prod** Convex deployment with live-mode values.
+   Before the merge, for the reason in step 2.
+
+   ```bash
+   bunx convex env set --prod DODO_PAYMENTS_BASE_URL https://live.dodopayments.com
+   bunx convex env set --prod DODO_PAYMENTS_API_KEY dodo_live_...
+   bunx convex env set --prod DODO_PAYMENTS_WEBHOOK_KEY whsec_...
+   bunx convex env set --prod DODO_PRODUCT_ID_STARTER pdt_...
+   bunx convex env set --prod DODO_PRODUCT_ID_PRO pdt_...
+   bunx convex env set --prod DODO_PRODUCT_ID_BUSINESS pdt_...
+   bunx convex env list --prod   # confirm, and check APP_URL is present
+   ```
+
+2. Merge to `main`. The Action deploys. It applies, with nothing manual to run:
+   - the `webhookEvents` table
+   - the new optional fields on `users`, `subscriptions` and `referrals`, which
+     existing documents satisfy without a backfill because every one is optional
+   - the two new indexes, on tables small enough to build instantly
+   - the daily `prune webhook events` cron
+
+   If the push is rejected for any reason the Action fails and **nothing is
+   deployed**. There is no half-applied state to clean up.
+
+3. Vercel deploys the frontend from the same merge. It needs no new variables.
+
+4. Only now add the **live mode** webhook endpoint in Dodo, and re-run the 401
+   check from step 3 against production before trusting it.
 
 `/polar-webhook` stops existing at this point. That is deliberate, and it is the
 safer direction: see step 5.
