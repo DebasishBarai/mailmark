@@ -31,7 +31,7 @@ export type PlanLimits = typeof PLAN_LIMITS[keyof typeof PLAN_LIMITS];
 
 /** Statuses that entitle a user to the limits of the plan they signed up for.
  *  Kept in sync with hasActiveSubscription in subscriptions.currentStatus.
- *  "trialing" counts: starter and pro carry a 7 day trial through Polar, and a
+ *  "trialing" counts: starter and pro carry a 7 day trial through Dodo, and a
  *  subscriber inside that trial must get their plan's limits, not free tier
  *  ones. Note "past_due" is deliberately excluded, since that is a payment
  *  failure rather than a live entitlement. */

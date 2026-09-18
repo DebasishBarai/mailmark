@@ -26,7 +26,7 @@ describe("the Convex HTTP router", () => {
   test("the webhook and tracking endpoints keep their own handlers", () => {
     expect(routedTo("/ingestEmail", "POST")).toBe("/ingestEmail");
     expect(routedTo("/trackDelivery", "POST")).toBe("/trackDelivery");
-    expect(routedTo("/polar-webhook", "POST")).toBe("/polar-webhook");
+    expect(routedTo("/dodo-webhook", "POST")).toBe("/dodo-webhook");
   });
 
   test("every documented v1 endpoint keeps its own handler", () => {

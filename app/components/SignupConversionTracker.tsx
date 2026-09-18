@@ -24,9 +24,8 @@ import {
  * retry, because nothing recorded that a retry was owed: an ad blocker, the tab
  * closing, or the user clicking a plan in UpgradeModal (which every brand new
  * account meets immediately, since TRIAL_DURATION_MS is 0) and being sent to
- * Polar checkout by window.location. That window is not small: the fire cannot
- * happen until addUser returns, and addUser blocks on creating a Polar customer
- * over the network first.
+ * checkout by window.location. That window is not small: the fire cannot
+ * happen until addUser returns.
  *
  * Reading the persisted field instead makes a lost fire recoverable. If it does
  * not go out on the signup load, the field is still absent and the next visit

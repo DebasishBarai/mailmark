@@ -5,6 +5,14 @@ import { describeReason } from "./lib/sendPolicy";
 import { parseUnsubscribeToken } from "./lib/unsubscribeToken";
 import type { Id } from "./_generated/dataModel";
 import { jsonResponse } from "./lib/apiResponse";
+import {
+  mapDodoStatus,
+  parseIsoMs,
+  planForProductId,
+  trialEndsAtOf,
+  verifyWebhookSignature,
+  type DodoSubscription,
+} from "./lib/billing";
 
 // 1x1 transparent GIF pixel (base64-decoded bytes)
 const TRACKING_PIXEL = new Uint8Array([
@@ -1869,114 +1877,144 @@ http.route({
   }),
 });
 
-// ── Polar Webhook ─────────────────────────────────────────────────────────────
-// Receives subscription lifecycle events from Polar.sh and updates the DB.
-// Configure the webhook secret in your Polar dashboard and set POLAR_WEBHOOK_SECRET.
+// ── Dodo Payments Webhook ────────────────────────────────────────────────────
+// Receives subscription lifecycle events from Dodo Payments and updates the DB.
+// Set DODO_PAYMENTS_WEBHOOK_KEY to the signing secret shown on the endpoint's
+// Overview tab in the Dodo dashboard.
+//
+// Replaces /polar-webhook, which is commented out below.
 
 http.route({
-  path: "/polar-webhook",
+  path: "/dodo-webhook",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    // Validate webhook secret
-    // Polar uses Standard Webhooks headers: webhook-id, webhook-timestamp, webhook-signature
-    const webhookSecret = request.headers.get("webhook-signature") ??
-                          request.headers.get("x-polar-signature") ??
-                          request.headers.get("authorization");
-    const expectedSecret = process.env.POLAR_WEBHOOK_SECRET;
+    // The body must be read exactly once, as text, and the same string used for
+    // both verification and parsing. Standard Webhooks signs the raw bytes, so
+    // re-serializing a parsed object would reorder keys and never verify.
+    const rawBody = await request.text();
 
-    if (expectedSecret && webhookSecret !== expectedSecret &&
-        webhookSecret !== `Bearer ${expectedSecret}`) {
-      console.warn(`[polar-webhook] Signature mismatch. Received: ${webhookSecret}`);
-      // Skip signature check for now to unblock webhooks, log for debugging
-      // return new Response("Unauthorized", { status: 401 });
+    const webhookId = request.headers.get("webhook-id");
+    const webhookTimestamp = request.headers.get("webhook-timestamp");
+    const webhookSignature = request.headers.get("webhook-signature");
+    const secret = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
+
+    if (!secret) {
+      // Fail closed. An unsigned endpoint that writes subscriptions lets anyone
+      // grant themselves a plan or cancel someone else's. Dodo retries a
+      // non-2xx, so a secret set late is recovered rather than lost.
+      console.error("[dodo-webhook] DODO_PAYMENTS_WEBHOOK_KEY is not configured");
+      return new Response("Unauthorized", { status: 401 });
+    }
+    if (!webhookId || !webhookTimestamp || !webhookSignature) {
+      console.warn("[dodo-webhook] missing Standard Webhooks headers");
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const verified = await verifyWebhookSignature({
+      secret,
+      webhookId,
+      webhookTimestamp,
+      webhookSignature,
+      rawBody,
+    });
+    // Old, in the Polar handler: a mismatch logged a warning and fell through,
+    // because the check compared the signature header to the raw secret and so
+    // could never pass. This one actually rejects.
+    if (!verified) {
+      console.warn(`[dodo-webhook] signature verification failed for ${webhookId}`);
+      return new Response("Unauthorized", { status: 401 });
     }
 
     let body: Record<string, unknown>;
     try {
-      body = await request.json();
+      body = JSON.parse(rawBody) as Record<string, unknown>;
     } catch {
       return new Response("Invalid JSON", { status: 400 });
     }
 
-    const event = body.type as string;
-    const data = body.data as Record<string, unknown> | undefined;
+    const event = body.type as string | undefined;
+    const data = body.data as DodoSubscription | undefined;
 
-    console.log(`[polar-webhook] event: ${event}, data: ${JSON.stringify(data)}`);
+    console.log(`[dodo-webhook] event: ${event}, id: ${webhookId}`);
 
-    // Handle subscription lifecycle events
-    if (
-      event === "subscription.created" ||
-      event === "subscription.updated" ||
-      event === "subscription.active" ||
-      event === "subscription.canceled"
-    ) {
-      if (!data) {
-        return new Response("Missing data", { status: 400 });
-      }
-
-      const polarSubscriptionId = data.id as string;
-      const polarStatus = data.status as string;
-      const polarProductId = data.product_id as string;
-      const customer = data.customer as Record<string, unknown> | undefined;
-      const clerkId = customer?.external_id as string | undefined;
-
-      if (!clerkId) {
-        return new Response("Missing customer external_id", { status: 400 });
-      }
-
-      // Map Polar product ID → plan name using env vars
-      const productPlanMap: Record<string, "starter" | "pro" | "business"> = {
-        [process.env.POLAR_PRODUCT_ID_STARTER ?? ""]: "starter",
-        [process.env.POLAR_PRODUCT_ID_PRO ?? ""]: "pro",
-        [process.env.POLAR_PRODUCT_ID_BUSINESS ?? ""]: "business",
-      };
-
-      const plan = productPlanMap[polarProductId];
-      if (!plan) {
-        console.warn(`[polar-webhook] Unknown product ID: ${polarProductId}`);
-        return new Response("Unknown product ID", { status: 400 });
-      }
-
-      // const status =
-      //   polarStatus === "active" ? "active" :
-      //   polarStatus === "canceled" ? "canceled" : "past_due";
-      const hasTrialPlan = plan === "starter" || plan === "pro";
-      const status =
-        polarStatus === "active" ? "active" :
-        polarStatus === "trialing" ? "trialing" :
-        polarStatus === "canceled" ? "canceled" :
-        // When Polar doesn't send a status (e.g. subscription.created), default based on plan
-        event === "subscription.created" && hasTrialPlan ? "trialing" :
-        event === "subscription.created" ? "active" : "past_due";
-
-      await ctx.runMutation(internal.subscriptions.handlePolarSubscriptionEvent, {
-        polarSubscriptionId,
-        clerkId,
-        plan,
-        status,
-      });
-
-      // Record or cancel affiliate commission
-      if (event === "subscription.created" && (status === "active" || status === "trialing")) {
-        const user = await ctx.runQuery(internal.users.getUser, { subject: clerkId });
-        if (user) {
-          await ctx.runMutation(internal.affiliates.recordCommission, {
-            referredUserId: user._id,
-            plan,
-            polarSubscriptionId,
-          });
-        }
-      } else if (event === "subscription.canceled") {
-        await ctx.runMutation(internal.affiliates.cancelCommission, { polarSubscriptionId });
-      }
+    // Everything this app cares about is a subscription lifecycle change.
+    // payment.*, refund.*, dispute.* and the rest are acknowledged and dropped.
+    if (!event || !event.startsWith("subscription.")) {
+      return jsonResponse({ received: true }, 200);
+    }
+    if (!data || !data.subscription_id) {
+      return new Response("Missing subscription data", { status: 400 });
     }
 
-    return new Response(JSON.stringify({ received: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
+    const plan = planForProductId(data.product_id);
+    if (!plan) {
+      // A product this deployment does not know about. Acknowledged rather than
+      // retried, since retrying cannot make it become one of ours.
+      console.warn(`[dodo-webhook] unknown product ID: ${data.product_id}`);
+      return jsonResponse({ received: true, ignored: "unknown_product" }, 200);
+    }
+
+    const status = mapDodoStatus(data);
+    if (status === null) {
+      // "pending", or a status this app does not model. Nothing to write.
+      console.log(`[dodo-webhook] no local status for "${data.status}", ignoring`);
+      return jsonResponse({ received: true, ignored: "no_status" }, 200);
+    }
+
+    // clerkId travels in the checkout metadata, the replacement for Polar's
+    // customer.external_id. A subscription created straight from the Dodo
+    // dashboard carries none; acknowledge it and relink by hand with
+    // subscriptions.relinkSubscriptionToDodo rather than retrying forever.
+    const clerkId = data.metadata?.clerkId;
+    if (!clerkId) {
+      console.warn(
+        `[dodo-webhook] no clerkId in metadata for subscription ${data.subscription_id}`
+      );
+      return jsonResponse({ received: true, ignored: "no_clerk_id" }, 200);
+    }
+
+    await ctx.runMutation(internal.subscriptions.handleDodoSubscriptionEvent, {
+      eventId: webhookId,
+      eventType: event,
+      dodoSubscriptionId: data.subscription_id,
+      dodoCustomerId: data.customer?.customer_id,
+      clerkId,
+      plan,
+      status,
+      currentPeriodEnd: parseIsoMs(data.next_billing_date),
+      trialEndsAt: trialEndsAtOf(data),
+      cancelAtPeriodEnd: data.cancel_at_next_billing_date === true,
     });
+
+    return jsonResponse({ received: true }, 200);
   }),
 });
+
+// ── Polar Webhook (retired) ──────────────────────────────────────────────────
+//
+// Removed when billing moved to Dodo Payments. Kept commented out per the repo
+// convention rather than deleted.
+//
+// Leaving it live would have been the dangerous option, not the safe one. The
+// Polar account is banned, and a mass cancellation fired when an account is
+// banned carries the Polar id the subscription row still holds. That would have
+// passed the stale-subscription guard, flipped a live, paid-up row to
+// "canceled", and locked a paying customer out of an account they had paid for.
+//
+// Removing the route is what makes that impossible, and it is the only thing
+// that needs to be true: no code path anywhere looks a subscription up by
+// polarSubscriptionId any more, so the field can sit on the row untouched.
+//
+// http.route({
+//   path: "/polar-webhook",
+//   method: "POST",
+//   handler: httpAction(async (ctx, request) => {
+//     // Signature check was disabled here: it compared the webhook-signature
+//     // header to the raw shared secret, which cannot match a Standard
+//     // Webhooks HMAC, so every unsigned POST was accepted.
+//     ...
+//   }),
+// });
 
 // ─── Fallback: JSON 404 for any unrouted path ───────────────────────────────
 // Convex resolves exact paths first, then the longest matching pathPrefix, so

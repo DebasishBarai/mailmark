@@ -20,7 +20,9 @@ export const createUser = internalMutation({
     email: v.optional(v.string()),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
-    polarCustomerId: v.string(),
+    // Old: polarCustomerId: v.string(), supplied by a Polar API call that
+    // addUser made before this mutation. Dodo needs no pre-created customer,
+    // so the id is learned from the first subscription webhook instead.
   },
   handler: async (ctx, args): Promise<Doc<"users">> => {
     const userId = await ctx.db.insert("users", {
@@ -28,7 +30,6 @@ export const createUser = internalMutation({
       email: args.email ?? "",
       name: args.name,
       imageUrl: args.imageUrl,
-      polarCustomerId: args.polarCustomerId,
       category: "normal",
     });
     const created = (await ctx.db.get(userId))!;
@@ -80,7 +81,7 @@ export const addUser = action({
     });
 
     if (existingUser) {
-      // Existing user - update profile fields only (no Polar API call)
+      // Existing user - update profile fields only
       // Old: returned the doc directly
       // return await ctx.runMutation(internal.users.updateUserProfile, {
       const user = await ctx.runMutation(internal.users.updateUserProfile, {
@@ -92,35 +93,19 @@ export const addUser = action({
       return { user, isNew: false };
     }
 
-    // New user - create a Polar customer first
-    const polarResponse = await fetch(`${process.env.POLAR_BASE_URL}/v1/customers`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.POLAR_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: identity.email,
-        name: identity.name || "Anonymous",
-        external_id: identity.subject,
-      }),
-    });
-
-    if (!polarResponse.ok) {
-      const errorText = await polarResponse.text();
-      throw new Error(`Failed to create Polar customer: ${errorText}`);
-    }
-
-    const polarCustomer = await polarResponse.json();
-
-    // Old: returned the doc directly
-    // return await ctx.runMutation(internal.users.createUser, {
+    // New user. Nothing is called out to the payment provider here any more.
+    //
+    // Old: this POSTed to Polar /v1/customers first and threw if that failed,
+    // so a Polar outage meant no Convex user row was created at all and the
+    // person could not use the product until their next visit retried. Dodo
+    // accepts an inline customer at checkout and returns a customer id, so the
+    // id is recorded by the first subscription webhook instead and signup no
+    // longer depends on the payment provider being up.
     const user = await ctx.runMutation(internal.users.createUser, {
       subject: identity.subject,
       email: identity.email,
       name: identity.name,
       imageUrl: identity.pictureUrl,
-      polarCustomerId: polarCustomer.id,
     });
     return { user, isNew: true };
   },

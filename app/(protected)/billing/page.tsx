@@ -89,13 +89,18 @@ export default function BillingPage() {
   const status = useQuery(api.subscriptions.currentStatus);
   const usage = useQuery(api.quotas.getUsageAndLimits);
   const createCheckout = useAction(api.subscriptions.createCheckoutSession);
-  const cancelSubscription = useAction(api.subscriptions.cancelViaPolar);
+  const cancelSubscription = useAction(api.subscriptions.cancelViaDodo);
   const [loading, setLoading] = useState<string | null>(null);
   const [canceling, setCanceling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
   const handleCancel = async () => {
-    if (!confirm("Are you sure you want to cancel your subscription?")) return;
+    if (
+      !confirm(
+        "Cancel your subscription? You keep full access until the end of your current billing period."
+      )
+    )
+      return;
     setCanceling(true);
     setCancelError(null);
     try {
@@ -133,6 +138,9 @@ export default function BillingPage() {
   const plan = status?.subscription?.plan;
   const subscriptionStatus = status?.subscription?.status;
   const isTrialing = subscriptionStatus === "trialing";
+  const subTrialEndsAt = status?.subscription?.trialEndsAt;
+  const periodEnd = status?.subscription?.currentPeriodEnd;
+  const cancelAtPeriodEnd = status?.subscription?.cancelAtPeriodEnd === true;
   const isActive = status?.hasActiveSubscription;
   const trialEndsAt = status?.trialEndsAt;
   const trialExpired = status?.trialExpired;
@@ -170,9 +178,17 @@ export default function BillingPage() {
                   {isTrialing ? "Trialing" : "Active"}
                 </span>
               </div>
-              {isTrialing && status?.subscription?.startedAt && (
+              {/* Old: startedAt + 7 days, hardcoded. That was wrong for any
+                  trial length other than seven days, and for Business, which
+                  has no trial at all. trialEndsAt comes from Dodo. */}
+              {isTrialing && subTrialEndsAt && (
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Trial ends {new Date(status.subscription.startedAt + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+                  Trial ends {new Date(subTrialEndsAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+                </p>
+              )}
+              {cancelAtPeriodEnd && periodEnd && (
+                <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">
+                  Cancels on {new Date(periodEnd).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}. You keep full access until then.
                 </p>
               )}
               {cancelError && (
@@ -180,10 +196,10 @@ export default function BillingPage() {
               )}
               <button
                 onClick={handleCancel}
-                disabled={canceling}
+                disabled={canceling || cancelAtPeriodEnd}
                 className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
               >
-                {canceling ? "Canceling..." : "Cancel Subscription"}
+                {canceling ? "Canceling..." : cancelAtPeriodEnd ? "Cancellation scheduled" : "Cancel Subscription"}
               </button>
             </div>
           ) : trialExpired ? (

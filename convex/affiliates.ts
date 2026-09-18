@@ -3,10 +3,17 @@ import { internalMutation, internalQuery, mutation, query } from "./_generated/s
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
+// 30% recurring, which is what app/affiliate-program/page.tsx advertises.
+//
+// Old: 300 / 750 / 2250. Those were 30% of the stale prices that used to sit in
+// subscriptions.ts ($10 / $25 / $75), so every Pro referral paid $7.50 against
+// an advertised $15 and every Business referral $22.50 against $30. Existing
+// referral rows keep the amount they were written with, so no historical total
+// moves; only commissions recorded from here on are affected.
 const COMMISSION_CENTS: Record<string, number> = {
-  starter: 300,   // $3.00
-  pro: 750,       // $7.50
-  business: 2250, // $22.50
+  starter: 300,   // $3.00 of $10
+  pro: 1500,      // $15.00 of $50
+  business: 3000, // $30.00 of $100
 };
 
 function generateCode(): string {
@@ -241,7 +248,7 @@ export const attributeReferral = mutation({
   },
 });
 
-// ─── Internal (called from Polar webhook) ────────────────────────────────────
+// ─── Internal (called from the Dodo webhook) ─────────────────────────────────
 
 export const getReferralByUserId = internalQuery({
   args: { userId: v.id("users") },
@@ -253,12 +260,34 @@ export const getReferralByUserId = internalQuery({
   },
 });
 
+/**
+ * How much a re-recorded commission should move the affiliate's running total.
+ *
+ * Exported and pure so the four cases can be tested without a database, which
+ * matters because this is money and the cases are easy to get subtly wrong:
+ *
+ *   first activation      pending  -> active  : add the whole commission
+ *   recovery from on_hold active   -> active  : add nothing, it is already counted
+ *   plan change           active   -> active  : add only the difference
+ *   resubscribe           canceled -> active  : add the whole commission again,
+ *                                               because cancelCommission already
+ *                                               took the previous one back out
+ */
+export function commissionDelta(
+  currentStatus: string,
+  currentCommissionCents: number,
+  nextCommissionCents: number
+): number {
+  const alreadyCounted = currentStatus === "active" ? currentCommissionCents : 0;
+  return nextCommissionCents - alreadyCounted;
+}
+
 /** Record commission when a referred user's subscription becomes active */
 export const recordCommission = internalMutation({
   args: {
     referredUserId: v.id("users"),
     plan: v.union(v.literal("starter"), v.literal("pro"), v.literal("business")),
-    polarSubscriptionId: v.string(),
+    dodoSubscriptionId: v.string(),
   },
   handler: async (ctx, args) => {
     const referral = await ctx.db
@@ -270,17 +299,33 @@ export const recordCommission = internalMutation({
     const commissionCents = COMMISSION_CENTS[args.plan] ?? 0;
     const wasActive = referral.status === "active";
 
+    // What this referral is already contributing to the affiliate's total, so
+    // the patch below moves the total by the difference rather than adding the
+    // whole commission again.
+    //
+    // Old: totalEarnedCents was incremented unconditionally while
+    // activeReferrals was guarded by wasActive. That was survivable on Polar,
+    // where this ran once per subscription, from subscription.created. Dodo
+    // re-fires subscription.active whenever an on_hold subscription recovers
+    // its payment method, so an unconditional add would credit the affiliate
+    // again for a referral they were already paid for, every time a referred
+    // customer's card failed and was fixed.
+    const delta = commissionDelta(referral.status, referral.commissionCents, commissionCents);
+
     await ctx.db.patch(referral._id, {
       plan: args.plan,
       commissionCents,
       status: "active",
-      polarSubscriptionId: args.polarSubscriptionId,
+      dodoSubscriptionId: args.dodoSubscriptionId,
     });
 
     const affiliate = await ctx.db.get(referral.affiliateId);
     if (affiliate) {
       await ctx.db.patch(affiliate._id, {
-        totalEarnedCents: affiliate.totalEarnedCents + commissionCents,
+        // The difference also carries a plan change correctly: a referral that
+        // moves from Starter to Pro adjusts by 1200 rather than adding 1500 on
+        // top of the 300 already counted.
+        totalEarnedCents: Math.max(0, affiliate.totalEarnedCents + delta),
         activeReferrals:
           (affiliate.activeReferrals ?? 0) + (wasActive ? 0 : 1),
       });
@@ -290,12 +335,12 @@ export const recordCommission = internalMutation({
 
 /** Cancel commission when a referred user's subscription is canceled */
 export const cancelCommission = internalMutation({
-  args: { polarSubscriptionId: v.string() },
+  args: { dodoSubscriptionId: v.string() },
   handler: async (ctx, args) => {
     const referral = await ctx.db
       .query("referrals")
-      .withIndex("by_polarSubscriptionId", (q) =>
-        q.eq("polarSubscriptionId", args.polarSubscriptionId)
+      .withIndex("by_dodoSubscriptionId", (q) =>
+        q.eq("dodoSubscriptionId", args.dodoSubscriptionId)
       )
       .first();
 

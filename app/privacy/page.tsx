@@ -27,7 +27,7 @@ const sections = [
 
 **Domain and DNS data:** domain names you add, DNS records we generate, and verification status.
 
-**Payment data:** billing address and card details. Card numbers are processed directly by our payment processor (Polar) and never stored on our servers.`,
+**Payment data:** billing address and card details. Card numbers are processed directly by our payment processor (Dodo Payments) and never stored on our servers.`,
   },
   {
     title: "2. How we use your information",
@@ -46,7 +46,7 @@ We do not sell your personal data to third parties. We do not use your email con
     title: "3. Data sharing",
     content: `We share data only in the following circumstances:
 
-**Service providers:** We share data with vendors who help us operate the service (e.g., AWS for cloud infrastructure and email processing, Convex for database hosting, Polar for payments, Clerk for authentication). These vendors are contractually obligated to protect your data and process it in accordance with applicable data protection laws.
+**Service providers:** We share data with vendors who help us operate the service (e.g., AWS for cloud infrastructure and email processing, Convex for database hosting, Dodo Payments for payments, Clerk for authentication). These vendors are contractually obligated to protect your data and process it in accordance with applicable data protection laws.
 
 **Legal compliance:** We may disclose data when required by law, court order, or governmental authority, or to protect the rights, property, and safety of Mailmark, our users, and the public.
 
@@ -64,7 +64,7 @@ We do not share your email content with advertisers or analytics companies.`,
 
 **Authentication:** Clerk (United States).
 
-**Payments:** Polar (European Union).
+**Payments:** Dodo Payments (merchant of record).
 
 This means your email data, including message content and metadata, is processed and stored in AWS data centers located in Mumbai, India. Account and authentication data is processed in the United States.
 

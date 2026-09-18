@@ -930,7 +930,7 @@ const stats = await client.getCampaignStats({ type: 'all' });
 - Cancellations take effect at the end of the current billing period
 - No long-term contracts, no cancellation fees
 
-**Payment processing**: Polar (stripe-backed)
+**Payment processing**: Dodo Payments (merchant of record)
 
 **Plan IDs** (for reference):
 - `starter` - $10/month
@@ -1111,5 +1111,5 @@ For agents and other automated clients:
 - **Email storage**: Amazon S3
 - **Event notifications**: Amazon SNS (webhook delivery for inbound/outbound events)
 - **BYO-AWS provisioning**: AWS CloudFormation Quick-Create stack; cross-account access via IAM `AssumeRole` with an `ExternalId` trust condition. Webhooks signed with a per-account shared secret.
-- **Payments**: Polar (subscription management and billing)
+- **Payments**: Dodo Payments (merchant of record, subscription management and billing)
 - **Deployment**: Vercel (frontend), Convex cloud (backend)
