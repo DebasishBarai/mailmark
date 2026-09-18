@@ -277,8 +277,8 @@ export const handleDodoSubscriptionEvent = internalMutation({
         // would still have matched polarSubscriptionId and revoked a paying
         // customer. Once it is moved aside nothing can match it again.
         polarSubscriptionId: undefined,
-        migratedFromPolarId:
-          existing.migratedFromPolarId ?? existing.polarSubscriptionId,
+        previousProviderSubscriptionId:
+          existing.previousProviderSubscriptionId ?? existing.polarSubscriptionId,
       });
       // Both status and plan can move here, so the row can leave one plan
       // counter and join another in a single write.
@@ -454,8 +454,8 @@ export const relinkSubscriptionToDodo = internalMutation({
       currentPeriodEnd: args.currentPeriodEnd ?? existing.currentPeriodEnd,
       trialEndsAt: args.trialEndsAt ?? existing.trialEndsAt,
       polarSubscriptionId: undefined,
-      migratedFromPolarId:
-        existing.migratedFromPolarId ?? existing.polarSubscriptionId,
+      previousProviderSubscriptionId:
+        existing.previousProviderSubscriptionId ?? existing.polarSubscriptionId,
     });
 
     const after = await ctx.db.get(existing._id);
@@ -471,6 +471,88 @@ export const relinkSubscriptionToDodo = internalMutation({
       relinked: existing._id,
       startedAt: existing.startedAt,
       wasPolarSubscription: existing.polarSubscriptionId ?? null,
+    };
+  },
+});
+
+/**
+ * Clear the last Polar fields out of stored documents.
+ *
+ * This is the first half of removing them for good. Convex validates every
+ * stored document against the schema on push, so a deploy that simply deletes
+ * `polarCustomerId` and `polarSubscriptionId` from schema.ts while documents
+ * still carry them can be rejected. The data has to go first:
+ *
+ *   1. deploy the code that stopped writing them (already live)
+ *   2. run this until it reports remaining: 0
+ *   3. delete the three fields and the by_polarSubscriptionId index from
+ *      schema.ts and deploy again
+ *
+ * Safe to run repeatedly: each pass only clears fields that are still set, and
+ * a pass over already clean rows patches nothing.
+ *
+ * Deliberately does NOT touch previousProviderSubscriptionId, which is the
+ * audit trail of what a row used to be billed under.
+ *
+ *   bunx convex run --prod subscriptions:stripPolarFields '{}'
+ */
+export const stripPolarFields = internalMutation({
+  args: { cursor: v.optional(v.string()), pageSize: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const pageSize = args.pageSize ?? 200;
+    let cleared = 0;
+
+    // Paged so no single transaction goes near the document scan cap, in the
+    // same style as the affiliate and contact count backfills.
+    const users = await ctx.db
+      .query("users")
+      .paginate({ cursor: args.cursor ?? null, numItems: pageSize });
+    for (const user of users.page) {
+      if (user.polarCustomerId !== undefined) {
+        await ctx.db.patch(user._id, { polarCustomerId: undefined });
+        cleared++;
+      }
+    }
+
+    // subscriptions and referrals are small enough to finish on the first page,
+    // and are walked every pass so a resumed run cannot skip them.
+    const subscriptions = await ctx.db.query("subscriptions").take(1000);
+    for (const subscription of subscriptions) {
+      if (subscription.polarSubscriptionId !== undefined) {
+        await ctx.db.patch(subscription._id, {
+          polarSubscriptionId: undefined,
+          // Do not lose what it was, just stop calling it a Polar field.
+          previousProviderSubscriptionId:
+            subscription.previousProviderSubscriptionId ??
+            subscription.polarSubscriptionId,
+        });
+        cleared++;
+      }
+    }
+
+    const referrals = await ctx.db.query("referrals").take(1000);
+    for (const referral of referrals) {
+      if (referral.polarSubscriptionId !== undefined) {
+        await ctx.db.patch(referral._id, { polarSubscriptionId: undefined });
+        cleared++;
+      }
+    }
+
+    if (!users.isDone) {
+      await ctx.scheduler.runAfter(0, internal.subscriptions.stripPolarFields, {
+        cursor: users.continueCursor,
+        pageSize,
+      });
+    }
+
+    return {
+      cleared,
+      done: users.isDone,
+      // Anything above zero on a finished pass means run it again.
+      remaining: users.isDone
+        ? subscriptions.filter((r) => r.polarSubscriptionId !== undefined).length +
+          referrals.filter((r) => r.polarSubscriptionId !== undefined).length
+        : "still paging users",
     };
   },
 });

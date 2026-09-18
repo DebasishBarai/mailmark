@@ -55,8 +55,24 @@ bunx convex env set DODO_PRODUCT_ID_BUSINESS <test product id>
 
 `APP_URL` is already set and is reused for `return_url`.
 
-Leave every `POLAR_*` variable in place for now. Nothing reads them, and they
-are the audit trail if something needs checking against Polar.
+**Every `POLAR_*` variable can be deleted now.** Nothing in the repository reads
+one: a sweep across every file type outside `node_modules` finds `POLAR_` only in
+documentation and in one comment. Deleting them changes no behaviour.
+
+```bash
+bunx convex env remove POLAR_BASE_URL
+bunx convex env remove POLAR_ACCESS_TOKEN
+bunx convex env remove POLAR_WEBHOOK_SECRET
+bunx convex env remove POLAR_PRICE_ID_STARTER
+bunx convex env remove POLAR_PRICE_ID_PRO
+bunx convex env remove POLAR_PRICE_ID_BUSINESS
+bunx convex env remove POLAR_PRODUCT_ID_STARTER
+bunx convex env remove POLAR_PRODUCT_ID_PRO
+bunx convex env remove POLAR_PRODUCT_ID_BUSINESS
+```
+
+Run `bunx convex env list` afterwards and confirm nothing starting with `POLAR_`
+is left.
 
 ### The webhook secret is load-bearing
 
@@ -123,10 +139,26 @@ safer direction: see step 5.
 
 ## 5. Move the one paying customer
 
-### Timing: the renewal on 28 September is the deadline
+### First: find out what Polar has actually done
 
-The existing customer's Polar subscription renews on **28 September**. Move them
-before then or Polar bills them for another month you will have to refund.
+The Polar account is banned. Before planning around the 28 September renewal,
+establish which of these is true, because they need different responses:
+
+- **Polar has already cancelled the subscription.** Then there is no renewal, no
+  double charge, and no deadline other than your own revenue. Move the customer
+  as soon as you can.
+- **Polar will still charge on 28 September.** Then the customer pays for a month
+  through an account you cannot issue a refund from. Move them before the 28th.
+- **You cannot tell.** Assume the second. It is the one that costs the customer
+  money.
+
+Ask the customer whether their card was charged, and check whether any Polar
+dashboard or email receipt is still reachable. Do not assume a banned account
+stops billing, and do not assume it keeps billing.
+
+### Timing
+
+The customer's Polar renewal is **28 September**.
 
 Starter and Pro carry a 7 day Dodo trial, and here that trial is not a giveaway,
 it is the bridge. Dodo charges nothing for 7 days, so the first Dodo charge lands
@@ -140,12 +172,19 @@ it is the bridge. Dodo charges nothing for 7 days, so the first Dodo charge land
 | 25 Sep | 2 Oct | 4 days free |
 | after 28 Sep | - | Polar has already renewed, refund needed |
 
-**Aim for 21 or 22 September.** Earlier double pays, later costs a few free days,
-and past the 28th costs a whole month plus a refund. A day or two of free access
-is much the cheaper mistake, so if you are choosing, choose late.
+If Polar is still billing, **21 or 22 September** is the clean window: earlier
+double pays, later costs a few free days. A day or two of free access is much
+the cheaper mistake, so given the choice, choose late.
 
-Whichever day it lands on, cancel Polar at period end as soon as step 4 below
-verifies, with a few days of slack before the 28th.
+If Polar has already cancelled, ignore the table and move them immediately. The
+7 day trial is then simply a week free, which is a reasonable thing to give the
+only customer who has to re-enter a card because of a problem that was not
+theirs.
+
+Either way you cannot rely on cancelling the Polar subscription yourself: a
+banned account may have no working dashboard. That is fine, and it is why the
+Polar webhook route was removed. Whatever Polar does to that subscription,
+including cancelling it outright, **it can no longer reach this database.**
 
 **Expect the customer to show as "Trialing" for those 7 days.** That is correct
 and they keep their full plan limits throughout: `quotas.isEntitledStatus` treats
@@ -179,17 +218,21 @@ bunx convex run --prod subscriptions:getByUserId '{"userId":"<their user id>"}'
    `polarSubscriptionId` absent, `migratedFromPolarId` holding the old id, and
    `startedAt` equal to what it was before.
 
-5. **Only now** cancel and refund the Polar subscription from the Polar
-   dashboard. Because `/polar-webhook` no longer exists and the Polar id has
-   been retired off the row, that cancellation cannot reach the database.
+5. **Then** stop the Polar subscription, if the banned account still lets you.
+   If it does not, there is nothing further to do: that subscription can no
+   longer affect this application in any way. `/polar-webhook` does not exist,
+   and the Polar id has been retired off the row, so even a delivery that
+   somehow arrived would have nothing to match.
 
-   This ordering is the reason the Polar route was removed rather than kept. Had
-   it stayed live, Polar's `subscription.canceled` would have matched the id
-   still on the row, passed the stale-subscription guard, and flipped a live,
-   paid-up customer to `canceled`, dropping them to free tier limits.
+   This is the reason the Polar route was removed rather than kept. Had it
+   stayed live, a mass cancellation fired when the account was banned would have
+   matched the id still on the row, passed the stale-subscription guard, and
+   flipped a live, paid-up customer to `canceled`, locking them out of an
+   account they had paid for.
 
-6. If they are mid-period on Polar and you would rather not refund, give them
-   the overlap back with a Dodo discount code at checkout instead.
+6. If the overlap leaves them out of pocket and you cannot refund through Polar,
+   give it back on the Dodo side with a discount code at checkout, or extend the
+   trial by a few days when you create the subscription.
 
 ### If the webhook does not match them
 
@@ -233,6 +276,17 @@ Verified directly rather than assumed:
   That is the safe direction: trialing is entitled, so a missed event cannot
   revoke a paying customer. The row corrects itself on the next event, and Dodo
   fires `subscription.renewed` at the first charge.
+
+- **No client-callable function can cancel a subscription.** Verified by
+  importing the module and listing what it actually registers: nine functions,
+  and the only three that can write a subscription's `status` are internal
+  mutations. `handleDodoSubscriptionEvent` is reachable solely from
+  `/dodo-webhook` behind signature verification; `relinkSubscriptionToDodo` is
+  manual. The old local-only `cancel` mutation is commented out and confirmed
+  absent from the module's exports, as is `cancelViaPolar`.
+- **Deleting the `POLAR_*` environment variables changes nothing.** A sweep over
+  every file type in the repository outside `node_modules` finds `POLAR_` only
+  in documentation and one comment.
 
 Two bugs were found and fixed during this review, both introduced by the move:
 
@@ -293,13 +347,54 @@ expired and future timestamps, rotation, and malformed headers.
       them needs the stored documents cleared of those fields first, or the
       schema push is rejected.
 
+## Removing the last of Polar
+
+Three fields and one index still exist because stored documents occupy them:
+`users.polarCustomerId`, `subscriptions.polarSubscriptionId`,
+`referrals.polarSubscriptionId` and `referrals.by_polarSubscriptionId`. Nothing
+reads or writes any of them.
+
+They cannot be deleted in the same deploy as the code change. Convex validates
+every stored document against the schema on push, so the data has to go first.
+Two steps, in this order:
+
+```bash
+# 1. clear the data. Re-runnable; repeat until remaining is 0.
+bunx convex run --prod subscriptions:stripPolarFields '{}'
+```
+
+2. Then delete from `convex/schema.ts`:
+   - `polarCustomerId` from `users`
+   - `polarSubscriptionId` from `subscriptions`
+   - `polarSubscriptionId` and `.index("by_polarSubscriptionId", ...)` from `referrals`
+
+   and deploy. At that point the word Polar appears nowhere in the schema.
+
+`previousProviderSubscriptionId` is deliberately kept. It holds whatever the row
+used to be billed under, which is the only record of the Polar subscription once
+the account is gone. It is provider neutral, so it does not need renaming again.
+
+Do step 1 any time. Do step 2 after the customer has moved, so the audit trail is
+written before the source field disappears.
+
 ## Rollback
 
-Nothing in this change is destructive, so rollback is a revert and a redeploy.
+**There is no rollback to Polar.** The account is banned, so a `git revert` would
+restore code that calls an API you cannot authenticate against and a webhook
+endpoint Polar cannot be configured to call. Reverting would leave checkout
+broken with no working alternative. The only direction is forward, which is why
+step 3's test-mode checklist matters more here than it normally would.
+
+What protects the existing customer is not a rollback, it is that **nothing can
+change their subscription row.** It says `active`. Polar cannot reach the
+database, because the route is gone. Dodo does not know them yet. So for as long
+as it takes to get Dodo working, they keep their plan, their limits and their
+sending, whatever happens on either provider's side.
 
 | Situation | Action |
 |---|---|
-| Checkout broken, nobody has subscribed on Dodo yet | `git revert` the commit, redeploy, re-add the Polar webhook endpoint in Polar. The retained `POLAR_*` vars and schema fields mean the old code still works. |
-| Somebody has already subscribed on Dodo | Do not revert. The revert has no `/dodo-webhook`, so their renewals would go unrecorded. Fix forward. |
-| Webhooks 401ing | Check `DODO_PAYMENTS_WEBHOOK_KEY` matches the endpoint's Overview tab. Dodo redelivers, so nothing is lost once it matches. |
-| A customer wrongly shows as unsubscribed | `subscriptions:relinkSubscriptionToDodo` restores the row. Their `startedAt` is preserved either way. |
+| Dodo checkout broken, nobody has subscribed yet | Fix forward. The existing customer is unaffected: their row is untouched and they see no paywall. New signups cannot pay until it is fixed, which is the only real cost. |
+| Somebody has already subscribed on Dodo | Fix forward, and do not revert. A revert has no `/dodo-webhook`, so their renewals would go unrecorded and they would eventually be locked out. |
+| Webhooks 401ing | Check `DODO_PAYMENTS_WEBHOOK_KEY` matches the endpoint's Overview tab. Dodo redelivers eight times over about 28 hours, so nothing is lost once it matches. |
+| A customer wrongly shows as unsubscribed | `subscriptions:relinkSubscriptionToDodo` restores the row, preserving `startedAt`. |
+| You need to buy time | Set the customer's `users.category` to `beta` or `admin`. That bypasses the paywall entirely, independent of any subscription row or provider. |

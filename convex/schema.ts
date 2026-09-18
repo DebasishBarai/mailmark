@@ -7,9 +7,11 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
-    // Legacy Polar customer id. Retained because live documents still carry it
-    // and Convex rejects a deploy whose schema drops a field that exists in
-    // stored data. Nothing writes it any more.
+    // Legacy Polar customer id. Nothing writes or reads it. It cannot simply be
+    // deleted here: Convex validates every stored document against the schema on
+    // push, so the data has to go first. Run
+    // subscriptions.stripPolarFields, confirm it reports 0 remaining, then
+    // delete this line. See "Removing the last of Polar" in the runbook.
     polarCustomerId: v.optional(v.string()),
     // Dodo Payments customer id, learned from the first subscription webhook.
     // Optional because it is not known until a user reaches checkout: unlike
@@ -304,8 +306,10 @@ export default defineSchema({
     // currentPeriodEnd. The row stays active or trialing until Dodo sends the
     // terminal event, so cancelling no longer revokes access mid-period.
     cancelAtPeriodEnd: v.optional(v.boolean()),
-    // Audit trail: the Polar subscription this row used to be billed through.
-    migratedFromPolarId: v.optional(v.string()),
+    // Audit trail: the subscription id this row was billed under before the
+    // current provider. Holds the retired Polar id for the one row that was
+    // migrated. Provider neutral so it does not have to be renamed again.
+    previousProviderSubscriptionId: v.optional(v.string()),
   })
     .index("by_user_id", ["userId"])
     .index("by_dodoSubscriptionId", ["dodoSubscriptionId"]),
@@ -1122,7 +1126,7 @@ export default defineSchema({
   // the referrer a second time. Rows are pruned nightly by
   // subscriptions.pruneWebhookEvents.
   webhookEvents: defineTable({
-    provider: v.union(v.literal("polar"), v.literal("dodo")),
+    provider: v.literal("dodo"),
     eventId: v.string(),
     eventType: v.optional(v.string()),
     receivedAt: v.number(),
