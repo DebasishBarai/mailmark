@@ -120,6 +120,48 @@ Dodo retries a non-2xx eight times: immediately, then after 5s, 5m, 30m, 2h, 5h,
 10h and 10h. So a secret set within about a day is recovered on its own, and a
 secret never set means a customer pays and gets nothing.
 
+## 2b. No dev deployment: test in Dodo test mode against production
+
+With only one Convex deployment, the dev-deployment path is not available. You
+can still get real end to end validation, because **test mode is a Dodo
+concept, not a Convex one.** Point the production deployment at Dodo test mode
+first, prove the whole lifecycle with a test card, then flip six variables to
+live.
+
+Nothing is charged, no real card is touched, and the existing customer is
+untouched throughout: their row already says `active`, so they see no paywall
+whichever mode the variables point at.
+
+**Phase A, test mode on production.** Create the products in test mode and set:
+
+```bash
+DODO_PAYMENTS_API_KEY=dodo_test_... ./scripts/create-dodo-products.sh test
+# then the six env set lines it prints, with the test webhook secret
+```
+
+Add a **test mode** webhook in Dodo pointing at
+`https://<deployment>.convex.site/dodo-webhook`, then walk the checklist in
+section 3 using a Dodo test card and a throwaway account, not your own.
+
+The one cost of this window: a real new signup who reaches checkout during it
+gets a test-mode subscription that never charges them. Keep the window short,
+do it at a quiet hour, and check afterwards whether any `subscriptions` row was
+created that you did not create yourself.
+
+**Phase B, flip to live.** Create the products again in live mode, because test
+and live product ids differ, then re-set the same six variables:
+
+```bash
+DODO_PAYMENTS_API_KEY=dodo_live_... ./scripts/create-dodo-products.sh live
+```
+
+Add a **live mode** webhook at the same URL, re-run the 401 check from section 3
+against it, and delete any test-mode subscription rows the window produced.
+
+The flip is six `convex env set` commands and takes effect immediately. No
+deploy is involved, so there is no window where the code and the configuration
+disagree beyond the seconds between the commands.
+
 ## 3. Point Dodo at the webhook and test the whole lifecycle
 
 Endpoint URL: `https://<your-deployment>.convex.site/dodo-webhook`
