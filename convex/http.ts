@@ -1995,14 +1995,15 @@ http.route({
 // Removed when billing moved to Dodo Payments. Kept commented out per the repo
 // convention rather than deleted.
 //
-// Leaving it live during the cutover would have been the dangerous option, not
-// the safe one: once a subscriber is on Dodo, cancelling their old Polar
-// subscription fires subscription.canceled with the Polar id this row used to
-// carry, which passed the stale-subscription guard and would have flipped a
-// live, paid-up row to "canceled" and dropped a paying customer to free tier
-// limits. handleDodoSubscriptionEvent also retires polarSubscriptionId into
-// migratedFromPolarId when Dodo takes a row over, so there is nothing left for
-// a late Polar event to match even if this route came back.
+// Leaving it live would have been the dangerous option, not the safe one. The
+// Polar account is banned, and a mass cancellation fired when an account is
+// banned carries the Polar id the subscription row still holds. That would have
+// passed the stale-subscription guard, flipped a live, paid-up row to
+// "canceled", and locked a paying customer out of an account they had paid for.
+//
+// Removing the route is what makes that impossible, and it is the only thing
+// that needs to be true: no code path anywhere looks a subscription up by
+// polarSubscriptionId any more, so the field can sit on the row untouched.
 //
 // http.route({
 //   path: "/polar-webhook",

@@ -347,35 +347,28 @@ expired and future timestamps, rotation, and malformed headers.
       them needs the stored documents cleared of those fields first, or the
       schema push is rejected.
 
-## Removing the last of Polar
+## The legacy Polar fields
 
-Three fields and one index still exist because stored documents occupy them:
+Three fields and one index survive from the Polar era:
 `users.polarCustomerId`, `subscriptions.polarSubscriptionId`,
-`referrals.polarSubscriptionId` and `referrals.by_polarSubscriptionId`. Nothing
-reads or writes any of them.
+`referrals.polarSubscriptionId` and `referrals.by_polarSubscriptionId`.
 
-They cannot be deleted in the same deploy as the code change. Convex validates
-every stored document against the schema on push, so the data has to go first.
-Two steps, in this order:
+**No code reads or writes any of them.** They are left exactly as they are, and
+that is deliberate rather than laziness:
 
-```bash
-# 1. clear the data. Re-runnable; repeat until remaining is 0.
-bunx convex run --prod subscriptions:stripPolarFields '{}'
-```
+- It is the audit trail. A subscription row carrying both `polarSubscriptionId`
+  and `dodoSubscriptionId` is one that was migrated, and that field is the only
+  remaining record of what it used to be billed under once the Polar account is
+  gone.
+- Nothing can act on it. `/polar-webhook` does not exist and no code path looks a
+  subscription up by that id, so the value is inert.
+- Dropping them would need two deploys, because Convex validates every stored
+  document against the schema on push, so the data would have to be cleared
+  first. There is no reason to spend a production deploy on it.
 
-2. Then delete from `convex/schema.ts`:
-   - `polarCustomerId` from `users`
-   - `polarSubscriptionId` from `subscriptions`
-   - `polarSubscriptionId` and `.index("by_polarSubscriptionId", ...)` from `referrals`
-
-   and deploy. At that point the word Polar appears nowhere in the schema.
-
-`previousProviderSubscriptionId` is deliberately kept. It holds whatever the row
-used to be billed under, which is the only record of the Polar subscription once
-the account is gone. It is provider neutral, so it does not need renaming again.
-
-Do step 1 any time. Do step 2 after the customer has moved, so the audit trail is
-written before the source field disappears.
+If you ever do want them gone, the order is: clear the fields from every stored
+document, confirm none remain, then delete the fields and the index from
+`convex/schema.ts` and deploy again. Not before.
 
 ## Rollback
 

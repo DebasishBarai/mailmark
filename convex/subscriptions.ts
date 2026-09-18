@@ -269,16 +269,13 @@ export const handleDodoSubscriptionEvent = internalMutation({
         canceledAt: args.status === "canceled" ? Date.now() : existing.canceledAt,
         // startedAt is deliberately not patched. lib/period.periodStartDayKey
         // anchors the monthly send allowance on it, so moving it would move the
-        // user's quota reset date. That includes the relink of the one row that
-        // was billed through Polar: it keeps its original anchor.
+        // user's quota reset date. That includes the relink of the row that was
+        // billed through Polar: it keeps its original anchor.
         //
-        // Retiring the Polar id at the same time is what makes the relink safe.
-        // While both ids sat on the row, a late Polar subscription.canceled
-        // would still have matched polarSubscriptionId and revoked a paying
-        // customer. Once it is moved aside nothing can match it again.
-        polarSubscriptionId: undefined,
-        previousProviderSubscriptionId:
-          existing.previousProviderSubscriptionId ?? existing.polarSubscriptionId,
+        // The legacy polarSubscriptionId is left exactly as it is. Nothing can
+        // act on it, because /polar-webhook no longer exists and no code looks a
+        // subscription up by it, so leaving it costs nothing and makes the row
+        // its own audit trail: both ids present means this row was migrated.
       });
       // Both status and plan can move here, so the row can leave one plan
       // counter and join another in a single write.
@@ -453,9 +450,7 @@ export const relinkSubscriptionToDodo = internalMutation({
       priceMonthly: PLANS[args.plan].priceMonthly,
       currentPeriodEnd: args.currentPeriodEnd ?? existing.currentPeriodEnd,
       trialEndsAt: args.trialEndsAt ?? existing.trialEndsAt,
-      polarSubscriptionId: undefined,
-      previousProviderSubscriptionId:
-        existing.previousProviderSubscriptionId ?? existing.polarSubscriptionId,
+      // The legacy polarSubscriptionId is left untouched, as above.
     });
 
     const after = await ctx.db.get(existing._id);
@@ -469,90 +464,8 @@ export const relinkSubscriptionToDodo = internalMutation({
 
     return {
       relinked: existing._id,
+      // Echoed back so the operator can confirm the billing anchor survived.
       startedAt: existing.startedAt,
-      wasPolarSubscription: existing.polarSubscriptionId ?? null,
-    };
-  },
-});
-
-/**
- * Clear the last Polar fields out of stored documents.
- *
- * This is the first half of removing them for good. Convex validates every
- * stored document against the schema on push, so a deploy that simply deletes
- * `polarCustomerId` and `polarSubscriptionId` from schema.ts while documents
- * still carry them can be rejected. The data has to go first:
- *
- *   1. deploy the code that stopped writing them (already live)
- *   2. run this until it reports remaining: 0
- *   3. delete the three fields and the by_polarSubscriptionId index from
- *      schema.ts and deploy again
- *
- * Safe to run repeatedly: each pass only clears fields that are still set, and
- * a pass over already clean rows patches nothing.
- *
- * Deliberately does NOT touch previousProviderSubscriptionId, which is the
- * audit trail of what a row used to be billed under.
- *
- *   bunx convex run --prod subscriptions:stripPolarFields '{}'
- */
-export const stripPolarFields = internalMutation({
-  args: { cursor: v.optional(v.string()), pageSize: v.optional(v.number()) },
-  handler: async (ctx, args) => {
-    const pageSize = args.pageSize ?? 200;
-    let cleared = 0;
-
-    // Paged so no single transaction goes near the document scan cap, in the
-    // same style as the affiliate and contact count backfills.
-    const users = await ctx.db
-      .query("users")
-      .paginate({ cursor: args.cursor ?? null, numItems: pageSize });
-    for (const user of users.page) {
-      if (user.polarCustomerId !== undefined) {
-        await ctx.db.patch(user._id, { polarCustomerId: undefined });
-        cleared++;
-      }
-    }
-
-    // subscriptions and referrals are small enough to finish on the first page,
-    // and are walked every pass so a resumed run cannot skip them.
-    const subscriptions = await ctx.db.query("subscriptions").take(1000);
-    for (const subscription of subscriptions) {
-      if (subscription.polarSubscriptionId !== undefined) {
-        await ctx.db.patch(subscription._id, {
-          polarSubscriptionId: undefined,
-          // Do not lose what it was, just stop calling it a Polar field.
-          previousProviderSubscriptionId:
-            subscription.previousProviderSubscriptionId ??
-            subscription.polarSubscriptionId,
-        });
-        cleared++;
-      }
-    }
-
-    const referrals = await ctx.db.query("referrals").take(1000);
-    for (const referral of referrals) {
-      if (referral.polarSubscriptionId !== undefined) {
-        await ctx.db.patch(referral._id, { polarSubscriptionId: undefined });
-        cleared++;
-      }
-    }
-
-    if (!users.isDone) {
-      await ctx.scheduler.runAfter(0, internal.subscriptions.stripPolarFields, {
-        cursor: users.continueCursor,
-        pageSize,
-      });
-    }
-
-    return {
-      cleared,
-      done: users.isDone,
-      // Anything above zero on a finished pass means run it again.
-      remaining: users.isDone
-        ? subscriptions.filter((r) => r.polarSubscriptionId !== undefined).length +
-          referrals.filter((r) => r.polarSubscriptionId !== undefined).length
-        : "still paging users",
     };
   },
 });

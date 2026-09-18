@@ -7,11 +7,8 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
-    // Legacy Polar customer id. Nothing writes or reads it. It cannot simply be
-    // deleted here: Convex validates every stored document against the schema on
-    // push, so the data has to go first. Run
-    // subscriptions.stripPolarFields, confirm it reports 0 remaining, then
-    // delete this line. See "Removing the last of Polar" in the runbook.
+    // Legacy, from the Polar era. No code reads or writes it. Left in place as
+    // the historical record of what this user was once billed under.
     polarCustomerId: v.optional(v.string()),
     // Dodo Payments customer id, learned from the first subscription webhook.
     // Optional because it is not known until a user reaches checkout: unlike
@@ -290,9 +287,15 @@ export default defineSchema({
     // including when a row is relinked from Polar to Dodo.
     startedAt: v.number(),
     canceledAt: v.optional(v.number()),
-    // Legacy Polar subscription id, retained for the same reason as
-    // users.polarCustomerId. Cleared into migratedFromPolarId when Dodo takes
-    // the row over, so no late Polar event can ever match it again.
+    // Legacy, from the Polar era. No code reads or writes it.
+    //
+    // It is deliberately left alone rather than cleared when Dodo takes a row
+    // over, which is what makes it the audit trail: a row carrying both this
+    // and dodoSubscriptionId is one that was migrated, and this is the only
+    // remaining record of the Polar subscription it used to be billed under.
+    //
+    // Nothing can act on it. The /polar-webhook route no longer exists, so
+    // there is no code path that looks a subscription up by this id.
     polarSubscriptionId: v.optional(v.string()),
     dodoSubscriptionId: v.optional(v.string()),
     // End of the paid period, from Dodo's next_billing_date. Absent on rows
@@ -306,10 +309,6 @@ export default defineSchema({
     // currentPeriodEnd. The row stays active or trialing until Dodo sends the
     // terminal event, so cancelling no longer revokes access mid-period.
     cancelAtPeriodEnd: v.optional(v.boolean()),
-    // Audit trail: the subscription id this row was billed under before the
-    // current provider. Holds the retired Polar id for the one row that was
-    // migrated. Provider neutral so it does not have to be renamed again.
-    previousProviderSubscriptionId: v.optional(v.string()),
   })
     .index("by_user_id", ["userId"])
     .index("by_dodoSubscriptionId", ["dodoSubscriptionId"]),
@@ -339,7 +338,9 @@ export default defineSchema({
     plan: v.optional(v.union(v.literal("starter"), v.literal("pro"), v.literal("business"))),
     commissionCents: v.number(),
     status: v.union(v.literal("pending"), v.literal("active"), v.literal("paid"), v.literal("canceled")),
-    // Legacy, retained. Commissions are keyed on dodoSubscriptionId now.
+    // Legacy, from the Polar era. No code reads or writes it; commissions are
+    // keyed on dodoSubscriptionId. The by_polarSubscriptionId index below is
+    // likewise unused and harmless.
     polarSubscriptionId: v.optional(v.string()),
     dodoSubscriptionId: v.optional(v.string()),
   })
