@@ -109,6 +109,10 @@ export const createCheckoutSession = action({
     if (!user) throw new Error("User not found");
 
     const appUrl = process.env.APP_URL;
+    // Old: interpolated straight into the URL. Unset, that produced
+    // "undefined/dashboard?upgraded=true" as the return_url, which Dodo rejects
+    // with a validation error that says nothing about the real cause.
+    if (!appUrl) throw new Error("APP_URL is not configured");
 
     // Old: required user.polarCustomerId, which signup created eagerly. Dodo
     // needs no pre-created customer, so there is nothing to check here.
@@ -304,10 +308,22 @@ export const handleDodoSubscriptionEvent = internalMutation({
 
     // ── Affiliate commission ────────────────────────────────────────────────
     // subscription.active is the first-activation event, the Dodo counterpart
-    // of Polar's subscription.created. Scheduling rather than calling, because
-    // a mutation cannot runMutation another mutation.
+    // of Polar's subscription.created. plan_changed is here too because on
+    // Polar a plan change cancelled and recreated the subscription, so the
+    // commission rate followed the new plan by itself; Dodo keeps the same
+    // subscription, so the rate has to be moved explicitly.
+    //
+    // Both are safe to deliver more than once: recordCommission adjusts the
+    // affiliate's total by the difference from what this referral already
+    // contributes, so a repeated subscription.active (which Dodo sends on every
+    // recovery from on_hold) changes nothing.
+    //
+    // Scheduling rather than calling, because a mutation cannot runMutation
+    // another mutation. The enqueue is transactional, so it is dropped if this
+    // mutation rolls back.
     if (
-      args.eventType === "subscription.active" &&
+      (args.eventType === "subscription.active" ||
+        args.eventType === "subscription.plan_changed") &&
       (args.status === "active" || args.status === "trialing")
     ) {
       await ctx.scheduler.runAfter(0, internal.affiliates.recordCommission, {

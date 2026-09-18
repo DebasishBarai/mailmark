@@ -260,6 +260,28 @@ export const getReferralByUserId = internalQuery({
   },
 });
 
+/**
+ * How much a re-recorded commission should move the affiliate's running total.
+ *
+ * Exported and pure so the four cases can be tested without a database, which
+ * matters because this is money and the cases are easy to get subtly wrong:
+ *
+ *   first activation      pending  -> active  : add the whole commission
+ *   recovery from on_hold active   -> active  : add nothing, it is already counted
+ *   plan change           active   -> active  : add only the difference
+ *   resubscribe           canceled -> active  : add the whole commission again,
+ *                                               because cancelCommission already
+ *                                               took the previous one back out
+ */
+export function commissionDelta(
+  currentStatus: string,
+  currentCommissionCents: number,
+  nextCommissionCents: number
+): number {
+  const alreadyCounted = currentStatus === "active" ? currentCommissionCents : 0;
+  return nextCommissionCents - alreadyCounted;
+}
+
 /** Record commission when a referred user's subscription becomes active */
 export const recordCommission = internalMutation({
   args: {
@@ -277,6 +299,19 @@ export const recordCommission = internalMutation({
     const commissionCents = COMMISSION_CENTS[args.plan] ?? 0;
     const wasActive = referral.status === "active";
 
+    // What this referral is already contributing to the affiliate's total, so
+    // the patch below moves the total by the difference rather than adding the
+    // whole commission again.
+    //
+    // Old: totalEarnedCents was incremented unconditionally while
+    // activeReferrals was guarded by wasActive. That was survivable on Polar,
+    // where this ran once per subscription, from subscription.created. Dodo
+    // re-fires subscription.active whenever an on_hold subscription recovers
+    // its payment method, so an unconditional add would credit the affiliate
+    // again for a referral they were already paid for, every time a referred
+    // customer's card failed and was fixed.
+    const delta = commissionDelta(referral.status, referral.commissionCents, commissionCents);
+
     await ctx.db.patch(referral._id, {
       plan: args.plan,
       commissionCents,
@@ -287,7 +322,10 @@ export const recordCommission = internalMutation({
     const affiliate = await ctx.db.get(referral.affiliateId);
     if (affiliate) {
       await ctx.db.patch(affiliate._id, {
-        totalEarnedCents: affiliate.totalEarnedCents + commissionCents,
+        // The difference also carries a plan change correctly: a referral that
+        // moves from Starter to Pro adjusts by 1200 rather than adding 1500 on
+        // top of the 300 already counted.
+        totalEarnedCents: Math.max(0, affiliate.totalEarnedCents + delta),
         activeReferrals:
           (affiliate.activeReferrals ?? 0) + (wasActive ? 0 : 1),
       });

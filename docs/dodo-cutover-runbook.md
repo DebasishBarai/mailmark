@@ -123,6 +123,37 @@ safer direction: see step 5.
 
 ## 5. Move the one paying customer
 
+### Timing: the renewal on 28 September is the deadline
+
+The existing customer's Polar subscription renews on **28 September**. Move them
+before then or Polar bills them for another month you will have to refund.
+
+Starter and Pro carry a 7 day Dodo trial, and here that trial is not a giveaway,
+it is the bridge. Dodo charges nothing for 7 days, so the first Dodo charge lands
+7 days after they re-subscribe:
+
+| They re-subscribe | First Dodo charge | Result |
+|---|---|---|
+| 20 Sep | 27 Sep | 1 day double paid |
+| **21 Sep** | **28 Sep** | **exact handoff, no gap, no overlap** |
+| 22 Sep | 29 Sep | 1 day free, costs you a day |
+| 25 Sep | 2 Oct | 4 days free |
+| after 28 Sep | - | Polar has already renewed, refund needed |
+
+**Aim for 21 or 22 September.** Earlier double pays, later costs a few free days,
+and past the 28th costs a whole month plus a refund. A day or two of free access
+is much the cheaper mistake, so if you are choosing, choose late.
+
+Whichever day it lands on, cancel Polar at period end as soon as step 4 below
+verifies, with a few days of slack before the 28th.
+
+**Expect the customer to show as "Trialing" for those 7 days.** That is correct
+and they keep their full plan limits throughout: `quotas.isEntitledStatus` treats
+trialing exactly like active. The badge on the billing page will say Trialing and
+the row will say `status: "trialing"`. Nothing is degraded.
+
+
+
 Do this **after** the deploy, and do it in this order.
 
 1. Tell them first. Something like: "We are switching payment processors. Please
@@ -177,6 +208,45 @@ bunx convex run --prod subscriptions:relinkSubscriptionToDodo '{
 
 It patches and refuses to insert, so `startedAt` cannot be clobbered. It returns
 the old Polar id it retired, so you can confirm you relinked the right row.
+
+## What the pre-merge review checked
+
+Verified directly rather than assumed:
+
+- **The HTTP route table is unchanged apart from the swap.** Enumerated at
+  runtime from the real router on `main` and on this branch: 36 routes both
+  sides, diff is exactly `- POST /polar-webhook` / `+ POST /dodo-webhook`.
+  Email ingestion, the tracking pixels and every `/v1/*` endpoint are untouched.
+- **Relinking the existing customer moves no platform counter.**
+  `lib/counters.bumpCounters` skips a zero delta, and a pro/active row relinked
+  to pro/active produces exactly that.
+- **No live reference to Polar remains.** Every remaining mention in `convex/`
+  and `app/` is a comment or a retained schema field.
+- **Missing the Polar renewal on 28 September is harmless if the customer has
+  not moved yet.** Their row already says `active`, a Polar renewal event would
+  have patched it to the same values, and with the route gone the delivery just
+  404s. The row is untouched either way, so they keep working.
+- **Between deploy and re-subscribe the customer sees nothing.** `needsUpgrade`
+  is `trialExpired && !hasActiveSubscription && ...`; they have an active
+  subscription, so no paywall.
+- **A trial that ends with no webhook leaves the row `trialing`, not expired.**
+  That is the safe direction: trialing is entitled, so a missed event cannot
+  revoke a paying customer. The row corrects itself on the next event, and Dodo
+  fires `subscription.renewed` at the first charge.
+
+Two bugs were found and fixed during this review, both introduced by the move:
+
+- **`recordCommission` double paid affiliates.** It added the full commission to
+  `totalEarnedCents` on every call while only `activeReferrals` was guarded.
+  Harmless on Polar, where it ran once per subscription from
+  `subscription.created`. Dodo re-fires `subscription.active` on every recovery
+  from `on_hold`, so a referred customer whose card failed and was fixed would
+  have paid their referrer again each time. Now adjusts by the difference from
+  what the referral already contributes, covered by `tests/affiliateCommission.test.ts`.
+- **A plan change stopped moving the commission rate.** On Polar a plan change
+  cancelled and recreated the subscription, so `subscription.created` fired again
+  with the new plan. Dodo keeps the same subscription, so
+  `subscription.plan_changed` now triggers the same path.
 
 ## Known limits
 
